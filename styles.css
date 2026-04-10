@@ -132,6 +132,11 @@ textarea{min-height:80px;resize:vertical}
 }
 .back-btn:hover{color:var(--text);background:transparent;border:none}
 
+.eo-tag-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.eo-tag-chip{display:inline-block;padding:4px 12px;font-size:12px;font-weight:600;border-radius:20px;border:2px solid var(--line);background:#fff;cursor:pointer;transition:all .15s;user-select:none}
+.eo-tag-chip:hover{border-color:var(--accent);color:var(--accent)}
+.eo-tag-chip.active{border-color:var(--accent);background:var(--accent);color:#fff}
+
 .tag-dropdown{
   position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:9999;
   background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);
@@ -207,7 +212,7 @@ textarea{min-height:80px;resize:vertical}
   border-radius:var(--radius-sm);border:1px solid #c8d8f8;
 }
 
-.canvas-wrap{display:flex;gap:16px;height:440px;margin-bottom:28px}
+.canvas-wrap{display:flex;gap:16px;min-height:440px;height:440px;margin-bottom:28px;resize:vertical;overflow:hidden}
 
 .canvas-chips{
   width:170px;flex-shrink:0;border:1px solid var(--line);
@@ -227,7 +232,7 @@ textarea{min-height:80px;resize:vertical}
 
 .canvas-pane{
   flex:1;border:1px solid var(--line);border-radius:var(--radius);
-  background:#fafaf8;position:relative;overflow:hidden;
+  background:#fafaf8;position:relative;overflow:auto;
   background-image:radial-gradient(circle,#d8d2c8 1px,transparent 1px);
   background-size:24px 24px;box-shadow:var(--shadow-sm);
 }

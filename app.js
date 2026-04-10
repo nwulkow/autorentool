@@ -168,7 +168,7 @@ createApp({
     canvasNodes:[], linkMode:false, linkSourceId:null,
     linkModal:{open:false,c1:null,c2:null,type:''},
     // event orders
-    eventOrders:[], currentOrderId:null, tlConfigOpen:false, editingEvtId:null, eoTagFilter:'',
+    eventOrders:[], currentOrderId:null, tlConfigOpen:false, editingEvtId:null, eoSelectedTags:[],
     // questions
     newQText:'',
     // locations
@@ -190,9 +190,8 @@ createApp({
     totalTlHeight(){ return this.currentMarkers.length*((this.currentOrder?.timelineConfig?.pixels_per_marker)||80); },
     tlColStyle(){
       if(!this.currentOrder) return {};
-      const n=this.currentOrder.characterColumns.length;
+      const n=this.filteredOrderColumns.length;
       if(n===0) return {};
-      // wide for 1-2 cols, shrinks with more, minimum 220px
       const w=n===1?'100%':n===2?'50%':Math.max(220,Math.floor(600/n))+'px';
       return {width:w,minWidth:'220px',flexShrink:n<=2?'1':'0'};
     },
@@ -201,6 +200,16 @@ createApp({
       const s=new Set(this.book.tags||[]);
       this.book.characters.forEach(c=>(c.tags||[]).forEach(t=>s.add(t)));
       return [...s].sort();
+    },
+    filteredOrderColumns(){
+      if(!this.currentOrder) return [];
+      if(!this.eoSelectedTags.length) return this.currentOrder.characterColumns;
+      return this.currentOrder.characterColumns.filter(col=>{
+        if(!col.characterId) return true; // General column always shown
+        const ch=this.book.characters.find(c=>c.id===col.characterId);
+        if(!ch) return false;
+        return this.eoSelectedTags.every(tag=>(ch.tags||[]).includes(tag));
+      });
     },
     currentLoc(){ return this.book?.locations.find(l=>l.id===this.currentLocId)||null; },
     selectedObj(){
@@ -423,15 +432,19 @@ createApp({
       if(this.currentOrder.characterColumns.some(c=>c.characterId===null)) return;
       this.currentOrder.characterColumns.push({characterId:null,events:[]});this.mark();
     },
-    addCharsByTag(tag){
-      if(!tag||!this.currentOrder) return;
-      const chars=this.book.characters.filter(c=>(c.tags||[]).includes(tag));
+    toggleEoTag(tag){
+      const i=this.eoSelectedTags.indexOf(tag);
+      if(i>=0) this.eoSelectedTags.splice(i,1);
+      else this.eoSelectedTags.push(tag);
+    },
+    addCharsBySelectedTags(){
+      if(!this.eoSelectedTags.length||!this.currentOrder) return;
+      const chars=this.book.characters.filter(c=>this.eoSelectedTags.every(tag=>(c.tags||[]).includes(tag)));
       chars.forEach(ch=>{
         if(!this.currentOrder.characterColumns.some(c=>c.characterId===ch.id)){
           this.currentOrder.characterColumns.push({characterId:ch.id,events:[]});
         }
       });
-      this.eoTagFilter='';
       this.mark();
     },
     removeColumn(col){
@@ -868,13 +881,12 @@ createApp({
                 :disabled="currentOrder.characterColumns.some(c=>c.characterId===null)">
           + General
         </button>
-        <span v-if="allTags.length" style="margin-left:12px;display:inline-flex;align-items:center;gap:6px">
-          <label class="small-note" style="margin:0;white-space:nowrap">Add by tag:</label>
-          <select v-model="eoTagFilter" @change="addCharsByTag(eoTagFilter)" style="font-size:13px;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--line)">
-            <option value="" disabled>Select tag…</option>
-            <option v-for="t in allTags" :key="t" :value="t">{{t}}</option>
-          </select>
-        </span>
+      </div>
+      <div v-if="allTags.length" class="eo-tag-chips">
+        <span class="small-note" style="margin-right:4px">Filter by tags:</span>
+        <span v-for="t in allTags" :key="t" class="eo-tag-chip" :class="{active:eoSelectedTags.includes(t)}" @click="toggleEoTag(t)">{{t}}</span>
+        <button v-if="eoSelectedTags.length" style="margin-left:8px;font-size:12px" @click="addCharsBySelectedTags">+ Add matching characters</button>
+        <button v-if="eoSelectedTags.length" class="icon-btn" style="margin-left:4px;font-size:11px" @click="eoSelectedTags=[]" title="Clear tag filter">✕ Clear</button>
       </div>
 
       <!-- timeline grid -->
@@ -892,7 +904,7 @@ createApp({
         </div>
 
         <!-- columns -->
-        <div v-for="col in currentOrder.characterColumns" :key="'col'+(col.characterId||'general')" class="tl-col" :style="tlColStyle">
+        <div v-for="col in filteredOrderColumns" :key="'col'+(col.characterId||'general')" class="tl-col" :style="tlColStyle">
           <div class="tl-col-header" :style="{background:charColorLight(col.characterId),borderBottomColor:charColor(col.characterId)}">
             {{charName(col.characterId)}}
             <button class="icon-btn sm" @click="removeColumn(col)" title="Remove column">✕</button>
