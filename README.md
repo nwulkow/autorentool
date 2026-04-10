@@ -16,9 +16,9 @@ Autorino is a lightweight, browser-based authoring tool that helps writers struc
 ## Features
 
 - **Characters** — Create character profiles with descriptions and tags
-- **Relationships** — Draw and explore connections between characters on an interactive canvas
+- **Relationships** — Draw connections between characters on an interactive canvas
 - **Event Orders** — Plan scene sequences and timelines; filter by character tags
-- **Locations** — Document the places your story takes place
+- **Locations** — Draw and document the places your story takes place
 - **Notes & Questions** — Capture loose thoughts, open questions, and research links
 - **Local storage** — Books are saved as plain JSON files on your machine; nothing leaves your computer
 
