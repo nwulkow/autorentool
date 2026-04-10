@@ -156,6 +156,7 @@ function timeFromY(yPos,markers,cfg){
 createApp({
   data(){return{
     loading:true, dirty:false, savedBooks:[], book:null,
+    editingTitle:false, titleDraft:'',
     setup:{title:'',author:''},
     activeTab:'Characters',
     tabs:['Characters','Event orders','Questions','Locations','Notes'],
@@ -286,6 +287,33 @@ createApp({
         if(r.ok){this.dirty=false;this.showToast('Book saved ✓');}
         else this.showToast('Save failed!');
       }catch(e){console.error(e);this.showToast('Save failed!');}
+    },
+    /* ── title rename ─────────────────── */
+    startEditTitle(){
+      this.titleDraft=this.book.title;
+      this.editingTitle=true;
+      this.$nextTick(()=>{ const el=this.$refs.titleInput; if(el){el.focus();el.select();} });
+    },
+    async commitTitleEdit(){
+      const newTitle=this.titleDraft.trim();
+      this.editingTitle=false;
+      if(!newTitle||newTitle===this.book.title) return;
+      const oldTitle=this.book.title;
+      this.book.title=newTitle;
+      try{
+        const r=await fetch('/api/books/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(serializeBook(this))});
+        if(r.ok){
+          this.dirty=false;
+          await fetch('/api/books/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:oldTitle})});
+          this.showToast('Book renamed ✓');
+        } else {
+          this.book.title=oldTitle;
+          this.showToast('Rename failed!');
+        }
+      }catch(e){console.error(e);this.book.title=oldTitle;this.showToast('Rename failed!');}
+    },
+    cancelTitleEdit(){
+      this.editingTitle=false;
     },
     showToast(m){this.toast=m;setTimeout(()=>{this.toast='';},2200);},
     /* ── unsaved guard ───────────────── */
@@ -661,7 +689,7 @@ createApp({
 
 <!-- BOOK SELECTION -->
 <div v-else-if="!book" class="setup-screen">
-  <h1 class="brand"><img src="logo.png" style="width: 48px; height: 48px;" class="brand-logo-sm" alt=""/> <span class="brand-name">Autorino</span></h1>
+  <h1 class="brand"><img src="logo.png" style="width: 96px; height: 96px;" class="brand-logo-sm" alt=""/> <span class="brand-name">Autorino</span></h1>
   <div v-if="savedBooks.length" class="saved-section">
     <h2>Your Books</h2>
     <div class="book-cards">
@@ -685,7 +713,7 @@ createApp({
 <!-- APP SHELL -->
 <div v-else class="app-shell">
   <aside class="sidebar">
-    <div class="sb-top"><img src="logo.png" style="width: 36px; height: 36px;" class="sb-logo" alt=""/><div><h2>{{book.title}}</h2><p class="meta">by {{book.author}}</p></div></div>
+    <div class="sb-top"><img src="logo.png" style="width: 108px; height: 108px;" class="sb-logo" alt=""/><div><h2 v-if="!editingTitle" @click="startEditTitle" class="sb-title-display" title="Click to rename">{{book.title}}</h2><input v-else ref="titleInput" class="sb-title-input" v-model="titleDraft" @keydown.enter="commitTitleEdit" @keydown.esc="cancelTitleEdit" @blur="commitTitleEdit"/><p class="meta">by {{book.author}}</p></div></div>
     <nav class="tab-list">
       <button v-for="tab in tabs" :key="tab" class="tab-btn" :class="{active:activeTab===tab}" @click="activeTab=tab">{{tab}}</button>
       <button class="back-btn" @click="backToBooks">← All Books</button>

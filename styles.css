@@ -82,10 +82,10 @@ textarea{min-height:80px;resize:vertical}
 
 .setup-screen{max-width:760px;margin:60px auto;padding:0 24px}
 .brand{font-size:32px;margin-bottom:40px;display:flex;align-items:center;gap:6px}
-.brand-logo{display:block;width:32px !important;height:32px !important;object-fit:contain;margin:0 auto 2px;max-width:none}
-.brand-logo-sm{width:24px !important;height:24px !important;object-fit:contain;max-width:none}
+.brand-logo{display:block;width:72px;height:72px;object-fit:contain;margin:0 auto 2px}
+.brand-logo-sm{width:96px;height:96px;object-fit:contain}
 .brand-name{font-family:'Palatino Linotype','Palatino','Book Antiqua','Georgia',serif;font-weight:700;letter-spacing:.4px;line-height:1}
-.sb-logo{width:20px !important;height:20px !important;object-fit:contain;flex-shrink:0;opacity:.65;max-width:none}
+.sb-logo{width:108px;height:108px;object-fit:contain;flex-shrink:0}
 
 .saved-section{margin-bottom:48px}
 .saved-section h2{font-size:20px;margin-bottom:20px}
@@ -112,8 +112,12 @@ textarea{min-height:80px;resize:vertical}
   padding:28px 18px;display:flex;flex-direction:column;
   height:100%;overflow-y:auto;
 }
-.sb-top{margin-bottom:28px;display:flex;align-items:center;gap:8px}
-.sb-top h2{font-size:20px;margin-bottom:4px}
+.sb-top{margin-bottom:24px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.sb-top h2{font-size:18px;margin:0;font-weight:700}
+.sb-title-display{cursor:pointer;border-bottom:1px dashed transparent;transition:border-color .15s}
+.sb-title-display:hover{border-bottom-color:var(--muted)}
+.sb-title-input{font-size:18px;font-weight:700;font-family:inherit;text-align:center;border:none;border-bottom:2px solid var(--accent);background:transparent;outline:none;width:100%;padding:0;line-height:1.2;color:inherit}
+.sb-top .meta{font-size:12px;margin:0}
 .sb-brand-name{font-family:'Chewy',cursive;font-weight:400;font-size:13px;color:var(--muted);letter-spacing:.5px}
 .sidebar .meta{color:var(--muted);font-size:13px;margin:0}
 

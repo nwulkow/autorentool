@@ -30,6 +30,8 @@ class BookHandler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/books/save":
             self._save_book()
+        elif path == "/api/books/delete":
+            self._delete_book()
         else:
             self.send_error(404)
 
@@ -78,6 +80,28 @@ class BookHandler(SimpleHTTPRequestHandler):
         with open(dest, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=4, ensure_ascii=False)
         body = json.dumps({"status": "ok", "path": dest}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self._cors_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _delete_book(self):
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+        title = data.get("title", "")
+        safe = "".join(
+            c if c.isalnum() or c in (" ", "-", "_") else "_" for c in title
+        ).strip()
+        dest = os.path.join(BOOKS_DIR, f"{safe}.json")
+        if os.path.exists(dest):
+            os.remove(dest)
+        body = json.dumps({"status": "ok"}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self._cors_headers()
