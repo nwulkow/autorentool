@@ -166,7 +166,7 @@ createApp({
     newChar:{open:false,name:'',description:''},
     tagInputs:{}, tagDropdownCharId:null,
     // canvas
-    canvasNodes:[], linkMode:false, linkSourceId:null,
+    canvasNodes:[], linkMode:false, linkSourceId:null, canvasPaneWidth:0, canvasWrapHeight:0, selectedNodeIds:[],
     linkModal:{open:false,c1:null,c2:null,type:''},
     // event orders
     eventOrders:[], currentOrderId:null, tlConfigOpen:false, editingEvtId:null, eoSelectedTags:[],
@@ -262,6 +262,18 @@ createApp({
   },
   methods:{
     mark(){ this.dirty=true; },
+    growCanvasPane(){
+      const pane=this.$refs.canvasPane;
+      const current=this.canvasPaneWidth||( pane ? pane.offsetWidth : 600);
+      this.canvasPaneWidth=current+200;
+    },
+    resetCanvasPane(){ this.canvasPaneWidth=0; },
+    growCanvasWrap(){
+      const wrap=this.$refs.canvasWrap;
+      const current=this.canvasWrapHeight||(wrap ? wrap.offsetHeight : 440);
+      this.canvasWrapHeight=current+150;
+    },
+    resetCanvasWrap(){ this.canvasWrapHeight=0; },
     /* ── palette ──────────────────────── */
     charColor(id){
       if(!id) return '#888888';
@@ -407,18 +419,41 @@ createApp({
     },
     onNodeMD(node,e){
       if(this.linkMode) return;
-      const r=this.$refs.canvasPane.getBoundingClientRect();
-      const ox=e.clientX-r.left-node.x,oy=e.clientY-r.top-node.y;
-      const mv=ev=>{node.x=Math.max(0,ev.clientX-r.left-ox);node.y=Math.max(0,ev.clientY-r.top-oy);};
+      // On plain mousedown (no modifier): if this node isn't selected, make it the only selection.
+      // With Shift held we leave selection alone — onNodeClick will toggle it.
+      if(!e.shiftKey){
+        if(!this.selectedNodeIds.includes(node.characterId)){
+          this.selectedNodeIds=[node.characterId];
+        }
+      }
+      const startX=e.clientX,startY=e.clientY;
+      // Snapshot start positions for all currently selected nodes
+      const starts=this.canvasNodes
+        .filter(n=>this.selectedNodeIds.includes(n.characterId))
+        .map(n=>({node:n,x0:n.x,y0:n.y}));
+      const mv=ev=>{
+        const dx=ev.clientX-startX,dy=ev.clientY-startY;
+        starts.forEach(({node,x0,y0})=>{node.x=Math.max(0,x0+dx);node.y=Math.max(0,y0+dy);});
+      };
       const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);this.mark();};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     },
-    onNodeClick(node){
-      if(!this.linkMode) return;
-      if(!this.linkSourceId){this.linkSourceId=node.characterId;}
-      else if(this.linkSourceId!==node.characterId){
-        this.linkModal={open:true,c1:this.linkSourceId,c2:node.characterId,type:''};
-        this.$nextTick(()=>{this.$refs.linkTypeInput?.focus();});
+    onNodeClick(node,e){
+      if(this.linkMode){
+        if(!this.linkSourceId){this.linkSourceId=node.characterId;}
+        else if(this.linkSourceId!==node.characterId){
+          this.linkModal={open:true,c1:this.linkSourceId,c2:node.characterId,type:''};
+          this.$nextTick(()=>{this.$refs.linkTypeInput?.focus();});
+        }
+        return;
+      }
+      // shift+click toggles selection
+      if(e&&e.shiftKey){
+        const idx=this.selectedNodeIds.indexOf(node.characterId);
+        if(idx===-1) this.selectedNodeIds.push(node.characterId);
+        else this.selectedNodeIds.splice(idx,1);
+      } else {
+        this.selectedNodeIds=[node.characterId];
       }
     },
     confirmLink(){
@@ -773,13 +808,17 @@ createApp({
     <div class="map-header">
       <h3>Character Relationship Map</h3>
       <div class="map-actions">
+        <button @click="growCanvasPane" title="Increase map width">＋ Wider</button>
+        <button v-if="canvasPaneWidth>0" @click="resetCanvasPane" title="Reset map width">↩ Width</button>
+        <button @click="growCanvasWrap" title="Increase map height">＋ Taller</button>
+        <button v-if="canvasWrapHeight>0" @click="resetCanvasWrap" title="Reset map height">↩ Height</button>
         <button v-if="!linkMode" @click="linkMode=true;linkSourceId=null" :disabled="canvasNodes.length<2">🔗 Add Link</button>
         <button v-else class="danger" @click="linkMode=false;linkSourceId=null">Cancel</button>
       </div>
     </div>
     <p v-if="linkMode" class="link-hint">Click two characters on the map to link them.</p>
 
-    <div class="canvas-wrap">
+    <div class="canvas-wrap" ref="canvasWrap" :style="canvasWrapHeight?{height:canvasWrapHeight+'px'}:{}">
       <div class="canvas-chips">
         <div class="canvas-chips-label">Drag onto map ↓</div>
         <div v-for="ch in book.characters" :key="'cc'+ch.id" class="cc-chip"
@@ -787,7 +826,7 @@ createApp({
              :class="{placed:canvasNodes.some(n=>n.characterId===ch.id)}"
              draggable="true" @dragstart="onChipDrag(ch,$event)">{{ch.name}}</div>
       </div>
-      <div class="canvas-pane" ref="canvasPane" @dragover.prevent @drop.prevent="onCanvasDrop($event)">
+      <div class="canvas-pane" ref="canvasPane" :style="canvasPaneWidth?{flex:'none',width:canvasPaneWidth+'px'}:{}" @dragover.prevent @drop.prevent="onCanvasDrop($event)" @click.self="selectedNodeIds=[]">
         <svg class="canvas-svg">
           <g v-for="lk in computedLinks" :key="lk.id">
             <line :x1="lk.x1" :y1="lk.y1" :x2="lk.x2" :y2="lk.y2" stroke="#7aa5f0" stroke-width="2"/>
@@ -796,9 +835,9 @@ createApp({
           </g>
         </svg>
         <div v-for="node in canvasNodes" :key="'n'+node.characterId" class="canvas-node"
-             :class="{'link-sel':linkSourceId===node.characterId}"
+             :class="{'link-sel':linkSourceId===node.characterId,'node-selected':selectedNodeIds.includes(node.characterId)&&!linkMode}"
              :style="{left:node.x+'px',top:node.y+'px',borderColor:charColor(node.characterId),background:charColorLight(node.characterId)}"
-             @mousedown.prevent="onNodeMD(node,$event)" @click.stop="onNodeClick(node)">
+             @mousedown.prevent="onNodeMD(node,$event)" @click.stop="onNodeClick(node,$event)">
           {{charName(node.characterId)}}
           <span class="node-x" @click.stop="removeNode(node)">✕</span>
         </div>
