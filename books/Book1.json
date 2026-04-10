@@ -1,0 +1,447 @@
+{
+    "title": "Book1",
+    "author": "Niklas",
+    "chapters": [],
+    "tags": [
+        "Bär",
+        "Baby",
+        "Hund"
+    ],
+    "characters": [
+        {
+            "id": "79a1a8f2-5e38-44de-9179-43d26268572f",
+            "name": "Nikas",
+            "description": "Ha",
+            "tags": [
+                "Bär"
+            ]
+        },
+        {
+            "id": "b0ec30b4-5e7c-4b5d-8026-322eefd01749",
+            "name": "Suki",
+            "description": "Welthund",
+            "tags": [
+                "Baby",
+                "Hund"
+            ]
+        },
+        {
+            "id": "40c8dd28-b187-4052-b725-f7090f13fb60",
+            "name": "Kiara",
+            "description": "Brumsadora",
+            "tags": [
+                "Baby"
+            ]
+        },
+        {
+            "id": "5c20034d-a644-4f7d-ad92-35e33c88577a",
+            "name": "Lischen",
+            "description": "Mamamamama",
+            "tags": [
+                "Bär"
+            ]
+        },
+        {
+            "id": "8ab2aa58-77bf-4a41-8bd7-79bc3dfa5f8e",
+            "name": "Millie",
+            "description": "Hundefreundin",
+            "tags": [
+                "Hund"
+            ]
+        }
+    ],
+    "character_relations": [
+        {
+            "id": "eae17c14-35b1-46ea-b4b3-dd61ce6e225d",
+            "character1_id": "40c8dd28-b187-4052-b725-f7090f13fb60",
+            "character2_id": "79a1a8f2-5e38-44de-9179-43d26268572f",
+            "relation_type": "Vater / Tochter"
+        }
+    ],
+    "canvas_nodes": [
+        {
+            "character_id": "79a1a8f2-5e38-44de-9179-43d26268572f",
+            "x": 75,
+            "y": 76
+        },
+        {
+            "character_id": "b0ec30b4-5e7c-4b5d-8026-322eefd01749",
+            "x": 253,
+            "y": 164
+        },
+        {
+            "character_id": "40c8dd28-b187-4052-b725-f7090f13fb60",
+            "x": 327,
+            "y": 18
+        }
+    ],
+    "questions": [
+        {
+            "id": "77fc2243-e402-49c1-a499-9b77d7012c93",
+            "text": "Was ist im Napf",
+            "answer": "Gulasch",
+            "answered": true
+        },
+        {
+            "id": "62f973c7-3710-4524-8511-37c0c0107e11",
+            "text": "Wohin fahren wir morgen?",
+            "answer": "Düne?",
+            "answered": false
+        }
+    ],
+    "event_orders": [
+        {
+            "id": "a2a05a10-ef20-4225-b8fd-9365b86624b8",
+            "name": "Event Order 1",
+            "timeline_config": {
+                "mode": "custom",
+                "pixels_per_marker": 100,
+                "custom_labels": [
+                    "Start",
+                    "Middle",
+                    "End",
+                    "15 Uhr",
+                    "17 Uhr",
+                    "19 Uhr"
+                ],
+                "clock_start": "08:00",
+                "clock_end": "20:00",
+                "clock_interval_min": 60,
+                "week_start": 1,
+                "week_end": 12,
+                "date_start": "2026-01-01",
+                "date_end": "2026-01-31",
+                "date_interval_days": 1
+            },
+            "character_columns": [
+                {
+                    "character_id": "79a1a8f2-5e38-44de-9179-43d26268572f",
+                    "events": [
+                        {
+                            "id": "aaba519d-cd82-4105-a1e0-ff2bcd191a90",
+                            "description": "Bereitet den Napf vor und achtet drauf, genug Kartoffeln zu kochen, das ist nämlich wichtig.",
+                            "y_pos": 151,
+                            "height": 50,
+                            "time": "End",
+                            "location_id": "4381b839-1ce1-4feb-a24b-8fc6a0c19688"
+                        },
+                        {
+                            "id": "1d551e1b-c5e3-44d5-b079-eb451deab18a",
+                            "description": "Kartoffeln rausholen",
+                            "y_pos": 48,
+                            "height": 50,
+                            "time": "Middle",
+                            "location_id": "4381b839-1ce1-4feb-a24b-8fc6a0c19688"
+                        }
+                    ]
+                },
+                {
+                    "character_id": "b0ec30b4-5e7c-4b5d-8026-322eefd01749",
+                    "events": []
+                },
+                {
+                    "character_id": "40c8dd28-b187-4052-b725-f7090f13fb60",
+                    "events": [
+                        {
+                            "id": "1bcd92ea-4d8b-4317-b52e-f236479f1820",
+                            "description": "Brumst",
+                            "y_pos": 67,
+                            "height": 50,
+                            "time": "Middle",
+                            "location_id": null
+                        }
+                    ]
+                },
+                {
+                    "character_id": "5c20034d-a644-4f7d-ad92-35e33c88577a",
+                    "events": [
+                        {
+                            "id": "0c55e438-d7d0-4a30-9f0f-6f8ffda7b480",
+                            "description": "Stillt",
+                            "y_pos": 214,
+                            "height": 50,
+                            "time": "15 Uhr",
+                            "location_id": null
+                        }
+                    ]
+                },
+                {
+                    "character_id": "8ab2aa58-77bf-4a41-8bd7-79bc3dfa5f8e",
+                    "events": [
+                        {
+                            "id": "3801884e-4340-411f-99c5-dcec1a12174f",
+                            "description": "Kläfft",
+                            "y_pos": 104,
+                            "height": 50,
+                            "time": "End",
+                            "location_id": null
+                        }
+                    ]
+                },
+                {
+                    "character_id": null,
+                    "events": []
+                }
+            ]
+        }
+    ],
+    "locations": [
+        {
+            "id": "4381b839-1ce1-4feb-a24b-8fc6a0c19688",
+            "name": "See im Wald",
+            "description": "",
+            "width": 50,
+            "height": 30,
+            "unit": "m",
+            "objects": [
+                {
+                    "id": "1a0a49e2-06a6-4602-b3d5-8b6e6f9a9b41",
+                    "type": "tree",
+                    "x": 84,
+                    "y": 96,
+                    "width": 40,
+                    "height": 40,
+                    "scale": 1,
+                    "color": "#27ae60",
+                    "stroke": "#333",
+                    "strokeWidth": 1,
+                    "name": "",
+                    "points": []
+                },
+                {
+                    "id": "14eec728-cc58-4f8e-a4de-f046281c22ec",
+                    "type": "house",
+                    "x": 434,
+                    "y": 224,
+                    "width": 40,
+                    "height": 40,
+                    "scale": 1,
+                    "color": "#e74c3c",
+                    "stroke": "#333",
+                    "strokeWidth": 1,
+                    "name": "",
+                    "points": []
+                },
+                {
+                    "id": "be6a6e3c-b87a-43eb-a27e-f26a7455030c",
+                    "type": "lake",
+                    "x": 0,
+                    "y": 0,
+                    "width": 0,
+                    "height": 0,
+                    "scale": 1,
+                    "color": "rgba(52,152,219,0.45)",
+                    "stroke": "#2980b9",
+                    "strokeWidth": 2,
+                    "name": "",
+                    "points": [
+                        [
+                            247,
+                            264
+                        ],
+                        [
+                            150,
+                            210
+                        ],
+                        [
+                            215,
+                            148
+                        ]
+                    ]
+                },
+                {
+                    "id": "1699aee0-e577-421e-8d50-c1b7d772bc77",
+                    "type": "sand",
+                    "x": 0,
+                    "y": 0,
+                    "width": 0,
+                    "height": 0,
+                    "scale": 1,
+                    "color": "rgba(241,196,15,0.40)",
+                    "stroke": "#f1c40f",
+                    "strokeWidth": 2,
+                    "name": "",
+                    "points": [
+                        [
+                            347,
+                            58
+                        ],
+                        [
+                            511,
+                            39
+                        ],
+                        [
+                            398,
+                            147
+                        ]
+                    ]
+                },
+                {
+                    "id": "7172791b-d5ce-475c-ba25-8e610af984b7",
+                    "type": "garden",
+                    "x": 0,
+                    "y": 0,
+                    "width": 0,
+                    "height": 0,
+                    "scale": 1,
+                    "color": "rgba(46,204,113,0.40)",
+                    "stroke": "#27ae60",
+                    "strokeWidth": 2,
+                    "name": "",
+                    "points": [
+                        [
+                            157,
+                            49
+                        ],
+                        [
+                            294,
+                            79
+                        ],
+                        [
+                            143,
+                            158
+                        ]
+                    ]
+                },
+                {
+                    "id": "4385766f-4f87-412a-83da-2ee3d30859de",
+                    "type": "circle",
+                    "x": 61,
+                    "y": 202.5,
+                    "width": 77,
+                    "height": 77,
+                    "color": "#bdc3c7",
+                    "stroke": "#636e72",
+                    "strokeWidth": 2,
+                    "name": "",
+                    "scale": 1,
+                    "points": []
+                },
+                {
+                    "id": "aad0e2d0-0421-4da8-a29e-7144948d7101",
+                    "type": "rectangle",
+                    "x": 253.5,
+                    "y": 335,
+                    "width": 115,
+                    "height": 84,
+                    "color": "#dfe6e9",
+                    "stroke": "#636e72",
+                    "strokeWidth": 2,
+                    "name": "",
+                    "scale": 1,
+                    "points": []
+                },
+                {
+                    "id": "6ee397c3-e543-4514-9bf5-ccb6fdae1bf9",
+                    "type": "car",
+                    "x": 516,
+                    "y": 167,
+                    "width": 40,
+                    "height": 40,
+                    "scale": 1,
+                    "color": "#7c2a00",
+                    "stroke": "#333",
+                    "strokeWidth": 1,
+                    "name": "",
+                    "points": []
+                },
+                {
+                    "id": "c4d3240b-ca42-4637-bacc-f2f826d23129",
+                    "type": "road",
+                    "x": 0,
+                    "y": 0,
+                    "width": 0,
+                    "height": 0,
+                    "scale": 1,
+                    "color": "#95a5a6",
+                    "stroke": "#95a5a6",
+                    "strokeWidth": 14,
+                    "name": "",
+                    "points": [
+                        [
+                            326,
+                            262
+                        ],
+                        [
+                            510,
+                            295
+                        ],
+                        [
+                            510,
+                            295
+                        ]
+                    ]
+                },
+                {
+                    "id": "8760d23d-a966-4a87-b178-34a6eb143c88",
+                    "type": "road",
+                    "x": 0,
+                    "y": 0,
+                    "width": 0,
+                    "height": 0,
+                    "scale": 1,
+                    "color": "#95a5a6",
+                    "stroke": "#95a5a6",
+                    "strokeWidth": 14,
+                    "name": "",
+                    "points": [
+                        [
+                            307,
+                            209
+                        ],
+                        [
+                            355,
+                            183
+                        ],
+                        [
+                            310,
+                            163
+                        ],
+                        [
+                            304,
+                            97
+                        ],
+                        [
+                            305,
+                            41
+                        ],
+                        [
+                            305,
+                            41
+                        ]
+                    ]
+                },
+                {
+                    "id": "4475a2e2-41d5-42ec-80c4-a3ce13549162",
+                    "type": "castle",
+                    "x": 109,
+                    "y": 28,
+                    "width": 57,
+                    "height": 40,
+                    "scale": 1,
+                    "color": "#7f8c8d",
+                    "stroke": "#333",
+                    "strokeWidth": 1,
+                    "name": "",
+                    "points": []
+                }
+            ]
+        }
+    ],
+    "topics": [
+        {
+            "id": "b7446645-09ec-4a4f-a71d-949a6d44f56a",
+            "name": "Barfen",
+            "notes": [
+                {
+                    "id": "b08a44e8-b02d-4fe3-a498-a40e84132c2f",
+                    "text": "200g Fleisch sind wichtig!",
+                    "color": "#fff9c4"
+                }
+            ],
+            "url_links": [
+                "https://www.barfers-wellfood.de/?utm_source=google&utm_medium=cpc&klar_source=google&klar_cpid=17386218188&klar_agid=140275667514&klar_adid=795511670286&gad_source=1&gad_campaignid=17386218188&gbraid=0AAAAADmRMQA8txD0zjCsAjqu87gEWKthp&gclid=CjwKCAjw-dfOBhAjEiwAq0RwI8OZ3ytRCSKvPq4SIvMtZaIvQ4oYuH9lYBJAFYHItIUhLhWGf42-6xoC5lgQAvD_BwE"
+            ]
+        }
+    ]
+}
