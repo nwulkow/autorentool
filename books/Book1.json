@@ -48,6 +48,12 @@
             "tags": [
                 "Hund"
             ]
+        },
+        {
+            "id": "f488ac04-126d-4475-bfc6-d579dbaeed9f",
+            "name": "Carl-Christoph Bruns",
+            "description": "48\nLebt woanders in Südniedersachsen\nWil Norbert rächen",
+            "tags": []
         }
     ],
     "character_relations": [
@@ -111,7 +117,15 @@
                 "week_end": 12,
                 "date_start": "2026-01-01",
                 "date_end": "2026-01-31",
-                "date_interval_days": 1
+                "date_interval_days": 1,
+                "gap_sizes": [
+                    100,
+                    160,
+                    100,
+                    100,
+                    100,
+                    100
+                ]
             },
             "character_columns": [
                 {
@@ -120,9 +134,9 @@
                         {
                             "id": "aaba519d-cd82-4105-a1e0-ff2bcd191a90",
                             "description": "Bereitet den Napf vor und achtet drauf, genug Kartoffeln zu kochen, das ist nämlich wichtig.",
-                            "y_pos": 151,
+                            "y_pos": 145,
                             "height": 50,
-                            "time": "End",
+                            "time": "Middle",
                             "location_id": "4381b839-1ce1-4feb-a24b-8fc6a0c19688"
                         },
                         {
@@ -158,7 +172,7 @@
                         {
                             "id": "0c55e438-d7d0-4a30-9f0f-6f8ffda7b480",
                             "description": "Stillt",
-                            "y_pos": 214,
+                            "y_pos": 274,
                             "height": 50,
                             "time": "15 Uhr",
                             "location_id": null
@@ -180,6 +194,10 @@
                 },
                 {
                     "character_id": null,
+                    "events": []
+                },
+                {
+                    "character_id": "f488ac04-126d-4475-bfc6-d579dbaeed9f",
                     "events": []
                 }
             ]
