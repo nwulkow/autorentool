@@ -27,7 +27,7 @@ Autorino helps writers structure their creative work before and during the writi
 
 ## Prerequisites
 
-- **Python 3** (version 3.8 or later) — ships pre-installed on macOS and most Linux distributions
+- **Python 3** (version 3.8 or later)
 - A modern web browser (Chrome, Firefox, Safari, Edge)
 
 > **No additional installations needed.** Vue.js is loaded automatically from a CDN when you open the app in your browser — there is nothing to install via `npm`, `pip`, or any other package manager.
@@ -39,7 +39,7 @@ Autorino helps writers structure their creative work before and during the writi
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/<your-username>/autorentool.git
+git clone https://github.com/nwulkow/autorentool.git
 cd autorentool
 
 # 2. Make the start script executable (once)
@@ -56,7 +56,7 @@ chmod +x start.sh
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/<your-username>/autorentool.git
+git clone https://github.com/nwulkow/autorentool.git
 cd autorentool
 
 # 2. Start the server directly with Python

@@ -1,0 +1,102 @@
+{
+    "title": "Nuestro libro",
+    "author": "Nik y Deisson",
+    "chapters": [
+        {
+            "id": "7185fcea-f4e7-4ecc-a3d1-57fe716c20da",
+            "label": "clase_sabado",
+            "name": "",
+            "content": "<p>'Hey, hermano', dice Deisson.</p><p>'</p>",
+            "comments": []
+        }
+    ],
+    "tags": [],
+    "characters": [
+        {
+            "id": "635b0580-8c8d-48a7-bde1-6ce53e744cdc",
+            "name": "Deisson",
+            "description": "Instructor\nvive en EEUU",
+            "tags": []
+        },
+        {
+            "id": "1c56aed8-3bbe-4cd5-9f87-50a6ec7b0870",
+            "name": "Niklas",
+            "description": "vive en Alemania",
+            "tags": []
+        }
+    ],
+    "character_relations": [
+        {
+            "id": "1c4747c3-8172-43e7-a673-b8c9c6836dff",
+            "character1_id": "635b0580-8c8d-48a7-bde1-6ce53e744cdc",
+            "character2_id": "1c56aed8-3bbe-4cd5-9f87-50a6ec7b0870",
+            "relation_type": "instructor/estudiante"
+        }
+    ],
+    "canvas_nodes": [
+        {
+            "character_id": "635b0580-8c8d-48a7-bde1-6ce53e744cdc",
+            "x": 8,
+            "y": 60.5
+        },
+        {
+            "character_id": "1c56aed8-3bbe-4cd5-9f87-50a6ec7b0870",
+            "x": 149,
+            "y": 126.5
+        }
+    ],
+    "questions": [],
+    "event_orders": [
+        {
+            "id": "5b8e85ec-3394-4e3b-8ceb-fa07ae827022",
+            "name": "Clase el sábado",
+            "timeline_config": {
+                "mode": "custom",
+                "pixels_per_marker": 80,
+                "custom_labels": [
+                    "Start",
+                    "Middle",
+                    "End"
+                ],
+                "clock_start": "08:00",
+                "clock_end": "20:00",
+                "clock_interval_min": 60,
+                "week_start": 1,
+                "week_end": 12,
+                "date_start": "2026-01-01",
+                "date_end": "2026-01-31",
+                "date_interval_days": 1
+            },
+            "character_columns": [
+                {
+                    "character_id": "1c56aed8-3bbe-4cd5-9f87-50a6ec7b0870",
+                    "events": [
+                        {
+                            "id": "d9685bbf-d4ed-4192-8671-3c4df093801f",
+                            "description": "Conta de su semana",
+                            "y_pos": 62,
+                            "height": 50,
+                            "time": "Middle",
+                            "location_id": null
+                        }
+                    ]
+                },
+                {
+                    "character_id": "635b0580-8c8d-48a7-bde1-6ce53e744cdc",
+                    "events": [
+                        {
+                            "id": "f45445c2-3b3d-4db3-9d31-6a053f77b4e8",
+                            "description": "Empieza la clase. Pregunta come estaba la semana",
+                            "y_pos": 11,
+                            "height": 50,
+                            "time": "Start",
+                            "location_id": null
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "locations": [],
+    "topics": []
+}
