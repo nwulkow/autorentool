@@ -739,3 +739,126 @@ textarea{min-height:80px;resize:vertical}
 .import-item:hover{background:rgba(0,0,0,.03)}
 .import-item.selected{background:rgba(180,130,60,.08)}
 .import-item input[type="checkbox"]{accent-color:var(--accent);width:auto;flex-shrink:0}
+
+/* ═══════════════ TEXT EDITOR ═══════════════ */
+
+.te-layout{
+  display:flex;gap:0;height:calc(100vh - 160px);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;background:var(--panel);
+}
+
+/* ── chapter sidebar ── */
+.te-sidebar{
+  width:260px;min-width:220px;border-right:1px solid var(--line);
+  background:#faf8f5;display:flex;flex-direction:column;overflow-y:auto;
+}
+.te-sidebar-title{
+  padding:16px 16px 12px;font-size:14px;font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--line);margin:0;
+}
+.te-chapter-list{
+  flex:1;overflow-y:auto;padding:8px;
+}
+.te-empty-msg{
+  padding:24px 16px;color:var(--muted);font-size:13px;text-align:center;
+}
+.te-chapter-card{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;
+  border:1px solid transparent;margin-bottom:4px;user-select:none;
+}
+.te-chapter-card:hover{background:rgba(0,0,0,.03);border-color:var(--line)}
+.te-chapter-card.active{background:rgba(74,125,255,.08);border-color:var(--accent)}
+.te-chapter-card.dragging{opacity:.4}
+.te-ch-number{
+  width:32px;height:32px;border-radius:8px;
+  background:var(--accent);color:#fff;font-size:14px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.te-ch-info{flex:1;min-width:0}
+.te-ch-label{
+  font-size:14px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.te-ch-name{
+  font-size:12px;color:var(--muted);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.te-ch-actions{
+  display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .15s;
+}
+.te-chapter-card:hover .te-ch-actions{opacity:1}
+
+/* ── editor pane ── */
+.te-editor-pane{
+  flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;
+}
+.te-editor-active{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+}
+.te-editor-header,.te-fulltext-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;border-bottom:1px solid var(--line);
+  background:#faf8f5;flex-shrink:0;
+}
+.te-editor-title{
+  font-size:16px;font-weight:600;color:var(--text);
+}
+.te-editor-toolbar-extra{
+  display:flex;gap:8px;align-items:center;
+}
+.te-btn-sm{
+  border:1px solid var(--line);background:var(--panel);color:var(--text);
+  border-radius:6px;padding:5px 10px;cursor:pointer;
+  font-size:12px;font-weight:500;transition:all .15s;
+}
+.te-btn-sm:hover{border-color:#bbb5a6;background:#f5f2ec}
+
+.te-quill-wrap{
+  flex:1;overflow-y:auto;display:flex;flex-direction:column;
+}
+.te-quill-wrap .ql-toolbar{
+  border:none !important;border-bottom:1px solid var(--line) !important;
+  background:#faf8f5;flex-shrink:0;
+}
+.te-quill-wrap .ql-container{
+  flex:1;border:none !important;font-family:'Palatino Linotype','Book Antiqua',Palatino,serif;
+  font-size:15px;line-height:1.75;
+}
+.te-quill-wrap .ql-editor{
+  padding:24px 40px;min-height:300px;
+}
+.te-quill-wrap .ql-editor:focus{outline:none}
+.te-quill-fulltext .ql-editor h2{
+  color:var(--accent);border-bottom:1px solid var(--line);
+  padding-bottom:8px;margin:32px 0 16px;
+}
+
+/* ── editor empty state ── */
+.te-editor-empty{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:15px;
+}
+
+/* ── comments panel ── */
+.te-comments{
+  border-top:1px solid var(--line);padding:16px 20px;max-height:240px;
+  overflow-y:auto;flex-shrink:0;background:#faf8f5;
+}
+.te-comments h5{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--muted)}
+.te-comment{
+  padding:10px 12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius-sm);margin-bottom:8px;
+}
+.te-cmt-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;
+}
+.te-cmt-date{font-size:11px;color:var(--muted)}
+.te-cmt-selection{
+  font-style:italic;color:var(--muted);font-size:13px;
+  padding:4px 8px;background:rgba(74,125,255,.06);border-left:3px solid var(--accent);
+  border-radius:0 4px 4px 0;margin-bottom:6px;
+}
+.te-cmt-text{font-size:13px;color:var(--text)}
+.muted-sm{font-weight:400;color:var(--muted);font-size:12px}

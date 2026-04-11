@@ -1,7 +1,22 @@
 {
     "title": "Book1",
     "author": "Niklas",
-    "chapters": [],
+    "chapters": [
+        {
+            "id": "050f669d-a456-49e9-b86c-5768a3a3116f",
+            "label": "test_chapter1",
+            "name": "",
+            "content": "<p>Hi,</p><p>first chapter</p>",
+            "comments": [
+                {
+                    "id": "baa9935e-2094-4746-bd1e-df85fa072fcf",
+                    "text": "test comment",
+                    "selection": "",
+                    "date": "11.4.2026"
+                }
+            ]
+        }
+    ],
     "tags": [
         "Bär",
         "Baby",

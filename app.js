@@ -249,6 +249,22 @@ const I18N={de:{
   'Clear tag filter':'Tag-Filter löschen','No location':'Kein Ort',
   'Add Note':'Notiz hinzufügen',
   '📥 Import Characters':'📥 Charaktere importieren','📥 Import Locations':'📥 Orte importieren',
+  // Text Editor
+  'Text Editor':'Texteditor','+ Add Chapter':'+ Kapitel hinzufügen',
+  '📄 Import File':'📄 Datei importieren','📖 Full Text':'📖 Volltext',
+  '💾 Export DOCX':'💾 DOCX exportieren',
+  'New Chapter':'Neues Kapitel','Chapter Label':'Kapitelkürzel',
+  'Chapter Name':'Kapitelname','optional':'optional',
+  'e.g. CH1, Intro, Prologue':'z.B. K1, Intro, Prolog',
+  'e.g. The Beginning':'z.B. Der Anfang',
+  'Chapters':'Kapitel','No chapters yet.':'Noch keine Kapitel.',
+  'Start writing…':'Schreibe los…','Full text appears here…':'Volltext erscheint hier…',
+  'Select a chapter to start editing, or add a new chapter.':'Wähle ein Kapitel zum Bearbeiten oder füge ein neues hinzu.',
+  'Comment':'Kommentar','Add Comment':'Kommentar hinzufügen','Enter comment:':'Kommentar eingeben:',
+  'Comments':'Kommentare','Full Text':'Volltext','← Back to Chapters':'← Zurück zu Kapiteln',
+  'Export DOCX':'DOCX exportieren','Full text saved to chapters ✓':'Volltext in Kapitel gespeichert ✓',
+  'File imported ✓':'Datei importiert ✓','Import failed!':'Import fehlgeschlagen!',
+  'Unsupported file type':'Nicht unterstützter Dateityp',
 }};
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -260,11 +276,18 @@ createApp({
     editingTitle:false, titleDraft:'', locale:'en',
     setup:{title:'',author:''},
     activeTab:'Characters',
-    tabs:['Characters','Locations','Event orders','Questions','Notes'],
+    tabs:['Characters','Locations','Event orders','Questions','Notes','Text Editor'],
     importModal:{open:false,type:'characters',bookTitle:'',selectedIds:[]},
     colDragIdx:null,
     // unsaved dialog
     showUnsavedDialog:false, pendingAction:null,
+    // text editor
+    editorMode:'chapters', // 'chapters' or 'fulltext'
+    currentChapterId:null,
+    newChapter:{open:false,name:'',label:''},
+    chapterDragIdx:null,
+    quillInstance:null,
+    fullTextQuill:null,
     // characters
     newChar:{open:false,name:'',description:''},
     tagInputs:{}, tagDropdownCharId:null,
@@ -465,6 +488,7 @@ createApp({
     },
     async saveBook(){
       if(!this.book) return;
+      this.saveCurrentChapterContent();
       try{
         const r=await fetch('/api/books/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(serializeBook(this))});
         if(r.ok){this.dirty=false;this.showToast(this.t('Book saved ✓'));}
@@ -932,11 +956,332 @@ createApp({
       if(!this.currentTopic) return;
       this.currentTopic.urlLinks.splice(i,1);this.mark();
     },
+    /* ── text editor / chapters ──────── */
+    addChapter(){
+      if(!this.book||!this.newChapter.label.trim()) return;
+      const ch={id:uid(),label:this.newChapter.label.trim(),name:this.newChapter.name.trim()||'',content:'',comments:[]};
+      this.book.chapters.push(ch);
+      this.newChapter={open:false,name:'',label:''};
+      this.selectChapter(ch.id);
+      this.mark();
+    },
+    removeChapter(id){
+      if(!this.book) return;
+      this.book.chapters=this.book.chapters.filter(c=>c.id!==id);
+      if(this.currentChapterId===id){this.currentChapterId=null;this.destroyQuill();}
+      this.mark();
+    },
+    selectChapter(id){
+      // save current chapter content before switching
+      this.saveCurrentChapterContent();
+      this.currentChapterId=id;
+      this.editorMode='chapters';
+      this.$nextTick(()=>this.initQuill());
+    },
+    saveCurrentChapterContent(){
+      if(this.quillInstance&&this.currentChapterId){
+        const ch=this.book.chapters.find(c=>c.id===this.currentChapterId);
+        if(ch) ch.content=this.quillInstance.root.innerHTML;
+      }
+    },
+    currentChapter(){
+      if(!this.book||!this.currentChapterId) return null;
+      return this.book.chapters.find(c=>c.id===this.currentChapterId)||null;
+    },
+    initQuill(){
+      this.destroyQuill();
+      const container=this.$refs.chapterEditor;
+      if(!container) return;
+      container.innerHTML='';
+      this.quillInstance=new Quill(container,{
+        theme:'snow',
+        placeholder:this.t('Start writing…'),
+        modules:{
+          toolbar:[
+            [{header:[1,2,3,false]}],
+            ['bold','italic','underline','strike'],
+            [{color:[]},{background:[]}],
+            [{list:'ordered'},{list:'bullet'}],
+            [{indent:'-1'},{indent:'+1'}],
+            [{align:[]}],
+            ['blockquote','code-block'],
+            ['link','image'],
+            ['clean'],
+          ],
+          history:{delay:500,maxStack:200,userOnly:true},
+        },
+      });
+      const ch=this.currentChapter();
+      if(ch&&ch.content){
+        this.quillInstance.root.innerHTML=ch.content;
+      }
+      this.quillInstance.on('text-change',()=>{this.mark();});
+    },
+    destroyQuill(){
+      if(this.quillInstance){
+        this.saveCurrentChapterContent();
+        this.quillInstance.off('text-change');
+        this.quillInstance=null;
+      }
+    },
+    openFullText(){
+      this.saveCurrentChapterContent();
+      this.editorMode='fulltext';
+      this.$nextTick(()=>this.initFullTextQuill());
+    },
+    initFullTextQuill(){
+      this.destroyFullTextQuill();
+      const container=this.$refs.fullTextEditor;
+      if(!container) return;
+      container.innerHTML='';
+      this.fullTextQuill=new Quill(container,{
+        theme:'snow',
+        placeholder:this.t('Full text appears here…'),
+        modules:{
+          toolbar:[
+            [{header:[1,2,3,false]}],
+            ['bold','italic','underline','strike'],
+            [{color:[]},{background:[]}],
+            [{list:'ordered'},{list:'bullet'}],
+            [{indent:'-1'},{indent:'+1'}],
+            [{align:[]}],
+            ['blockquote','code-block'],
+            ['link','image'],
+            ['clean'],
+          ],
+          history:{delay:500,maxStack:200,userOnly:true},
+        },
+      });
+      // Concatenate all chapters with chapter headings
+      let html='';
+      this.book.chapters.forEach((ch,i)=>{
+        const title=ch.name?(i+1)+'. '+ch.name+' ('+ch.label+')':((i+1)+'. '+ch.label);
+        html+='<h2>'+title+'</h2>'+(ch.content||'<p><br></p>');
+      });
+      if(html) this.fullTextQuill.root.innerHTML=html;
+      this.fullTextQuill.on('text-change',()=>{this.mark();});
+    },
+    destroyFullTextQuill(){
+      if(this.fullTextQuill){
+        this.fullTextQuill.off('text-change');
+        this.fullTextQuill=null;
+      }
+    },
+    saveFullTextToChapters(){
+      if(!this.fullTextQuill||!this.book) return;
+      // Parse the full text HTML back into chapters by splitting on h2 tags
+      const html=this.fullTextQuill.root.innerHTML;
+      const parts=html.split(/<h2[^>]*>/i);
+      // First part is content before first h2 (usually empty)
+      const chapters=[];
+      parts.forEach((part,i)=>{
+        if(i===0){
+          // Content before the first chapter heading, ignore if empty
+          const clean=part.replace(/<\/h2>/gi,'').trim();
+          if(clean&&clean!=='<p><br></p>') {
+            // Put it into a special "Preamble" chapter
+            chapters.push({label:'Preamble',content:clean});
+          }
+          return;
+        }
+        const closingIdx=part.indexOf('</h2>');
+        const heading=closingIdx>=0?part.substring(0,closingIdx):part;
+        const content=closingIdx>=0?part.substring(closingIdx+5).trim():'';
+        chapters.push({heading:heading.replace(/<[^>]+>/g,'').trim(),content});
+      });
+      // Match back to existing chapters or create new ones
+      const newChapters=[];
+      chapters.forEach((parsed,i)=>{
+        if(i<this.book.chapters.length){
+          const existing=this.book.chapters[i];
+          existing.content=parsed.content;
+          newChapters.push(existing);
+        } else {
+          newChapters.push({id:uid(),label:parsed.heading||('Chapter '+(i+1)),name:'',content:parsed.content,comments:[]});
+        }
+      });
+      this.book.chapters=newChapters;
+      this.mark();
+      this.showToast(this.t('Full text saved to chapters ✓'));
+    },
+    backToChapters(){
+      this.saveFullTextToChapters();
+      this.destroyFullTextQuill();
+      this.editorMode='chapters';
+      if(this.currentChapterId){
+        this.$nextTick(()=>this.initQuill());
+      }
+    },
+    /* chapter drag reorder */
+    onChapterDragStart(idx,e){
+      this.chapterDragIdx=idx;
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/chapter-reorder',String(idx));
+    },
+    onChapterDragOver(idx,e){
+      if(this.chapterDragIdx===null) return;
+      e.preventDefault();e.dataTransfer.dropEffect='move';
+    },
+    onChapterDrop(idx,e){
+      e.preventDefault();
+      const from=this.chapterDragIdx;
+      if(from===null||from===idx) return;
+      const ch=this.book.chapters.splice(from,1)[0];
+      this.book.chapters.splice(idx,0,ch);
+      this.chapterDragIdx=null;
+      this.mark();
+    },
+    onChapterDragEnd(){this.chapterDragIdx=null;},
+    /* add comment to current chapter */
+    addChapterComment(){
+      const ch=this.currentChapter();
+      if(!ch) return;
+      if(!this.quillInstance) return;
+      const range=this.quillInstance.getSelection();
+      const selectedText=range&&range.length>0?this.quillInstance.getText(range.index,range.length):'';
+      const commentText=prompt(this.t('Enter comment:'));
+      if(!commentText) return;
+      ch.comments.push({id:uid(),text:commentText,selection:selectedText,date:new Date().toLocaleDateString()});
+      this.mark();
+    },
+    removeComment(ch,commentId){
+      ch.comments=ch.comments.filter(c=>c.id!==commentId);
+      this.mark();
+    },
+    /* docx export */
+    async exportChapterDocx(ch,idx){
+      if(typeof docx==='undefined'){this.showToast('docx library not loaded');return;}
+      const title=ch.name?((idx+1)+'. '+ch.name):((idx+1)+'. '+ch.label);
+      const doc=new docx.Document({
+        sections:[{
+          properties:{},
+          children:this.htmlToDocxParagraphs(title,ch.content||''),
+        }],
+      });
+      const blob=await docx.Packer.toBlob(doc);
+      this.downloadBlob(blob,(ch.label||'chapter')+'.docx');
+    },
+    async exportFullTextDocx(){
+      if(typeof docx==='undefined'){this.showToast('docx library not loaded');return;}
+      this.saveCurrentChapterContent();
+      const sections=this.book.chapters.map((ch,i)=>{
+        const title=ch.name?((i+1)+'. '+ch.name):((i+1)+'. '+ch.label);
+        return {properties:{},children:this.htmlToDocxParagraphs(title,ch.content||'')};
+      });
+      const doc=new docx.Document({sections});
+      const blob=await docx.Packer.toBlob(doc);
+      this.downloadBlob(blob,(this.book.title||'book')+'.docx');
+    },
+    htmlToDocxParagraphs(title,htmlContent){
+      const paragraphs=[];
+      paragraphs.push(new docx.Paragraph({children:[new docx.TextRun({text:title,bold:true,size:32})],spacing:{after:200}}));
+      // Simple HTML to docx conversion: parse paragraphs from HTML
+      const tmp=document.createElement('div');
+      tmp.innerHTML=htmlContent;
+      const walk=(node)=>{
+        if(node.nodeType===3){
+          const txt=node.textContent;
+          if(txt.trim()) paragraphs.push(new docx.Paragraph({children:[new docx.TextRun({text:txt})]}));
+          return;
+        }
+        if(node.nodeType!==1) return;
+        const tag=node.tagName.toLowerCase();
+        if(tag==='p'||tag==='div'){
+          const runs=this.nodeToRuns(node);
+          if(runs.length) paragraphs.push(new docx.Paragraph({children:runs}));
+        } else if(tag==='h1'||tag==='h2'||tag==='h3'){
+          const runs=this.nodeToRuns(node);
+          paragraphs.push(new docx.Paragraph({children:runs,heading:tag==='h1'?docx.HeadingLevel.HEADING_1:tag==='h2'?docx.HeadingLevel.HEADING_2:docx.HeadingLevel.HEADING_3}));
+        } else if(tag==='ul'||tag==='ol'){
+          node.querySelectorAll('li').forEach(li=>{
+            const runs=this.nodeToRuns(li);
+            paragraphs.push(new docx.Paragraph({children:runs,bullet:tag==='ul'?{level:0}:undefined,numbering:tag==='ol'?{reference:'default-numbering',level:0}:undefined}));
+          });
+        } else if(tag==='blockquote'){
+          const runs=this.nodeToRuns(node);
+          paragraphs.push(new docx.Paragraph({children:runs,indent:{left:720}}));
+        } else {
+          for(const child of node.childNodes) walk(child);
+        }
+      };
+      for(const child of tmp.childNodes) walk(child);
+      if(!paragraphs.length) paragraphs.push(new docx.Paragraph({children:[new docx.TextRun({text:''})]}));
+      return paragraphs;
+    },
+    nodeToRuns(node){
+      const runs=[];
+      const gather=(n,bold,italic,underline,strike)=>{
+        if(n.nodeType===3){
+          const t=n.textContent;
+          if(t) runs.push(new docx.TextRun({text:t,bold,italics:italic,underline:underline?{type:docx.UnderlineType.SINGLE}:undefined,strike}));
+          return;
+        }
+        if(n.nodeType!==1) return;
+        const tag=n.tagName.toLowerCase();
+        const b2=bold||tag==='b'||tag==='strong';
+        const i2=italic||tag==='i'||tag==='em';
+        const u2=underline||tag==='u';
+        const s2=strike||tag==='s'||tag==='del';
+        for(const child of n.childNodes) gather(child,b2,i2,u2,s2);
+      };
+      gather(node,false,false,false,false);
+      return runs;
+    },
+    downloadBlob(blob,filename){
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download=filename;
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+    /* import file */
+    triggerFileImport(){
+      this.$refs.fileImportInput.click();
+    },
+    async handleFileImport(e){
+      const file=e.target.files[0];
+      if(!file) return;
+      const ext=file.name.split('.').pop().toLowerCase();
+      try{
+        let html='';
+        if(ext==='txt'){
+          const text=await file.text();
+          html=text.split('\n').map(l=>'<p>'+(l||'<br>')+'</p>').join('');
+        } else if(ext==='docx'||ext==='doc'){
+          if(typeof mammoth==='undefined'){this.showToast('mammoth library not loaded');return;}
+          const arrayBuffer=await file.arrayBuffer();
+          const result=await mammoth.convertToHtml({arrayBuffer});
+          html=result.value;
+        } else {
+          this.showToast(this.t('Unsupported file type'));return;
+        }
+        // Create a new chapter from the imported file
+        const label=file.name.replace(/\.(docx?|txt)$/i,'');
+        const ch={id:uid(),label,name:'',content:html,comments:[]};
+        this.book.chapters.push(ch);
+        this.selectChapter(ch.id);
+        this.mark();
+        this.showToast(this.t('File imported ✓'));
+      }catch(err){
+        console.error(err);
+        this.showToast(this.t('Import failed!'));
+      }
+      e.target.value='';
+    },
     /* ── keyboard ────────────────────── */
     onKey(e){
       if(e.key==='Delete'||e.key==='Backspace'){
         if(this.activeTab==='Locations'&&this.selectedObjId&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA')
           this.deleteSelectedObj();
+      }
+      // Undo/redo in Quill is handled natively by Quill's history module
+    },
+  },
+  watch:{
+    activeTab(newVal,oldVal){
+      if(oldVal==='Text Editor'){
+        this.saveCurrentChapterContent();
+        this.destroyQuill();
+        this.destroyFullTextQuill();
       }
     },
   },
@@ -1582,6 +1927,95 @@ createApp({
           <input v-model="newUrl" placeholder="https://…" @keyup.enter="addUrl"/>
           <button @click="addUrl">+</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ TEXT EDITOR ═══════════════ -->
+  <section v-if="activeTab==='Text Editor'">
+    <div class="tab-header"><h3>{{t('Text Editor')}}</h3>
+      <div class="tab-actions">
+        <button @click="newChapter.open=true">{{t('+ Add Chapter')}}</button>
+        <button @click="triggerFileImport">{{t('📄 Import File')}}</button>
+        <button v-if="editorMode==='chapters'" @click="openFullText">{{t('📖 Full Text')}}</button>
+        <button v-if="editorMode==='chapters'" @click="exportFullTextDocx" :disabled="!book.chapters.length">{{t('💾 Export DOCX')}}</button>
+        <button class="save-btn" @click="saveBook">{{t('💾 Save')}}</button>
+      </div>
+    </div>
+    <input ref="fileImportInput" type="file" accept=".docx,.doc,.txt" style="display:none" @change="handleFileImport"/>
+
+    <!-- Add Chapter Dialog -->
+    <div v-if="newChapter.open" class="form-card">
+      <h4>{{t('New Chapter')}}</h4>
+      <div class="field"><label>{{t('Chapter Label')}} *</label><input v-model="newChapter.label" :placeholder="t('e.g. CH1, Intro, Prologue')" @keyup.enter="addChapter"/></div>
+      <div class="field"><label>{{t('Chapter Name')}} <span class="muted-sm">({{t('optional')}})</span></label><input v-model="newChapter.name" :placeholder="t('e.g. The Beginning')" @keyup.enter="addChapter"/></div>
+      <div class="form-actions"><button class="primary" @click="addChapter" :disabled="!newChapter.label.trim()">{{t('Add')}}</button><button @click="newChapter.open=false">{{t('Cancel')}}</button></div>
+    </div>
+
+    <div class="te-layout">
+      <!-- Chapter sidebar -->
+      <div class="te-sidebar">
+        <h4 class="te-sidebar-title">{{t('Chapters')}}</h4>
+        <div v-if="!book.chapters.length" class="te-empty-msg">{{t('No chapters yet.')}}</div>
+        <div class="te-chapter-list">
+          <div v-for="(ch,idx) in book.chapters" :key="ch.id"
+               class="te-chapter-card" :class="{active:currentChapterId===ch.id, dragging:chapterDragIdx===idx}"
+               draggable="true"
+               @dragstart="onChapterDragStart(idx,$event)"
+               @dragover="onChapterDragOver(idx,$event)"
+               @drop="onChapterDrop(idx,$event)"
+               @dragend="onChapterDragEnd"
+               @click="selectChapter(ch.id)">
+            <div class="te-ch-number">{{idx+1}}</div>
+            <div class="te-ch-info">
+              <div class="te-ch-label">{{ch.label}}</div>
+              <div v-if="ch.name" class="te-ch-name">{{ch.name}}</div>
+            </div>
+            <div class="te-ch-actions">
+              <button class="icon-btn sm" @click.stop="exportChapterDocx(ch,idx)" title="Export DOCX">📥</button>
+              <button class="icon-btn sm" @click.stop="removeChapter(ch.id)" :title="t('Delete')">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Editor pane -->
+      <div class="te-editor-pane">
+        <template v-if="editorMode==='chapters'">
+          <div v-if="currentChapterId&&currentChapter()" class="te-editor-active">
+            <div class="te-editor-header">
+              <span class="te-editor-title">{{(book.chapters.findIndex(c=>c.id===currentChapterId)+1)}}. {{currentChapter().name||currentChapter().label}}</span>
+              <div class="te-editor-toolbar-extra">
+                <button class="te-btn-sm" @click="addChapterComment" :title="t('Add Comment')">💬 {{t('Comment')}}</button>
+                <button class="te-btn-sm" @click="exportChapterDocx(currentChapter(),book.chapters.findIndex(c=>c.id===currentChapterId))">📥 DOCX</button>
+              </div>
+            </div>
+            <div ref="chapterEditor" class="te-quill-wrap"></div>
+            <!-- Comments panel -->
+            <div v-if="currentChapter().comments&&currentChapter().comments.length" class="te-comments">
+              <h5>💬 {{t('Comments')}} ({{currentChapter().comments.length}})</h5>
+              <div v-for="cmt in currentChapter().comments" :key="cmt.id" class="te-comment">
+                <div class="te-cmt-header"><span class="te-cmt-date">{{cmt.date}}</span><button class="icon-btn sm" @click="removeComment(currentChapter(),cmt.id)">✕</button></div>
+                <div v-if="cmt.selection" class="te-cmt-selection">"{{cmt.selection}}"</div>
+                <div class="te-cmt-text">{{cmt.text}}</div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="te-editor-empty">
+            <p>{{t('Select a chapter to start editing, or add a new chapter.')}}</p>
+          </div>
+        </template>
+
+        <template v-if="editorMode==='fulltext'">
+          <div class="te-fulltext-header">
+            <span class="te-editor-title">📖 {{t('Full Text')}}</span>
+            <div class="te-editor-toolbar-extra">
+              <button class="te-btn-sm" @click="backToChapters">{{t('← Back to Chapters')}}</button>
+              <button class="te-btn-sm" @click="exportFullTextDocx">📥 {{t('Export DOCX')}}</button>
+            </div>
+          </div>
+          <div ref="fullTextEditor" class="te-quill-wrap te-quill-fulltext"></div>
+        </template>
       </div>
     </div>
   </section>
