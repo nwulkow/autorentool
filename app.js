@@ -265,6 +265,8 @@ const I18N={de:{
   'Export DOCX':'DOCX exportieren','Full text saved to chapters ✓':'Volltext in Kapitel gespeichert ✓',
   'File imported ✓':'Datei importiert ✓','Import failed!':'Import fehlgeschlagen!',
   'Unsupported file type':'Nicht unterstützter Dateityp',
+  'Font':'Schrift','Size':'Größe','Layout':'Layout',
+  'Zoom':'Zoom','words':'Wörter','total':'gesamt',
 }};
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -288,6 +290,11 @@ createApp({
     chapterDragIdx:null,
     quillInstance:null,
     fullTextQuill:null,
+    teSidebarWidth:260,
+    teResizing:false,
+    teLayout:'A4',
+    teZoom:100,
+    highlightedCommentId:null,
     // characters
     newChar:{open:false,name:'',description:''},
     tagInputs:{}, tagDropdownCharId:null,
@@ -295,7 +302,7 @@ createApp({
     canvasNodes:[], linkMode:false, linkSourceId:null, canvasPaneWidth:0, canvasWrapHeight:0, selectedNodeIds:[],
     linkModal:{open:false,c1:null,c2:null,type:''},
     // event orders
-    eventOrders:[], currentOrderId:null, tlConfigOpen:false, editingEvtId:null, eoSelectedTags:[],
+    eventOrders:[], currentOrderId:null, tlConfigOpen:false, editingEvtId:null, eoSelectedTags:[], eoDropIndicator:null,
     // questions
     newQText:'',
     // locations
@@ -685,20 +692,19 @@ createApp({
       if(e.dataTransfer.types.includes('text/col-reorder')) return;
       if(this.currentOrder.characterColumns.some(c=>c.characterId===id)) return;
       const newCol={characterId:id,events:[]};
-      // find insertion index from drop X position
+      this.eoDropIndicator=null;
+      // find insertion index by checking each column element
       const scrollEl=this.$refs.tlScroll;
       if(scrollEl){
-        const dropX=e.clientX-scrollEl.getBoundingClientRect().left+scrollEl.scrollLeft;
-        const axisW=90;
+        const colEls=scrollEl.querySelectorAll('.tl-col');
         const cols=this.currentOrder.characterColumns;
-        if(cols.length>0){
-          const colW=scrollEl.querySelector('.tl-col');
-          const cw=colW?colW.offsetWidth:220;
-          const idx=Math.min(cols.length,Math.max(0,Math.round((dropX-axisW)/cw)));
-          cols.splice(idx,0,newCol);
-        } else {
-          cols.push(newCol);
+        let insertIdx=cols.length; // default: append
+        for(let i=0;i<colEls.length;i++){
+          const rect=colEls[i].getBoundingClientRect();
+          const midX=rect.left+rect.width/2;
+          if(e.clientX<midX){ insertIdx=i; break; }
         }
+        cols.splice(insertIdx,0,newCol);
       } else {
         this.currentOrder.characterColumns.push(newCol);
       }
@@ -738,33 +744,51 @@ createApp({
       if(e.dataTransfer.types.includes('text/col-reorder')){
         if(this.colDragIdx===null) return;
         e.preventDefault(); e.dataTransfer.dropEffect='move';
+        // left/right half indicator
+        const rect=e.currentTarget.getBoundingClientRect();
+        const side=e.clientX<rect.left+rect.width/2?'left':'right';
+        const colIdx=this.currentOrder.characterColumns.indexOf(col);
+        this.eoDropIndicator={colIdx,side};
       } else if(e.dataTransfer.types.includes('text/plain')){
         e.preventDefault(); e.dataTransfer.dropEffect='copy';
+        // left/right half indicator
+        const rect=e.currentTarget.getBoundingClientRect();
+        const side=e.clientX<rect.left+rect.width/2?'left':'right';
+        const colIdx=this.currentOrder.characterColumns.indexOf(col);
+        this.eoDropIndicator={colIdx,side};
       }
     },
     onColDrop(col,e){
+      this.eoDropIndicator=null;
+      // detect left/right half
+      const rect=e.currentTarget.getBoundingClientRect();
+      const dropRight=e.clientX>=rect.left+rect.width/2;
       // column reorder
       if(e.dataTransfer.types.includes('text/col-reorder')&&this.colDragIdx!==null){
         e.preventDefault(); e.stopPropagation();
         const cols=this.currentOrder.characterColumns;
-        const toIdx=cols.indexOf(col);
+        let toIdx=cols.indexOf(col);
         if(toIdx===-1||this.colDragIdx===toIdx){this.colDragIdx=null;return;}
         const [moved]=cols.splice(this.colDragIdx,1);
-        cols.splice(toIdx,0,moved);
+        // recalculate toIdx after removal
+        toIdx=cols.indexOf(col);
+        const insertAt=dropRight?toIdx+1:toIdx;
+        cols.splice(insertAt,0,moved);
         this.colDragIdx=null;this.mark();
         return;
       }
-      // character chip drop onto a column header → insert before that column
+      // character chip drop onto a column header
       const id=e.dataTransfer.getData('text/plain');
       if(id&&this.currentOrder&&!this.currentOrder.characterColumns.some(c=>c.characterId===id)){
         e.preventDefault(); e.stopPropagation();
         const cols=this.currentOrder.characterColumns;
         const toIdx=cols.indexOf(col);
-        cols.splice(toIdx===-1?cols.length:toIdx,0,{characterId:id,events:[]});
+        const insertAt=toIdx===-1?cols.length:(dropRight?toIdx+1:toIdx);
+        cols.splice(insertAt,0,{characterId:id,events:[]});
         this.mark();
       }
     },
-    onColDragEnd(){this.colDragIdx=null;},
+    onColDragEnd(){this.colDragIdx=null;this.eoDropIndicator=null;},
     // timeline config helpers
     addCustomLabel(){
       const cfg=this.currentOrder.timelineConfig;
@@ -967,20 +991,30 @@ createApp({
     },
     removeChapter(id){
       if(!this.book) return;
+      if(this.currentChapterId===id){
+        if(this.quillInstance){this.quillInstance.off('text-change');this.quillInstance=null;}
+        this._quillChapterId=null;
+        this.currentChapterId=null;
+      }
       this.book.chapters=this.book.chapters.filter(c=>c.id!==id);
-      if(this.currentChapterId===id){this.currentChapterId=null;this.destroyQuill();}
       this.mark();
     },
     selectChapter(id){
-      // save current chapter content before switching
-      this.saveCurrentChapterContent();
+      // save content for the chapter we are leaving, using _quillChapterId
+      if(this.quillInstance&&this._quillChapterId){
+        const old=this.book.chapters.find(c=>c.id===this._quillChapterId);
+        if(old) old.content=this.quillInstance.root.innerHTML;
+        this.quillInstance.off('text-change');
+        this.quillInstance=null;
+      }
+      this._quillChapterId=null;
       this.currentChapterId=id;
       this.editorMode='chapters';
       this.$nextTick(()=>this.initQuill());
     },
     saveCurrentChapterContent(){
-      if(this.quillInstance&&this.currentChapterId){
-        const ch=this.book.chapters.find(c=>c.id===this.currentChapterId);
+      if(this.quillInstance&&this._quillChapterId){
+        const ch=this.book.chapters.find(c=>c.id===this._quillChapterId);
         if(ch) ch.content=this.quillInstance.root.innerHTML;
       }
     },
@@ -989,16 +1023,31 @@ createApp({
       return this.book.chapters.find(c=>c.id===this.currentChapterId)||null;
     },
     initQuill(){
-      this.destroyQuill();
+      // Defensive: clean up leftover instance (should not happen with :key)
+      if(this.quillInstance){
+        this.quillInstance.off('text-change');
+        this.quillInstance=null;
+      }
       const container=this.$refs.chapterEditor;
       if(!container) return;
-      container.innerHTML='';
+      // Register font & size whitelists with Quill (use slugs for clean CSS classes)
+      const Font=Quill.import('formats/font');
+      Font.whitelist=['times-new-roman','arial','palatino'];
+      Quill.register(Font,true);
+      const Size=Quill.import('formats/size');
+      Size.whitelist=['8px','9px','10px','11px','12px','13px','14px'];
+      Quill.register(Size,true);
+      // Capture the chapter id so saves always target the right chapter
+      const chId=this.currentChapterId;
+      this._quillChapterId=chId;
       this.quillInstance=new Quill(container,{
         theme:'snow',
         placeholder:this.t('Start writing…'),
         modules:{
           toolbar:[
             [{header:[1,2,3,false]}],
+            [{font:Font.whitelist}],
+            [{size:Size.whitelist}],
             ['bold','italic','underline','strike'],
             [{color:[]},{background:[]}],
             [{list:'ordered'},{list:'bullet'}],
@@ -1011,11 +1060,27 @@ createApp({
           history:{delay:500,maxStack:200,userOnly:true},
         },
       });
-      const ch=this.currentChapter();
+      const ch=this.book.chapters.find(c=>c.id===chId);
       if(ch&&ch.content){
         this.quillInstance.root.innerHTML=ch.content;
       }
-      this.quillInstance.on('text-change',()=>{this.mark();});
+      // Prevent toolbar mousedown from stealing focus / clearing selection
+      const toolbarEl=container.querySelector('.ql-toolbar');
+      if(toolbarEl){
+        toolbarEl.addEventListener('mousedown',(e)=>{
+          e.preventDefault();
+        });
+      }
+      // Apply current zoom level
+      this.applyTeZoom();
+      this.quillInstance.on('text-change',()=>{
+        // Always save to the chapter this Quill was created for
+        if(this.quillInstance&&this._quillChapterId===chId){
+          const target=this.book.chapters.find(c=>c.id===chId);
+          if(target) target.content=this.quillInstance.root.innerHTML;
+        }
+        this.mark();
+      });
     },
     destroyQuill(){
       if(this.quillInstance){
@@ -1023,6 +1088,7 @@ createApp({
         this.quillInstance.off('text-change');
         this.quillInstance=null;
       }
+      this._quillChapterId=null;
     },
     openFullText(){
       this.saveCurrentChapterContent();
@@ -1033,7 +1099,12 @@ createApp({
       this.destroyFullTextQuill();
       const container=this.$refs.fullTextEditor;
       if(!container) return;
+      const parent=container.parentNode;
+      if(parent){
+        parent.querySelectorAll('.ql-toolbar').forEach(el=>el.remove());
+      }
       container.innerHTML='';
+      container.className='te-quill-wrap te-quill-fulltext';
       this.fullTextQuill=new Quill(container,{
         theme:'snow',
         placeholder:this.t('Full text appears here…'),
@@ -1064,6 +1135,15 @@ createApp({
     destroyFullTextQuill(){
       if(this.fullTextQuill){
         this.fullTextQuill.off('text-change');
+        const container=this.$refs.fullTextEditor;
+        if(container){
+          const parent=container.parentNode;
+          if(parent){
+            parent.querySelectorAll('.ql-toolbar').forEach(el=>el.remove());
+          }
+          container.innerHTML='';
+          container.className='te-quill-wrap te-quill-fulltext';
+        }
         this.fullTextQuill=null;
       }
     },
@@ -1136,17 +1216,113 @@ createApp({
     addChapterComment(){
       const ch=this.currentChapter();
       if(!ch) return;
-      if(!this.quillInstance) return;
-      const range=this.quillInstance.getSelection();
-      const selectedText=range&&range.length>0?this.quillInstance.getText(range.index,range.length):'';
+      // Save selection BEFORE prompt() steals focus
+      let selectedText='',rangeIndex=null,rangeLength=null;
+      if(this.quillInstance){
+        const range=this.quillInstance.getSelection();
+        if(range&&range.length>0){
+          selectedText=this.quillInstance.getText(range.index,range.length);
+          rangeIndex=range.index;
+          rangeLength=range.length;
+        }
+      }
       const commentText=prompt(this.t('Enter comment:'));
       if(!commentText) return;
-      ch.comments.push({id:uid(),text:commentText,selection:selectedText,date:new Date().toLocaleDateString()});
+      ch.comments.push({id:uid(),text:commentText,selection:selectedText,rangeIndex,rangeLength,date:new Date().toLocaleDateString()});
       this.mark();
+    },
+    goToComment(cmt){
+      if(!this.quillInstance||cmt.rangeIndex==null||cmt.rangeLength==null) return;
+      // Clear previous highlight
+      this.clearCommentHighlight();
+      this.highlightedCommentId=cmt.id;
+      try{
+        // Scroll into view
+        const bounds=this.quillInstance.getBounds(cmt.rangeIndex,cmt.rangeLength||1);
+        const scrollWrap=this.quillInstance.root.closest('.te-quill-wrap');
+        if(bounds&&scrollWrap){
+          scrollWrap.scrollTop=bounds.top-60;
+        }
+        // Apply highlight background
+        this.quillInstance.formatText(cmt.rangeIndex,cmt.rangeLength||1,'background','#ffe066');
+        // Auto-remove highlight after 3 seconds
+        this._cmtHighlightTimer=setTimeout(()=>this.clearCommentHighlight(),3000);
+      }catch(e){/* range may be stale */}
+    },
+    clearCommentHighlight(){
+      if(this._cmtHighlightTimer) clearTimeout(this._cmtHighlightTimer);
+      this.highlightedCommentId=null;
+      // Remove all #ffe066 background — re-apply content to clear
+      if(this.quillInstance){
+        const len=this.quillInstance.getLength();
+        // Only remove our specific highlight color
+        const delta=this.quillInstance.getContents();
+        let idx=0;
+        delta.ops.forEach(op=>{
+          const opLen=typeof op.insert==='string'?op.insert.length:1;
+          if(op.attributes&&op.attributes.background==='#ffe066'){
+            this.quillInstance.formatText(idx,opLen,'background',false);
+          }
+          idx+=opLen;
+        });
+      }
     },
     removeComment(ch,commentId){
       ch.comments=ch.comments.filter(c=>c.id!==commentId);
       this.mark();
+    },
+    /* zoom in / out — apply via font-size on ql-editor */
+    teZoomIn(){
+      this.teZoom=Math.min(200,this.teZoom+10);
+      this.applyTeZoom();
+    },
+    teZoomOut(){
+      this.teZoom=Math.max(50,this.teZoom-10);
+      this.applyTeZoom();
+    },
+    applyTeZoom(){
+      if(!this.quillInstance) return;
+      const editor=this.quillInstance.root;
+      if(editor) editor.style.fontSize=(this.teZoom)+'%';
+    },
+    /* word counts */
+    wordCount(html){
+      if(!html) return 0;
+      const tmp=document.createElement('div');
+      tmp.innerHTML=html;
+      const text=tmp.textContent||tmp.innerText||'';
+      const words=text.trim().split(/\s+/).filter(w=>w.length>0);
+      return words.length;
+    },
+    chapterWordCount(ch){
+      return this.wordCount(ch.content);
+    },
+    totalWordCount(){
+      if(!this.book||!this.book.chapters) return 0;
+      return this.book.chapters.reduce((sum,ch)=>sum+this.wordCount(ch.content),0);
+    },
+    /* add character to event order on click */
+    onCharChipClick(chId){
+      if(!this.currentOrder) return;
+      if(this.currentOrder.characterColumns.some(c=>c.characterId===chId)) return;
+      this.currentOrder.characterColumns.push({characterId:chId,events:[]});
+      this.mark();
+    },
+    /* sidebar resize */
+    onTeSidebarResizeStart(e){
+      e.preventDefault();
+      this.teResizing=true;
+      const startX=e.clientX,startW=this.teSidebarWidth;
+      const onMove=ev=>{
+        this.teSidebarWidth=Math.max(160,Math.min(500,startW+(ev.clientX-startX)));
+      };
+      const onUp=()=>{
+        this.teResizing=false;
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      };
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
     },
     /* docx export */
     async exportChapterDocx(ch,idx){
@@ -1522,7 +1698,8 @@ createApp({
         <div v-for="ch in book.characters" :key="'tc'+ch.id" class="tc-chip"
              :style="{borderColor:charColor(ch.id)}"
              :class="{used:currentOrder.characterColumns.some(c=>c.characterId===ch.id)}"
-             draggable="true" @dragstart="e=>{e.dataTransfer.setData('text/plain',ch.id)}">
+             draggable="true" @dragstart="e=>{e.dataTransfer.setData('text/plain',ch.id)}"
+             @click="onCharChipClick(ch.id)">
           {{ch.name}}
         </div>
         <button class="tc-general-btn" @click="addGeneralColumn"
@@ -1558,8 +1735,9 @@ createApp({
         <!-- columns -->
         <div v-for="col in filteredOrderColumns" :key="'col'+(col.characterId||'general')" class="tl-col" :style="tlColStyle">
           <div class="tl-col-header" :style="{background:charColorLight(col.characterId),borderBottomColor:charColor(col.characterId)}"
+               :class="{'eo-drop-left':eoDropIndicator&&eoDropIndicator.colIdx===filteredOrderColumns.indexOf(col)&&eoDropIndicator.side==='left','eo-drop-right':eoDropIndicator&&eoDropIndicator.colIdx===filteredOrderColumns.indexOf(col)&&eoDropIndicator.side==='right'}"
                draggable="true" @dragstart="onColDragStart(col,$event)" @dragover="onColDragOver(col,$event)"
-               @drop="onColDrop(col,$event)" @dragend="onColDragEnd">
+               @drop="onColDrop(col,$event)" @dragend="onColDragEnd" @dragleave="eoDropIndicator=null">
             {{charName(col.characterId)}}
             <button class="icon-btn sm" @click="removeColumn(col)" title="Remove column">✕</button>
           </div>
@@ -1954,7 +2132,7 @@ createApp({
 
     <div class="te-layout">
       <!-- Chapter sidebar -->
-      <div class="te-sidebar">
+      <div class="te-sidebar" :style="{width:teSidebarWidth+'px',minWidth:teSidebarWidth+'px'}">
         <h4 class="te-sidebar-title">{{t('Chapters')}}</h4>
         <div v-if="!book.chapters.length" class="te-empty-msg">{{t('No chapters yet.')}}</div>
         <div class="te-chapter-list">
@@ -1970,6 +2148,7 @@ createApp({
             <div class="te-ch-info">
               <div class="te-ch-label">{{ch.label}}</div>
               <div v-if="ch.name" class="te-ch-name">{{ch.name}}</div>
+              <div class="te-ch-words">{{chapterWordCount(ch)}} {{t('words')}}</div>
             </div>
             <div class="te-ch-actions">
               <button class="icon-btn sm" @click.stop="exportChapterDocx(ch,idx)" title="Export DOCX">📥</button>
@@ -1979,23 +2158,37 @@ createApp({
         </div>
       </div>
 
+      <!-- Resize handle -->
+      <div class="te-resize-handle" @mousedown="onTeSidebarResizeStart"></div>
+
       <!-- Editor pane -->
       <div class="te-editor-pane">
         <template v-if="editorMode==='chapters'">
-          <div v-if="currentChapterId&&currentChapter()" class="te-editor-active">
+          <div v-if="currentChapterId&&currentChapter()" class="te-editor-active" :key="currentChapterId">
             <div class="te-editor-header">
               <span class="te-editor-title">{{(book.chapters.findIndex(c=>c.id===currentChapterId)+1)}}. {{currentChapter().name||currentChapter().label}}</span>
               <div class="te-editor-toolbar-extra">
+                <select class="te-select-sm" v-model="teLayout" :title="t('Layout')">
+                  <option value="A4">A4</option>
+                  <option value="A5">A5</option>
+                </select>
+                <span class="te-zoom-controls">
+                  <button class="te-btn-sm" @click="teZoomOut" title="Zoom out">−</button>
+                  <span class="te-zoom-label">{{teZoom}}%</span>
+                  <button class="te-btn-sm" @click="teZoomIn" title="Zoom in">+</button>
+                </span>
                 <button class="te-btn-sm" @click="addChapterComment" :title="t('Add Comment')">💬 {{t('Comment')}}</button>
                 <button class="te-btn-sm" @click="exportChapterDocx(currentChapter(),book.chapters.findIndex(c=>c.id===currentChapterId))">📥 DOCX</button>
               </div>
             </div>
-            <div ref="chapterEditor" class="te-quill-wrap"></div>
+            <div ref="chapterEditor" class="te-quill-wrap" :class="{'te-layout-a5':teLayout==='A5'}"></div>
+            <!-- Word count bar -->
+            <div class="te-wordcount-bar">{{totalWordCount()}} {{t('words')}} {{t('total')}}</div>
             <!-- Comments panel -->
             <div v-if="currentChapter().comments&&currentChapter().comments.length" class="te-comments">
               <h5>💬 {{t('Comments')}} ({{currentChapter().comments.length}})</h5>
-              <div v-for="cmt in currentChapter().comments" :key="cmt.id" class="te-comment">
-                <div class="te-cmt-header"><span class="te-cmt-date">{{cmt.date}}</span><button class="icon-btn sm" @click="removeComment(currentChapter(),cmt.id)">✕</button></div>
+              <div v-for="cmt in currentChapter().comments" :key="cmt.id" class="te-comment" :class="{'te-cmt-active':highlightedCommentId===cmt.id}" @click="goToComment(cmt)" style="cursor:pointer">
+                <div class="te-cmt-header"><span class="te-cmt-date">{{cmt.date}}</span><button class="icon-btn sm" @click.stop="removeComment(currentChapter(),cmt.id)">✕</button></div>
                 <div v-if="cmt.selection" class="te-cmt-selection">"{{cmt.selection}}"</div>
                 <div class="te-cmt-text">{{cmt.text}}</div>
               </div>

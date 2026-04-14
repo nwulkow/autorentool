@@ -315,10 +315,10 @@ textarea{min-height:80px;resize:vertical}
 .tc-chip{
   padding:6px 14px;background:#fff;border:2px solid #ccc;
   border-radius:20px;font-size:13px;font-weight:600;
-  cursor:grab;user-select:none;transition:all .15s;
+  cursor:pointer;user-select:none;transition:all .15s;
 }
-.tc-chip:hover{transform:translateY(-1px)}
-.tc-chip.used{opacity:.4;cursor:default}
+.tc-chip:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.tc-chip.used{opacity:.4;cursor:default;pointer-events:none}
 .tc-general-btn{
   padding:6px 14px;background:#f0f0f0;border:2px dashed #888;
   border-radius:20px;font-size:13px;font-weight:600;color:#555;
@@ -749,9 +749,19 @@ textarea{min-height:80px;resize:vertical}
 
 /* ── chapter sidebar ── */
 .te-sidebar{
-  width:260px;min-width:220px;border-right:1px solid var(--line);
-  background:#faf8f5;display:flex;flex-direction:column;overflow-y:auto;
+  width:260px;min-width:160px;max-width:500px;border-right:none;
+  background:#faf8f5;display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;
 }
+
+/* ── resize handle ── */
+.te-resize-handle{
+  width:6px;min-width:6px;cursor:col-resize;background:var(--line);
+  transition:background .15s;flex-shrink:0;
+}
+.te-resize-handle:hover,.te-resize-handle:active{
+  background:var(--accent);
+}
+
 .te-sidebar-title{
   padding:16px 16px 12px;font-size:14px;font-weight:700;
   color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
@@ -800,13 +810,13 @@ textarea{min-height:80px;resize:vertical}
 .te-editor-header,.te-fulltext-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:12px 20px;border-bottom:1px solid var(--line);
-  background:#faf8f5;flex-shrink:0;
+  background:#faf8f5;flex-shrink:0;flex-wrap:wrap;gap:8px;
 }
 .te-editor-title{
   font-size:16px;font-weight:600;color:var(--text);
 }
 .te-editor-toolbar-extra{
-  display:flex;gap:8px;align-items:center;
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
 }
 .te-btn-sm{
   border:1px solid var(--line);background:var(--panel);color:var(--text);
@@ -814,6 +824,11 @@ textarea{min-height:80px;resize:vertical}
   font-size:12px;font-weight:500;transition:all .15s;
 }
 .te-btn-sm:hover{border-color:#bbb5a6;background:#f5f2ec}
+.te-select-sm{
+  border:1px solid var(--line);background:var(--panel);color:var(--text);
+  border-radius:6px;padding:4px 8px;font-size:12px;font-weight:500;
+  cursor:pointer;width:auto;min-width:0;
+}
 
 .te-quill-wrap{
   flex:1;overflow-y:auto;display:flex;flex-direction:column;
@@ -830,6 +845,72 @@ textarea{min-height:80px;resize:vertical}
   padding:24px 40px;min-height:300px;
 }
 .te-quill-wrap .ql-editor:focus{outline:none}
+
+/* Quill font family display names — 3 fonts with slug keys */
+.ql-snow .ql-picker.ql-font{width:170px}
+.ql-snow .ql-picker.ql-font .ql-picker-label::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item::before{content:'Palatino';font-family:'Palatino Linotype','Book Antiqua',Palatino,serif}
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="times-new-roman"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="times-new-roman"]::before{content:'Times New Roman';font-family:'Times New Roman',Times,serif}
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before{content:'Arial';font-family:Arial,Helvetica,sans-serif}
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="palatino"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="palatino"]::before{content:'Palatino';font-family:'Palatino Linotype','Book Antiqua',Palatino,serif}
+
+/* Quill font family application — slug-based CSS classes */
+.ql-font-times-new-roman{font-family:'Times New Roman',Times,serif}
+.ql-font-arial{font-family:Arial,Helvetica,sans-serif}
+.ql-font-palatino{font-family:'Palatino Linotype','Book Antiqua',Palatino,serif}
+
+/* Quill size display — sizes 8 to 14 */
+.ql-snow .ql-picker.ql-size{width:60px}
+.ql-snow .ql-picker.ql-size .ql-picker-label::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item::before{content:'11'}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="8px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="8px"]::before{content:'8'}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="9px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="9px"]::before{content:'9'}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before{content:'10'}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="11px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="11px"]::before{content:'11'}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before{content:'12'}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="13px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="13px"]::before{content:'13'}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before{content:'14'}
+
+/* Quill size application */
+.ql-size-8px{font-size:8px}
+.ql-size-9px{font-size:9px}
+.ql-size-10px{font-size:10px}
+.ql-size-11px{font-size:11px}
+.ql-size-12px{font-size:12px}
+.ql-size-13px{font-size:13px}
+.ql-size-14px{font-size:14px}
+
+/* Zoom */
+.te-zoom-controls{display:flex;align-items:center;gap:4px}
+.te-zoom-label{font-size:12px;color:var(--muted);min-width:36px;text-align:center}
+
+/* Word count */
+.te-ch-words{font-size:11px;color:var(--muted);margin-top:1px}
+.te-wordcount-bar{
+  padding:6px 20px;font-size:12px;color:var(--muted);
+  border-top:1px solid var(--line);background:#faf8f5;flex-shrink:0;text-align:right;
+}
+
+/* Drop indicator on column headers */
+.eo-drop-left{box-shadow:inset 3px 0 0 0 var(--accent) !important}
+.eo-drop-right{box-shadow:inset -3px 0 0 0 var(--accent) !important}
+
+/* A5 page layout simulation */
+.te-layout-a5 .ql-editor{
+  max-width:520px;margin:0 auto;padding:32px 36px;
+  background:#fff;box-shadow:0 0 12px rgba(0,0,0,.06);
+}
+
 .te-quill-fulltext .ql-editor h2{
   color:var(--accent);border-bottom:1px solid var(--line);
   padding-bottom:8px;margin:32px 0 16px;
@@ -849,8 +930,10 @@ textarea{min-height:80px;resize:vertical}
 .te-comments h5{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--muted)}
 .te-comment{
   padding:10px 12px;background:var(--panel);border:1px solid var(--line);
-  border-radius:var(--radius-sm);margin-bottom:8px;
+  border-radius:var(--radius-sm);margin-bottom:8px;transition:all .15s;
 }
+.te-comment:hover{border-color:var(--accent);box-shadow:0 0 0 2px rgba(74,125,255,.1)}
+.te-cmt-active{border-color:var(--accent) !important;background:rgba(74,125,255,.06) !important}
 .te-cmt-header{
   display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;
 }
