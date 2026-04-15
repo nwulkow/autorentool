@@ -45,7 +45,11 @@ function niceInterval(range){
 function serializeBook(state){
   const b=state.book;
   return {
-    title:b.title, author:b.author, chapters:b.chapters, tags:b.tags||[],
+    title:b.title, author:b.author, tags:b.tags||[],
+    chapters:(b.chapters||[]).map(c=>({
+      id:c.id, label:c.label, name:c.name, content:c.content||'',
+      comments:(c.comments||[]).map(cm=>({id:cm.id,text:cm.text,selection:cm.selection||'',rangeIndex:cm.rangeIndex,rangeLength:cm.rangeLength,date:cm.date}))
+    })),
     characters:b.characters.map(c=>({id:c.id,name:c.name,description:c.description,tags:c.tags||[]})),
     character_relations:b.character_relations.map(r=>({
       id:r.id, character1_id:r.character1Id, character2_id:r.character2Id, relation_type:r.relationType
@@ -53,7 +57,7 @@ function serializeBook(state){
     canvas_nodes:state.canvasNodes.map(n=>({character_id:n.characterId,x:n.x,y:n.y})),
     questions:b.questions.map(q=>({id:q.id,text:q.text,answer:q.answer,answered:q.answered})),
     event_orders:state.eventOrders.map(o=>({
-      id:o.id, name:o.name, timeline_config:o.timelineConfig,
+      id:o.id, name:o.name, timeline_config:JSON.parse(JSON.stringify(o.timelineConfig)),
       character_columns:o.characterColumns.map(col=>({
         character_id:col.characterId,
         events:col.events.map(e=>({id:e.id,description:e.description,y_pos:e.yPos,height:e.height,time:e.time,location_id:e.locationId||null}))
@@ -61,9 +65,13 @@ function serializeBook(state){
     })),
     locations:b.locations.map(loc=>({
       id:loc.id,name:loc.name,description:loc.description,
-      width:loc.width,height:loc.height,unit:loc.unit,objects:loc.objects
+      width:loc.width,height:loc.height,unit:loc.unit,objects:JSON.parse(JSON.stringify(loc.objects||[]))
     })),
-    topics:(b.topics||[]).map(t=>({id:t.id,name:t.name,notes:t.notes,url_links:t.urlLinks})),
+    topics:(b.topics||[]).map(t=>({
+      id:t.id,name:t.name,
+      notes:(t.notes||[]).map(n=>({id:n.id,text:n.text,color:n.color})),
+      url_links:t.urlLinks||[]
+    })),
   };
 }
 
@@ -137,29 +145,30 @@ function genDateMarkers(cfg){
 }
 function timeFromY(yPos,markers,cfg){
   if(!markers.length) return '';
+  const TOP_PAD=16; // must match markerY TOP_PAD
+  const y=Math.max(0,yPos-TOP_PAD);
   const gs=cfg.gap_sizes;
-  if(gs&&gs.length){
+  if(gs&&gs.length&&gs.length===markers.length){
     let cumY=0;
     for(let i=0;i<markers.length;i++){
       const gapH=gs[i]||(cfg.pixels_per_marker||80);
-      if(yPos<=cumY+gapH||i===markers.length-1){
-        const frac=gapH>0?(yPos-cumY)/gapH:0;
-        if(i+1<markers.length){
-          if(cfg.mode==='clock'&&markers[0].totalMin!==undefined){
-            const m=Math.round(markers[i].totalMin+frac*(markers[i+1].totalMin-markers[i].totalMin));
-            return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
-          }
-          return frac<0.5?markers[i].label:markers[i+1].label;
+      if(y<=cumY+gapH||i===markers.length-1){
+        // clock mode: interpolate for precise time
+        if(cfg.mode==='clock'&&markers[0].totalMin!==undefined&&i+1<markers.length){
+          const frac=gapH>0?(y-cumY)/gapH:0;
+          const m=Math.round(markers[i].totalMin+frac*(markers[i+1].totalMin-markers[i].totalMin));
+          return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
         }
+        // non-clock: return the zone's own marker label
         return markers[i].label;
       }
       cumY+=gapH;
     }
     return markers[markers.length-1].label;
   }
+  // uniform spacing (no gap_sizes)
   const ppm=cfg.pixels_per_marker||80;
-  if(!markers.length) return '';
-  const idx=yPos/ppm;
+  const idx=y/ppm;
   if(cfg.mode==='clock'&&markers[0].totalMin!==undefined){
     const lo=Math.floor(idx),hi=Math.ceil(idx),frac=idx-lo;
     if(lo>=markers.length) return markers[markers.length-1].label;
@@ -167,8 +176,9 @@ function timeFromY(yPos,markers,cfg){
     const m=Math.round(markers[lo].totalMin+frac*(markers[hi].totalMin-markers[lo].totalMin));
     return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
   }
-  const near=clamp(Math.round(idx),0,markers.length-1);
-  return markers[near].label;
+  // non-clock: return zone label (marker at or above the position)
+  const zone=clamp(Math.floor(idx),0,markers.length-1);
+  return markers[zone].label;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -323,9 +333,11 @@ createApp({
     currentMarkers(){ return this.currentOrder?generateMarkers(this.currentOrder.timelineConfig):[]; },
     totalTlHeight(){
       if(!this.currentOrder) return 0;
+      const pad=16; // must match markerY TOP_PAD
       const cfg=this.currentOrder.timelineConfig,gs=cfg.gap_sizes;
-      if(gs&&gs.length) return gs.reduce((a,b)=>a+b,0);
-      return this.currentMarkers.length*((cfg.pixels_per_marker)||80);
+      const n=this.currentMarkers.length;
+      if(gs&&gs.length===n) return pad+gs.reduce((a,b)=>a+b,0);
+      return pad+n*((cfg.pixels_per_marker)||80);
     },
     tlColStyle(){
       if(!this.currentOrder) return {};
@@ -409,31 +421,48 @@ createApp({
     t(key){ return this.locale==='en'?key:(I18N[this.locale]&&I18N[this.locale][key])||key; },
     /* ── timeline gap helpers ─────────── */
     markerY(idx){
-      if(!this.currentOrder) return 0;
+      const TOP_PAD=16; // offset so first marker/event clears sticky header
+      if(!this.currentOrder) return TOP_PAD;
       const cfg=this.currentOrder.timelineConfig,gs=cfg.gap_sizes;
-      if(!gs) return idx*(cfg.pixels_per_marker||80);
-      let y=0;for(let i=0;i<idx&&i<gs.length;i++) y+=gs[i]; return y;
+      const n=this.currentMarkers.length;
+      if(!gs||gs.length!==n) return TOP_PAD+idx*(cfg.pixels_per_marker||80);
+      let y=0;for(let i=0;i<idx&&i<gs.length;i++) y+=gs[i]; return TOP_PAD+y;
     },
     ensureGapSizes(){
       if(!this.currentOrder) return;
       const cfg=this.currentOrder.timelineConfig,n=this.currentMarkers.length;
       if(!cfg.gap_sizes||cfg.gap_sizes.length!==n) cfg.gap_sizes=Array(n).fill(cfg.pixels_per_marker||80);
     },
+    recalcAllEventTimes(){
+      if(!this.currentOrder) return;
+      const markers=this.currentMarkers,cfg=this.currentOrder.timelineConfig;
+      this.currentOrder.characterColumns.forEach(col=>{
+        col.events.forEach(evt=>{
+          evt.time=timeFromY(evt.yPos,markers,cfg);
+        });
+      });
+    },
     growGap(idx){
       this.ensureGapSizes();
       const cfg=this.currentOrder.timelineConfig;
-      let cutY=0;for(let i=0;i<=idx;i++) cutY+=cfg.gap_sizes[i];
+      const TOP_PAD=16;
+      // cutY = TOP_PAD + sum of gaps up to and including idx (before mutation)
+      let cutY=TOP_PAD;for(let i=0;i<=idx;i++) cutY+=cfg.gap_sizes[i];
       cfg.gap_sizes[idx]+=20;
+      // Move events that are at or below the old boundary down
       this.currentOrder.characterColumns.forEach(col=>{col.events.forEach(evt=>{if(evt.yPos>=cutY) evt.yPos+=20;});});
+      this.recalcAllEventTimes();
       this.mark();
     },
     shrinkGap(idx){
       this.ensureGapSizes();
       const cfg=this.currentOrder.timelineConfig;
       if(cfg.gap_sizes[idx]<=30) return;
-      let cutY=0;for(let i=0;i<=idx;i++) cutY+=cfg.gap_sizes[i];
+      const TOP_PAD=16;
+      let cutY=TOP_PAD;for(let i=0;i<=idx;i++) cutY+=cfg.gap_sizes[i];
       cfg.gap_sizes[idx]=Math.max(30,cfg.gap_sizes[idx]-20);
       this.currentOrder.characterColumns.forEach(col=>{col.events.forEach(evt=>{if(evt.yPos>=cutY) evt.yPos=Math.max(0,evt.yPos-20);});});
+      this.recalcAllEventTimes();
       this.mark();
     },
     /* ── import ───────────────────────── */
@@ -793,14 +822,41 @@ createApp({
     addCustomLabel(){
       const cfg=this.currentOrder.timelineConfig;
       if(!cfg.custom_labels) cfg.custom_labels=[];
-      cfg.custom_labels.push('Label '+(cfg.custom_labels.length+1));this.mark();
+      cfg.custom_labels.push('Label '+(cfg.custom_labels.length+1));
+      if(cfg.gap_sizes) cfg.gap_sizes.push(cfg.pixels_per_marker||80);
+      this.mark();
     },
     insertCustomLabel(i){
       const cfg=this.currentOrder.timelineConfig;
       if(!cfg.custom_labels) cfg.custom_labels=[];
-      cfg.custom_labels.splice(i,0,'New');this.mark();
+      cfg.custom_labels.splice(i,0,'New');
+      if(cfg.gap_sizes) cfg.gap_sizes.splice(i,0,cfg.pixels_per_marker||80);
+      this.mark();
     },
-    removeCustomLabel(i){this.currentOrder.timelineConfig.custom_labels.splice(i,1);this.mark();},
+    removeCustomLabel(i){
+      const cfg=this.currentOrder.timelineConfig;
+      cfg.custom_labels.splice(i,1);
+      if(cfg.gap_sizes&&cfg.gap_sizes.length>i) cfg.gap_sizes.splice(i,1);
+      this.mark();
+    },
+    onPpmInput(e){
+      if(!this.currentOrder) return;
+      const cfg=this.currentOrder.timelineConfig;
+      const oldPpm=cfg.pixels_per_marker||80;
+      const newPpm=clamp(parseInt(e.target.value)||80,30,300);
+      if(newPpm===oldPpm){cfg.pixels_per_marker=newPpm;return;}
+      const ratio=newPpm/oldPpm;
+      this.currentOrder.characterColumns.forEach(col=>{
+        col.events.forEach(evt=>{
+          evt.yPos=Math.max(16,Math.round(evt.yPos*ratio));
+          evt.height=Math.max(24,Math.round(evt.height*ratio));
+        });
+      });
+      cfg.pixels_per_marker=newPpm;
+      if(cfg.gap_sizes) cfg.gap_sizes=cfg.gap_sizes.map(g=>clamp(Math.round(g*ratio),30,600));
+      this.recalcAllEventTimes();
+      this.mark();
+    },
     // zoom timeline via Ctrl+scroll
     onTlWheel(e){
       if(!this.currentOrder||!e.ctrlKey) return;
@@ -816,12 +872,13 @@ createApp({
       const ratio=newPpm/oldPpm;
       this.currentOrder.characterColumns.forEach(col=>{
         col.events.forEach(evt=>{
-          evt.yPos=Math.round(evt.yPos*ratio);
+          evt.yPos=Math.max(16,Math.round(evt.yPos*ratio));
           evt.height=Math.max(24,Math.round(evt.height*ratio));
         });
       });
       cfg.pixels_per_marker=newPpm;
       if(cfg.gap_sizes) cfg.gap_sizes=cfg.gap_sizes.map(g=>clamp(Math.round(g*ratio),30,600));
+      this.recalcAllEventTimes();
       this.mark();
     },
     // events
@@ -830,14 +887,15 @@ createApp({
       const y=e.clientY-rect.top;
       const markers=this.currentMarkers;
       const cfg=this.currentOrder.timelineConfig;
-      const ev={id:uid(),description:'',yPos:Math.max(0,y-25),height:50,time:timeFromY(y,markers,cfg),locationId:null};
+      const yPos=clamp(y-25,16,this.totalTlHeight-50);
+      const ev={id:uid(),description:'',yPos,height:50,time:timeFromY(yPos,markers,cfg),locationId:null};
       col.events.push(ev);this.editingEvtId=ev.id;this.mark();
     },
     onEvtDrag(evt,e){
       e.preventDefault();e.stopPropagation();
       const startY=e.clientY,startPos=evt.yPos;
       const markers=this.currentMarkers,cfg=this.currentOrder.timelineConfig;
-      const mv=me=>{evt.yPos=clamp(startPos+me.clientY-startY,0,this.totalTlHeight-evt.height);evt.time=timeFromY(evt.yPos+evt.height/2,markers,cfg);};
+      const mv=me=>{evt.yPos=clamp(startPos+me.clientY-startY,16,this.totalTlHeight-evt.height);evt.time=timeFromY(evt.yPos,markers,cfg);};
       const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);this.mark();};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     },
@@ -845,7 +903,7 @@ createApp({
       e.preventDefault();e.stopPropagation();
       const startY=e.clientY,startH=evt.height;
       const markers=this.currentMarkers,cfg=this.currentOrder.timelineConfig;
-      const mv=me=>{evt.height=clamp(startH+me.clientY-startY,24,600);evt.time=timeFromY(evt.yPos+evt.height/2,markers,cfg);};
+      const mv=me=>{evt.height=clamp(startH+me.clientY-startY,24,600);evt.time=timeFromY(evt.yPos,markers,cfg);};
       const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);this.mark();};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     },
@@ -1460,6 +1518,12 @@ createApp({
         this.destroyFullTextQuill();
       }
     },
+    /* Recalculate event time labels whenever the marker list changes
+       (mode switch, clock/date range change, custom label edits, ppm, etc.) */
+    currentMarkers:{
+      handler(){ this.ensureGapSizes(); this.recalcAllEventTimes(); },
+      deep:true,
+    },
   },
 
   /* ═══════════════════════════════════════════════════════════════
@@ -1657,7 +1721,7 @@ createApp({
             </select>
           </div>
           <div class="field"><label>{{t('Pixels per marker')}}</label>
-            <input type="number" v-model.number="currentOrder.timelineConfig.pixels_per_marker" min="30" max="300" @input="mark()"/>
+            <input type="number" :value="currentOrder.timelineConfig.pixels_per_marker" min="30" max="300" @input="onPpmInput($event)"/>
           </div>
         </div>
         <!-- clock -->
@@ -1719,7 +1783,7 @@ createApp({
         <!-- axis -->
         <div class="tl-axis">
           <div class="tl-axis-header">⏱</div>
-          <div class="tl-axis-body" :style="{height:totalTlHeight+'px'}">
+          <div class="tl-axis-body" :style="{minHeight:totalTlHeight+'px'}">
             <div v-for="m in currentMarkers" :key="m.index" class="tl-marker"
                  :style="{top:markerY(m.index)+'px'}">
               <span class="tl-marker-label">{{m.label}}</span>
@@ -1741,7 +1805,7 @@ createApp({
             {{charName(col.characterId)}}
             <button class="icon-btn sm" @click="removeColumn(col)" title="Remove column">✕</button>
           </div>
-          <div class="tl-col-body" :style="{height:totalTlHeight+'px'}" @dblclick="onTlColDblClick(col,$event)">
+          <div class="tl-col-body" :style="{minHeight:totalTlHeight+'px'}" @dblclick="onTlColDblClick(col,$event)">
             <!-- marker lines -->
             <div v-for="m in currentMarkers" :key="'ml'+m.index" class="tl-col-marker-line"
                  :style="{top:markerY(m.index)+'px'}"></div>
