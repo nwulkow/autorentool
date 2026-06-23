@@ -10,10 +10,50 @@ import json
 import os
 import glob
 import sys
+import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
+# Load .env file into environment variables before anything else
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_path):
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _, _v = _line.partition("=")
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 BOOKS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "books")
+
+# ── LLM helpers (import once; failures are non-fatal) ──────────────────────────
+try:
+    import sys as _sys
+    _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from llm_utils import check_plausibility, custom_prompt_about_text, answer_to_prompt, start_ollama
+    _LLM_AVAILABLE = True
+except Exception as _e:
+    _LLM_AVAILABLE = False
+    print(f"[LLM] llm_utils not available: {_e}")
+
+
+def _get_ollama_models():
+    """Return model names from a running (or just-started) ollama server."""
+    try:
+        import ollama
+        start_ollama(url="http://127.0.0.1:11434/v1/models", cpu_only=False)
+        result = ollama.list()
+        # ollama.list() returns a ListResponse with a 'models' attribute
+        models = result.models if hasattr(result, 'models') else result.get('models', [])
+        names = []
+        for m in models:
+            name = m.model if hasattr(m, 'model') else m.get('name', '')
+            if name:
+                names.append(name)
+        return names
+    except Exception as e:
+        print(f"[LLM] ollama list failed: {e}")
+        return []
 
 
 class BookHandler(SimpleHTTPRequestHandler):
@@ -23,8 +63,18 @@ class BookHandler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/books":
             self._send_books()
+        elif path == "/api/llm/models":
+            self._llm_models()
         else:
             super().do_GET()
+
+    def end_headers(self):
+        # Prevent browser from caching static files so edits are always picked up
+        if not self.path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+        super().end_headers()
 
     def do_POST(self):
         path = urlparse(self.path).path
@@ -32,6 +82,8 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._save_book()
         elif path == "/api/books/delete":
             self._delete_book()
+        elif path == "/api/llm/prompt":
+            self._llm_prompt()
         else:
             self.send_error(404)
 
@@ -103,6 +155,51 @@ class BookHandler(SimpleHTTPRequestHandler):
             os.remove(dest)
         body = json.dumps({"status": "ok"}).encode("utf-8")
         self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self._cors_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _llm_models(self):
+        """Return available LLM model names: gemini + ollama."""
+        models = ["gemini-flash-latest"]
+        if _LLM_AVAILABLE:
+            models += _get_ollama_models()
+        body = json.dumps(models).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self._cors_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _llm_prompt(self):
+        """Run an LLM prompt. Body: {mode, text, custom_prompt, model}."""
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+        if not _LLM_AVAILABLE:
+            self._json_response(500, {"error": "llm_utils not available on server"})
+            return
+        mode = data.get("mode", "custom")          # 'plausibility' | 'custom'
+        text = data.get("text", "")
+        model = data.get("model", "gemini-flash-latest")
+        custom_prompt_text = data.get("custom_prompt", "")
+        try:
+            if mode == "plausibility":
+                result = check_plausibility(text, model)
+            else:
+                result = custom_prompt_about_text(text, custom_prompt_text, model)
+            self._json_response(200, {"result": result})
+        except Exception as e:
+            self._json_response(500, {"error": str(e)})
+
+    def _json_response(self, code, payload):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self._cors_headers()
         self.end_headers()

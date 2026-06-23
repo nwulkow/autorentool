@@ -277,6 +277,7 @@ const I18N={de:{
   'Unsupported file type':'Nicht unterstützter Dateityp',
   'Font':'Schrift','Size':'Größe','Layout':'Layout',
   'Zoom':'Zoom','words':'Wörter','total':'gesamt',
+  'Spelling':'Rechtschreibung',
 }};
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -304,7 +305,20 @@ createApp({
     teResizing:false,
     teLayout:'A4',
     teZoom:100,
+    teSpellLang:'de',
     highlightedCommentId:null,
+    // LLM tools
+    llmModels:['gemini-flash-latest'],
+    llmSelectedModel:'gemini-flash-latest',
+    llmPromptMode:'plausibility', // 'plausibility' | 'custom'
+    llmCustomPrompt:'',
+    llmResult:'',
+    llmLoading:false,
+    llmError:'',
+    llmChapterScope:false,         // false = only this chapter, true = include others
+    llmChapterSelected:[],           // [{id}] ordered list for multi-chapter
+    llmChapterSearch:'',
+    llmChapterShowSuggestions:false,
     // characters
     newChar:{open:false,name:'',description:''},
     tagInputs:{}, tagDropdownCharId:null,
@@ -404,10 +418,16 @@ createApp({
     window.addEventListener('beforeunload',this._beforeUnload);
     window.addEventListener('keydown',this.onKey);
     await this.fetchBooks(); this.loading=false;
+    this.fetchLlmModels();
+    this._autosaveTimer=setInterval(()=>{this.autoSaveBook();},10000);
   },
   beforeUnmount(){
     window.removeEventListener('beforeunload',this._beforeUnload);
     window.removeEventListener('keydown',this.onKey);
+    if(this._autosaveTimer){
+      clearInterval(this._autosaveTimer);
+      this._autosaveTimer=null;
+    }
   },
   updated(){
     const el=this.$refs.tlScroll;
@@ -419,6 +439,91 @@ createApp({
   methods:{
     mark(){ this.dirty=true; },
     t(key){ return this.locale==='en'?key:(I18N[this.locale]&&I18N[this.locale][key])||key; },
+    /* ── LLM ─────────────────────────── */
+    async fetchLlmModels(){
+      try{
+        const r=await fetch('/api/llm/models');
+        if(r.ok){ const data=await r.json(); if(data.length) this.llmModels=data; }
+      }catch(e){ console.warn('LLM models fetch failed',e); }
+    },
+    _chapterPlainText(ch){
+      if(this.quillInstance&&this._quillChapterId===ch.id) return this.quillInstance.getText();
+      return ch.content?ch.content.replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim():'';
+    },
+    llmChapterDisplayName(id){
+      const chapters=this.book.chapters||[];
+      const idx=chapters.findIndex(c=>c.id===id);
+      if(idx<0) return '(unknown)';
+      const ch=chapters[idx];
+      const num=idx+1;
+      const lbl=ch.name||ch.label||'';
+      return lbl?`${num} – ${lbl}`:String(num);
+    },
+    llmChapterSuggestions(){
+      const q=this.llmChapterSearch.trim().toLowerCase();
+      const selected=new Set(this.llmChapterSelected.map(o=>o.id));
+      const chapters=this.book?.chapters||[];
+      return chapters.filter((ch,idx)=>{
+        if(selected.has(ch.id)) return false;
+        if(!q) return true;
+        const num=String(idx+1);
+        const lbl=(ch.name||ch.label||'').toLowerCase();
+        return num.startsWith(q)||lbl.startsWith(q);
+      });
+    },
+    llmChapterAdd(id){
+      if(!this.llmChapterSelected.find(o=>o.id===id)) this.llmChapterSelected.push({id});
+      this.llmChapterSearch='';
+      // keep suggestions open so the user can immediately pick another chapter
+    },
+    llmChapterRemove(id){
+      this.llmChapterSelected=this.llmChapterSelected.filter(o=>o.id!==id);
+    },
+    llmChapterMoveUp(idx){
+      if(idx<=0) return;
+      const arr=[...this.llmChapterSelected];
+      [arr[idx-1],arr[idx]]=[arr[idx],arr[idx-1]];
+      this.llmChapterSelected=arr;
+    },
+    llmChapterMoveDown(idx){
+      if(idx>=this.llmChapterSelected.length-1) return;
+      const arr=[...this.llmChapterSelected];
+      [arr[idx],arr[idx+1]]=[arr[idx+1],arr[idx]];
+      this.llmChapterSelected=arr;
+    },
+    llmChapterBlur(){ setTimeout(()=>{ this.llmChapterShowSuggestions=false; },150); },
+    async runLlmPrompt(){
+      if(!this.currentChapterId||!this.llmSelectedModel) return;
+      let text='';
+      if(this.llmChapterScope){
+        const chapters=this.book.chapters||[];
+        const parts=[];
+        for(const item of this.llmChapterSelected){
+          const ch=chapters.find(c=>c.id===item.id);
+          if(!ch) continue;
+          const chText=this._chapterPlainText(ch).trim();
+          if(chText){
+            const label=this.llmChapterDisplayName(ch.id);
+            parts.push(`--- ${label} ---\n${chText}`);
+          }
+        }
+        text=parts.join('\n\n');
+      } else {
+        const ch=this.currentChapter();
+        if(ch) text=this._chapterPlainText(ch);
+      }
+      if(!text.trim()){ this.llmError='Chapter text is empty.'; return; }
+      if(this.llmPromptMode==='custom'&&!this.llmCustomPrompt.trim()){ this.llmError='Please enter a custom prompt.'; return; }
+      this.llmLoading=true; this.llmResult=''; this.llmError='';
+      try{
+        const body={mode:this.llmPromptMode,text,model:this.llmSelectedModel,custom_prompt:this.llmCustomPrompt};
+        const r=await fetch('/api/llm/prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const data=await r.json();
+        if(r.ok) this.llmResult=data.result||'';
+        else this.llmError=data.error||'LLM request failed';
+      }catch(e){ this.llmError=String(e); }
+      finally{ this.llmLoading=false; }
+    },
     /* ── timeline gap helpers ─────────── */
     markerY(idx){
       const TOP_PAD=16; // offset so first marker/event clears sticky header
@@ -522,14 +627,28 @@ createApp({
       try{const r=await fetch('/api/books');this.savedBooks=await r.json();}
       catch(e){console.error(e);this.savedBooks=[];}
     },
-    async saveBook(){
+    async saveBook(options={}){
       if(!this.book) return;
+      if(this._saveInFlight) return;
+      const silent=!!options.silent;
+      this._saveInFlight=true;
       this.saveCurrentChapterContent();
       try{
         const r=await fetch('/api/books/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(serializeBook(this))});
-        if(r.ok){this.dirty=false;this.showToast(this.t('Book saved ✓'));}
-        else this.showToast(this.t('Save failed!'));
-      }catch(e){console.error(e);this.showToast(this.t('Save failed!'));}
+        if(r.ok){
+          this.dirty=false;
+          if(!silent) this.showToast(this.t('Book saved ✓'));
+        } else if(!silent) this.showToast(this.t('Save failed!'));
+      }catch(e){
+        console.error(e);
+        if(!silent) this.showToast(this.t('Save failed!'));
+      }finally{
+        this._saveInFlight=false;
+      }
+    },
+    autoSaveBook(){
+      if(!this.book||!this.dirty) return;
+      this.saveBook({silent:true});
     },
     /* ── title rename ─────────────────── */
     startEditTitle(){
@@ -829,14 +948,42 @@ createApp({
     insertCustomLabel(i){
       const cfg=this.currentOrder.timelineConfig;
       if(!cfg.custom_labels) cfg.custom_labels=[];
+      this.ensureGapSizes();
+      const newGap=cfg.pixels_per_marker||80;
+      // Compute cutY BEFORE any splice, using the original gap_sizes
+      const TOP_PAD=16;
+      let cutY=TOP_PAD;
+      for(let j=0;j<i;j++) cutY+=cfg.gap_sizes[j];
+      // Now mutate
       cfg.custom_labels.splice(i,0,'New');
-      if(cfg.gap_sizes) cfg.gap_sizes.splice(i,0,cfg.pixels_per_marker||80);
+      cfg.gap_sizes.splice(i,0,newGap);
+      // Shift every event that sits at or below the insertion boundary down by newGap
+      this.currentOrder.characterColumns.forEach(col=>{
+        col.events.forEach(evt=>{ if(evt.yPos>=cutY) evt.yPos+=newGap; });
+      });
+      this.recalcAllEventTimes();
       this.mark();
     },
     removeCustomLabel(i){
       const cfg=this.currentOrder.timelineConfig;
+      this.ensureGapSizes();
+      const removedGap=cfg.gap_sizes[i]||cfg.pixels_per_marker||80;
+      // Compute the pixel range of the removed slot BEFORE splicing
+      const TOP_PAD=16;
+      let slotStart=TOP_PAD;
+      for(let j=0;j<i;j++) slotStart+=cfg.gap_sizes[j];
+      const slotEnd=slotStart+removedGap;
       cfg.custom_labels.splice(i,1);
-      if(cfg.gap_sizes&&cfg.gap_sizes.length>i) cfg.gap_sizes.splice(i,1);
+      cfg.gap_sizes.splice(i,1);
+      // Events inside the removed slot: clamp to slotStart (they stay visible at the boundary)
+      // Events below the removed slot: shift up by removedGap
+      this.currentOrder.characterColumns.forEach(col=>{
+        col.events.forEach(evt=>{
+          if(evt.yPos>=slotEnd) evt.yPos-=removedGap;
+          else if(evt.yPos>=slotStart) evt.yPos=slotStart;
+        });
+      });
+      this.recalcAllEventTimes();
       this.mark();
     },
     onPpmInput(e){
@@ -1131,6 +1278,7 @@ createApp({
       }
       // Apply current zoom level
       this.applyTeZoom();
+      this.applySpellcheckSettings();
       this.quillInstance.on('text-change',()=>{
         // Always save to the chapter this Quill was created for
         if(this.quillInstance&&this._quillChapterId===chId){
@@ -1188,6 +1336,7 @@ createApp({
         html+='<h2>'+title+'</h2>'+(ch.content||'<p><br></p>');
       });
       if(html) this.fullTextQuill.root.innerHTML=html;
+      this.applySpellcheckSettings();
       this.fullTextQuill.on('text-change',()=>{this.mark();});
     },
     destroyFullTextQuill(){
@@ -1342,6 +1491,16 @@ createApp({
       if(!this.quillInstance) return;
       const editor=this.quillInstance.root;
       if(editor) editor.style.fontSize=(this.teZoom)+'%';
+    },
+    applySpellcheckSettings(){
+      const lang=this.teSpellLang==='de'?'de-DE':'en-US';
+      const applyTo=quill=>{
+        if(!quill||!quill.root) return;
+        quill.root.setAttribute('spellcheck','true');
+        quill.root.setAttribute('lang',lang);
+      };
+      applyTo(this.quillInstance);
+      applyTo(this.fullTextQuill);
     },
     /* word counts */
     wordCount(html){
@@ -1517,6 +1676,9 @@ createApp({
         this.destroyQuill();
         this.destroyFullTextQuill();
       }
+    },
+    teSpellLang(){
+      this.applySpellcheckSettings();
     },
     /* Recalculate event time labels whenever the marker list changes
        (mode switch, clock/date range change, custom label edits, ppm, etc.) */
@@ -2236,6 +2398,10 @@ createApp({
                   <option value="A4">A4</option>
                   <option value="A5">A5</option>
                 </select>
+                <select class="te-select-sm te-spell-select" v-model="teSpellLang" :title="t('Spelling')">
+                  <option value="de">DE</option>
+                  <option value="en">EN</option>
+                </select>
                 <span class="te-zoom-controls">
                   <button class="te-btn-sm" @click="teZoomOut" title="Zoom out">−</button>
                   <span class="te-zoom-label">{{teZoom}}%</span>
@@ -2245,16 +2411,72 @@ createApp({
                 <button class="te-btn-sm" @click="exportChapterDocx(currentChapter(),book.chapters.findIndex(c=>c.id===currentChapterId))">📥 DOCX</button>
               </div>
             </div>
-            <div ref="chapterEditor" class="te-quill-wrap" :class="{'te-layout-a5':teLayout==='A5'}"></div>
-            <!-- Word count bar -->
-            <div class="te-wordcount-bar">{{totalWordCount()}} {{t('words')}} {{t('total')}}</div>
-            <!-- Comments panel -->
-            <div v-if="currentChapter().comments&&currentChapter().comments.length" class="te-comments">
-              <h5>💬 {{t('Comments')}} ({{currentChapter().comments.length}})</h5>
-              <div v-for="cmt in currentChapter().comments" :key="cmt.id" class="te-comment" :class="{'te-cmt-active':highlightedCommentId===cmt.id}" @click="goToComment(cmt)" style="cursor:pointer">
-                <div class="te-cmt-header"><span class="te-cmt-date">{{cmt.date}}</span><button class="icon-btn sm" @click.stop="removeComment(currentChapter(),cmt.id)">✕</button></div>
-                <div v-if="cmt.selection" class="te-cmt-selection">"{{cmt.selection}}"</div>
-                <div class="te-cmt-text">{{cmt.text}}</div>
+            <!-- editor + LLM panel side by side -->
+            <div class="te-content-row">
+              <div class="te-quill-col">
+                <div ref="chapterEditor" class="te-quill-wrap" :class="{'te-layout-a5':teLayout==='A5'}"></div>
+                <!-- Word count bar -->
+                <div class="te-wordcount-bar">{{totalWordCount()}} {{t('words')}} {{t('total')}}</div>
+                <!-- Comments panel -->
+                <div v-if="currentChapter().comments&&currentChapter().comments.length" class="te-comments">
+                  <h5>💬 {{t('Comments')}} ({{currentChapter().comments.length}})</h5>
+                  <div v-for="cmt in currentChapter().comments" :key="cmt.id" class="te-comment" :class="{'te-cmt-active':highlightedCommentId===cmt.id}" @click="goToComment(cmt)" style="cursor:pointer">
+                    <div class="te-cmt-header"><span class="te-cmt-date">{{cmt.date}}</span><button class="icon-btn sm" @click.stop="removeComment(currentChapter(),cmt.id)">✕</button></div>
+                    <div v-if="cmt.selection" class="te-cmt-selection">"{{cmt.selection}}"</div>
+                    <div class="te-cmt-text">{{cmt.text}}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- LLM Tools panel -->
+              <div class="llm-panel">
+                <div class="llm-panel-title">🤖 LLM Tools</div>
+                <!-- Model selector -->
+                <div class="llm-section-label">Model</div>
+                <select class="llm-select" v-model="llmSelectedModel">
+                  <option v-for="m in llmModels" :key="m" :value="m">{{m}}</option>
+                </select>
+                <!-- Prompt mode -->
+                <div class="llm-section-label" style="margin-top:12px">Prompt</div>
+                <select class="llm-select" v-model="llmPromptMode">
+                  <option value="plausibility">Check plausibility</option>
+                  <option value="custom">Custom prompt</option>
+                </select>
+                <textarea v-if="llmPromptMode==='custom'" class="llm-custom-input" v-model="llmCustomPrompt" placeholder="Enter your question or instruction…" rows="3"></textarea>
+                <!-- Text scope -->
+                <span class="llm-scope-check"><input type="checkbox" v-model="llmChapterScope">Include other chapters</span>
+                <!-- Chapter search + chips (shown when checked) -->
+                <template v-if="llmChapterScope">
+                  <div class="llm-ch-search-wrap">
+                    <input class="llm-ch-search-input" v-model="llmChapterSearch"
+                      @focus="llmChapterShowSuggestions=true" @blur="llmChapterBlur"
+                      placeholder="Chapter number or name…" autocomplete="off"/>
+                    <div v-if="llmChapterShowSuggestions&&llmChapterSearch.trim().length>0&&llmChapterSuggestions().length" class="llm-ch-suggestions">
+                      <div v-for="ch in llmChapterSuggestions()" :key="ch.id"
+                           class="llm-ch-suggestion" @mousedown.prevent="llmChapterAdd(ch.id)">
+                        {{llmChapterDisplayName(ch.id)}}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="llm-ch-selected">
+                    <button v-for="item in llmChapterSelected" :key="item.id"
+                            class="llm-ch-pill" @click="llmChapterRemove(item.id)"
+                            :title="'Remove: '+llmChapterDisplayName(item.id)">
+                      {{llmChapterDisplayName(item.id)}} ✕
+                    </button>
+                    <div v-if="!llmChapterSelected.length" class="llm-ch-empty">Search for chapters to include.</div>
+                  </div>
+                </template>
+                <!-- Run button -->
+                <button class="llm-run-btn" @click="runLlmPrompt" :disabled="llmLoading">
+                  <span v-if="llmLoading">⏳ Running…</span>
+                  <span v-else>▶ Run</span>
+                </button>
+                <!-- Error -->
+                <div v-if="llmError" class="llm-error">{{llmError}}</div>
+                <!-- Result -->
+                <div class="llm-section-label" style="margin-top:12px">Result</div>
+                <textarea class="llm-result" :value="llmResult" readonly :placeholder="llmLoading?'Waiting for response…':'Result will appear here…'" rows="12"></textarea>
               </div>
             </div>
           </div>

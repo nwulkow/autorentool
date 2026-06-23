@@ -37,7 +37,7 @@ if command -v fuser >/dev/null 2>&1; then
   fuser -k "${PORT}/tcp" >/dev/null 2>&1 || true
 fi
 
-python3 "$ROOT_DIR/server.py" "$PORT" &
+"$ROOT_DIR/autorino_env/bin/python" "$ROOT_DIR/server.py" "$PORT" &
 SERVER_PID="$!"
 echo "$SERVER_PID" > "$PID_FILE"
 
