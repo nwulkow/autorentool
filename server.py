@@ -25,12 +25,26 @@ if os.path.exists(_env_path):
                 os.environ.setdefault(_k.strip(), _v.strip())
 
 BOOKS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "books")
+CHAT_HISTORY_FILE = "/tmp/autorentool_chat_history.json"
+
+
+def _read_chat_history():
+    try:
+        with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _write_chat_history(history):
+    with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False)
 
 # ── LLM helpers (import once; failures are non-fatal) ──────────────────────────
 try:
     import sys as _sys
     _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from llm_utils import check_plausibility, custom_prompt_about_text, answer_to_prompt, start_ollama
+    from llm_utils import check_plausibility, custom_prompt_about_text, answer_to_prompt, start_ollama, chat_custom_prompt
     _LLM_AVAILABLE = True
 except Exception as _e:
     _LLM_AVAILABLE = False
@@ -65,6 +79,8 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._send_books()
         elif path == "/api/llm/models":
             self._llm_models()
+        elif path == "/api/llm/chat/history":
+            self._llm_chat_history()
         else:
             super().do_GET()
 
@@ -84,6 +100,12 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._delete_book()
         elif path == "/api/llm/prompt":
             self._llm_prompt()
+        elif path == "/api/llm/chat":
+            self._llm_chat()
+        elif path == "/api/llm/chat/clear":
+            history = []
+            _write_chat_history(history)
+            self._json_response(200, {"status": "ok"})
         else:
             self.send_error(404)
 
@@ -194,6 +216,47 @@ class BookHandler(SimpleHTTPRequestHandler):
             else:
                 result = custom_prompt_about_text(text, custom_prompt_text, model)
             self._json_response(200, {"result": result})
+        except Exception as e:
+            self._json_response(500, {"error": str(e)})
+
+    def _llm_chat_history(self):
+        self._json_response(200, {"history": _read_chat_history()})
+
+    def _llm_chat(self):
+        """Multi-turn chat endpoint. Body: {text, custom_prompt, model, characters}."""
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+        if not _LLM_AVAILABLE:
+            self._json_response(500, {"error": "llm_utils not available on server"})
+            return
+        try:
+            text = data.get("text", "")
+            user_prompt = data.get("custom_prompt", "")
+            model = data.get("model", "gemini-flash-latest")
+            characters_raw = data.get("characters", [])
+            external_history = data.get("history", None)  # optional: caller manages history
+            persist = data.get("persist", True)           # set False to skip disk read/write
+            if not user_prompt.strip():
+                self._json_response(400, {"error": "Empty prompt"})
+                return
+            from classes import Character
+            characters = [Character(name=c.get("name", ""), description=c.get("description", "")) for c in characters_raw]
+            if external_history is not None:
+                history = external_history
+            elif persist:
+                history = _read_chat_history()
+            else:
+                history = []
+            answer = chat_custom_prompt(text, user_prompt, model, history, characters)
+            history = list(history) + [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": answer}]
+            if persist and external_history is None:
+                _write_chat_history(history)
+            self._json_response(200, {"result": answer, "history": history})
         except Exception as e:
             self._json_response(500, {"error": str(e)})
 

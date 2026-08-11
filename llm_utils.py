@@ -1,7 +1,11 @@
+from typing import Optional
+
 from google import genai
 import ollama
 import requests
 import os
+
+from classes import Character
 
 
 
@@ -78,7 +82,6 @@ def answer_to_prompt(prompt: str, model_name: str) -> str:
         )
         return response.text
     else:
-
         start_ollama(url="http://127.0.0.1:11434/v1/models", cpu_only=False)
         response = ollama.chat(
             model=model_name,
@@ -91,6 +94,47 @@ def check_plausibility(text: str, model_name: str) -> str:
 
     return answer_to_prompt("Check whether the following text is plausible (answer in the language the text is written in):\n\n" + text, model_name)
 
-def custom_prompt_about_text(text: str, custom_prompt: str, model_name: str) -> str:
+def custom_prompt_about_text(text: str, custom_prompt: str, model_name: str, log_chat_to: Optional[str] = None) -> str:
 
-    return answer_to_prompt(custom_prompt + "\n\n" + text, model_name)
+    answer = answer_to_prompt(custom_prompt + "\n\n" + text, model_name)
+    if log_chat_to:
+        os.makedirs(os.path.dirname(log_chat_to), exist_ok=True)
+        with open(log_chat_to, "a", encoding="utf-8") as f:
+            f.write(f"---\nPrompt:\n{custom_prompt}\n\nAnswer:\n{answer}\n")
+
+    return answer
+
+
+def chat_custom_prompt(text: str, user_prompt: str, model_name: str, history: list, characters: list[Character]) -> str:
+    """Multi-turn chat. history = [{role:'user'|'assistant', content:str}].
+    Text context is injected into the new user turn only."""
+    system_text = ("The following characters are present in the story: "
+                   + ", ".join([f"{c.name} ({c.description})" for c in characters])) if characters else None
+    new_user_content = f"{user_prompt}\n\n[Text context]\n{text}" if text.strip() else user_prompt
+
+    if "gemini" in model_name.lower():
+        api_key = os.environ.get("GEMINI_API_KEY")
+        client = genai.Client(api_key=api_key)
+        contents = []
+        for msg in history:
+            role = "user" if msg["role"] == "user" else "model"
+            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+        contents.append({"role": "user", "parts": [{"text": new_user_content}]})
+        kwargs = {"model": "gemini-flash-latest", "contents": contents}
+        if system_text:
+            from google.genai import types
+            kwargs["config"] = types.GenerateContentConfig(system_instruction=system_text)
+            print("System instruction:", system_text)
+        response = client.models.generate_content(**kwargs)
+        return response.text
+    else:
+        start_ollama(url="http://127.0.0.1:11434/v1/models", cpu_only=False)
+        messages = []
+        if system_text:
+            messages.append({"role": "system", "content": system_text})
+        for m in history:
+            messages.append({"role": m["role"], "content": m["content"]})
+        messages.append({"role": "user", "content": new_user_content})
+        response = ollama.chat(model=model_name, messages=messages)
+        return response["message"]["content"]
+

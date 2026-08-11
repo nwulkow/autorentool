@@ -88,6 +88,30 @@ class EventOrder:
             "timeline_config": self.timeline_config,
         }
 
+    def to_llm_prompt(self) -> str:
+        """Return a chronologically-sorted, human-readable representation
+        of this event order, including the time label of each event."""
+        events = []
+        for col in self.character_columns:
+            char_name = col.get("character_name") or col.get("character_id") or "General"
+            for event in col.get("events", []):
+                if hasattr(event, "y_pos"):
+                    y = event.y_pos
+                    time = event.time or ""
+                    desc = event.description or ""
+                else:
+                    y = event.get("y_pos", 0)
+                    time = event.get("time", "")
+                    desc = event.get("description", "")
+                events.append((y, char_name, desc, time))
+        events.sort(key=lambda x: x[0])
+        prompt_lines = [f"Event Order: {self.name}", ""]
+        for _y, character_name, description, time in events:
+            time_str = f" [{time}]" if time else ""
+            prompt_lines.append(f"- {character_name}{time_str}: {description}")
+        return "\n".join(prompt_lines)
+    
+
 class Location:
     def __init__(self, name: str, description: str = None,
                  width: float = 10.0, height: float = 10.0, unit: str = "m",

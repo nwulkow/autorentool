@@ -50,6 +50,7 @@ function serializeBook(state){
       id:c.id, label:c.label, name:c.name, content:c.content||'',
       comments:(c.comments||[]).map(cm=>({id:cm.id,text:cm.text,selection:cm.selection||'',rangeIndex:cm.rangeIndex,rangeLength:cm.rangeLength,date:cm.date}))
     })),
+    passages:(b.passages||[]).map(p=>({id:p.id,name:p.name,chapter_id:p.chapterId,start_text:p.startText,end_text:p.endText})),
     characters:b.characters.map(c=>({id:c.id,name:c.name,description:c.description,tags:c.tags||[]})),
     character_relations:b.character_relations.map(r=>({
       id:r.id, character1_id:r.character1Id, character2_id:r.character2Id, relation_type:r.relationType
@@ -93,6 +94,7 @@ function deserializeBook(data){
       notes:(t.notes||[]).map(n=>typeof n==='string'?{id:uid(),text:n,color:'#fff9c4'}:({...n,id:n.id||uid()})),
       urlLinks:t.url_links||t.urlLinks||[],
     })),
+    passages:(data.passages||[]).map(p=>({id:p.id||uid(),name:p.name||'Passage',chapterId:p.chapter_id||'',startText:p.start_text||'',endText:p.end_text||''})),
   };
   const canvasNodes=(data.canvas_nodes||[]).map(n=>({characterId:n.character_id,x:n.x,y:n.y}));
   const eventOrders=(data.event_orders||[]).map(o=>{
@@ -310,15 +312,21 @@ createApp({
     // LLM tools
     llmModels:['gemini-flash-latest'],
     llmSelectedModel:'gemini-flash-latest',
-    llmPromptMode:'plausibility', // 'plausibility' | 'custom'
+    llmPromptMode:'custom', // 'plausibility' | 'custom'
     llmCustomPrompt:'',
     llmResult:'',
     llmLoading:false,
     llmError:'',
+    llmChatHistory:[],      // [{role:'user'|'assistant', content:str}]
+    llmChatDetached:false,
+    llmIncludeCharacters:false,
+    llmSelectedCharIds:[],   // plain array of character ids for Vue reactivity
     llmChapterScope:false,         // false = only this chapter, true = include others
-    llmChapterSelected:[],           // [{id}] ordered list for multi-chapter
+    llmChapterSelected:[],           // [{id,type:'chapter'|'passage'}] ordered list
     llmChapterSearch:'',
     llmChapterShowSuggestions:false,
+    // passages
+    newPassage:{open:false,name:'',startText:'',endText:'',error:'',verified:false},
     // characters
     newChar:{open:false,name:'',description:''},
     tagInputs:{}, tagDropdownCharId:null,
@@ -327,6 +335,9 @@ createApp({
     linkModal:{open:false,c1:null,c2:null,type:''},
     // event orders
     eventOrders:[], currentOrderId:null, tlConfigOpen:false, editingEvtId:null, eoSelectedTags:[], eoDropIndicator:null,
+    // event order LLM pane
+    eoLlmChatHistory:[], eoLlmCustomPrompt:'', eoLlmLoading:false, eoLlmError:'',
+    eoLlmIncludeChapters:false, eoLlmChapterSelected:[], eoLlmChapterSearch:'', eoLlmChapterShowSuggestions:false,
     // questions
     newQText:'',
     // locations
@@ -419,6 +430,7 @@ createApp({
     window.addEventListener('keydown',this.onKey);
     await this.fetchBooks(); this.loading=false;
     this.fetchLlmModels();
+    this.loadChatHistory();
     this._autosaveTimer=setInterval(()=>{this.autoSaveBook();},10000);
   },
   beforeUnmount(){
@@ -445,6 +457,98 @@ createApp({
         const r=await fetch('/api/llm/models');
         if(r.ok){ const data=await r.json(); if(data.length) this.llmModels=data; }
       }catch(e){ console.warn('LLM models fetch failed',e); }
+    },
+    async loadChatHistory(){
+      try{
+        const r=await fetch('/api/llm/chat/history');
+        if(r.ok){ const d=await r.json(); this.llmChatHistory=d.history||[]; }
+      }catch(e){ console.warn('chat history load failed',e); }
+    },
+    async clearLlmChat(){
+      try{ await fetch('/api/llm/chat/clear',{method:'POST'}); }catch(e){}
+      this.llmChatHistory=[];
+    },
+    /* ── EventOrder LLM ──────────────── */
+    buildEoPromptText(){
+      const order=this.currentOrder;
+      if(!order) return '';
+      const events=[];
+      for(const col of order.characterColumns){
+        const charName=col.characterId?(this.book.characters.find(c=>c.id===col.characterId)||{name:'General'}).name:'General';
+        for(const evt of col.events){
+          events.push({y:evt.yPos,char:charName,desc:evt.description||'',time:evt.time||''});
+        }
+      }
+      events.sort((a,b)=>a.y-b.y);
+      const lines=[`Event Order: ${order.name}`,''];
+      for(const e of events){
+        const t=e.time?` [${e.time}]`:'';
+        lines.push(`- ${e.char}${t}: ${e.desc}`);
+      }
+      return lines.join('\n');
+    },
+    eoLlmChapterDisplayName(id){
+      const chapters=this.book.chapters||[];
+      const idx=chapters.findIndex(c=>c.id===id);
+      if(idx<0) return '(unknown)';
+      const ch=chapters[idx];
+      return ch.name||ch.label?`${idx+1} – ${ch.name||ch.label}`:String(idx+1);
+    },
+    eoLlmChapterSuggestions(){
+      const q=this.eoLlmChapterSearch.trim().toLowerCase();
+      const sel=new Set(this.eoLlmChapterSelected.map(o=>o.id));
+      return (this.book?.chapters||[]).filter((ch,idx)=>{
+        if(sel.has(ch.id)) return false;
+        if(!q) return true;
+        return String(idx+1).startsWith(q)||(ch.name||ch.label||'').toLowerCase().startsWith(q);
+      });
+    },
+    eoLlmChapterAdd(id){
+      if(!this.eoLlmChapterSelected.find(o=>o.id===id)) this.eoLlmChapterSelected.push({id});
+      this.eoLlmChapterSearch='';
+    },
+    eoLlmChapterRemove(id){ this.eoLlmChapterSelected=this.eoLlmChapterSelected.filter(o=>o.id!==id); },
+    eoLlmChapterBlur(){ setTimeout(()=>{ this.eoLlmChapterShowSuggestions=false; },150); },
+    async clearEoLlmChat(){ this.eoLlmChatHistory=[]; },
+    _eoLlmScrollToBottom(){
+      this.$nextTick(()=>{ const el=this.$refs.eoLlmChatWindow; if(el) el.scrollTop=el.scrollHeight; });
+    },
+    async runEoLlmPrompt(){
+      if(!this.eoLlmCustomPrompt.trim()){ this.eoLlmError='Please enter a message.'; return; }
+      if(!this.currentOrder){ this.eoLlmError='No event order selected.'; return; }
+      let text=this.buildEoPromptText();
+      if(this.eoLlmIncludeChapters&&this.eoLlmChapterSelected.length){
+        const parts=[text,'','--- Chapters / Passages ---'];
+        for(const item of this.eoLlmChapterSelected){
+          if((item.type||'chapter')==='passage'){
+            const p=(this.book.passages||[]).find(x=>x.id===item.id);
+            if(!p) continue;
+            const pText=this._passagePlainText(p).trim();
+            if(pText) parts.push(`--- ${this.passageDisplayName(p)} ---\n${pText}`);
+          } else {
+            const ch=(this.book.chapters||[]).find(c=>c.id===item.id);
+            if(!ch) continue;
+            const chText=this._chapterPlainText(ch).trim();
+            if(chText) parts.push(`--- ${this.eoLlmChapterDisplayName(ch.id)} ---\n${chText}`);
+          }
+        }
+        text=parts.join('\n\n');
+      }
+      this.eoLlmLoading=true; this.eoLlmError='';
+      try{
+        const body={text,custom_prompt:this.eoLlmCustomPrompt,model:this.llmSelectedModel,characters:[],history:this.eoLlmChatHistory,persist:false};
+        const r=await fetch('/api/llm/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const data=await r.json();
+        if(r.ok){ this.eoLlmChatHistory=data.history||[]; this.eoLlmCustomPrompt=''; this._eoLlmScrollToBottom(); }
+        else this.eoLlmError=data.error||'LLM request failed';
+      }catch(e){ this.eoLlmError=String(e); }
+      finally{ this.eoLlmLoading=false; }
+    },
+    _llmScrollToBottom(){
+      this.$nextTick(()=>{
+        const el=this.$refs.llmChatWindow;
+        if(el) el.scrollTop=el.scrollHeight;
+      });
     },
     _chapterPlainText(ch){
       if(this.quillInstance&&this._quillChapterId===ch.id) return this.quillInstance.getText();
@@ -492,6 +596,119 @@ createApp({
       this.llmChapterSelected=arr;
     },
     llmChapterBlur(){ setTimeout(()=>{ this.llmChapterShowSuggestions=false; },150); },
+    /* ── Passages ─────────────────────── */
+    _passagePlainText(p){
+      const ch=(this.book.chapters||[]).find(c=>c.id===p.chapterId);
+      if(!ch) return '';
+      const full=this._chapterPlainText(ch);
+      if(!p.startText||!p.endText) return '';
+      const s=full.indexOf(p.startText);
+      if(s<0) return '';
+      const e=full.indexOf(p.endText,s+p.startText.length);
+      if(e<0) return '';
+      return full.slice(s,e+p.endText.length);
+    },
+    verifyPassage(){
+      if(!this.currentChapterId){this.newPassage.error='No chapter selected.';return;}
+      const ch=this.currentChapter();
+      if(!ch){this.newPassage.error='Chapter not found.';return;}
+      const full=this._chapterPlainText(ch);
+      const s=full.indexOf(this.newPassage.startText.trim());
+      if(s<0){this.newPassage.error='Start text not found in chapter.';this.newPassage.verified=false;return;}
+      const e=full.indexOf(this.newPassage.endText.trim(),s+this.newPassage.startText.length);
+      if(e<0){this.newPassage.error='End text not found after start text.';this.newPassage.verified=false;return;}
+      this.newPassage.error='';
+      this.newPassage.verified=true;
+    },
+    addPassage(){
+      this.verifyPassage();
+      if(!this.newPassage.verified) return;
+      const name=this.newPassage.name.trim()||('Passage '+(((this.book.passages||[]).length)+1));
+      (this.book.passages=this.book.passages||[]).push({
+        id:uid(),name,chapterId:this.currentChapterId,
+        startText:this.newPassage.startText.trim(),endText:this.newPassage.endText.trim()
+      });
+      this.newPassage={open:false,name:'',startText:'',endText:'',error:'',verified:false};
+      this.mark();
+    },
+    removePassage(id){
+      this.book.passages=(this.book.passages||[]).filter(p=>p.id!==id);
+      // also remove from llm selections
+      this.llmChapterSelected=this.llmChapterSelected.filter(o=>!(o.type==='passage'&&o.id===id));
+      this.eoLlmChapterSelected=this.eoLlmChapterSelected.filter(o=>!(o.type==='passage'&&o.id===id));
+      this.mark();
+    },
+    passageDisplayName(p){
+      const ch=(this.book.chapters||[]).find(c=>c.id===p.chapterId);
+      const chIdx=ch?(this.book.chapters||[]).indexOf(ch):-1;
+      const chLabel=chIdx>=0?(ch.name||ch.label?`Ch ${chIdx+1} – ${ch.name||ch.label}`:`Ch ${chIdx+1}`):'?';
+      return `✂ ${p.name} (${chLabel})`;
+    },
+    /* ── LLM content selector (chapters + passages) ── */
+    llmContentSuggestions(){
+      const q=this.llmChapterSearch.trim().toLowerCase();
+      const sel=new Set(this.llmChapterSelected.map(o=>`${o.type||'chapter'}:${o.id}`));
+      const results=[];
+      (this.book?.chapters||[]).forEach((ch,idx)=>{
+        if(sel.has(`chapter:${ch.id}`)) return;
+        const num=String(idx+1);
+        const lbl=(ch.name||ch.label||'').toLowerCase();
+        if(!q||num.startsWith(q)||lbl.includes(q))
+          results.push({id:ch.id,type:'chapter',label:this.llmContentDisplayName({id:ch.id,type:'chapter'})});
+      });
+      (this.book?.passages||[]).forEach(p=>{
+        if(sel.has(`passage:${p.id}`)) return;
+        const lbl=p.name.toLowerCase();
+        if(!q||lbl.includes(q))
+          results.push({id:p.id,type:'passage',label:this.passageDisplayName(p)});
+      });
+      return results;
+    },
+    llmContentDisplayName(item){
+      if(!item) return '?';
+      if((item.type||'chapter')==='passage'){
+        const p=(this.book?.passages||[]).find(x=>x.id===item.id);
+        return p?this.passageDisplayName(p):'(deleted passage)';
+      }
+      return this.llmChapterDisplayName(item.id);
+    },
+    llmContentAdd(item){
+      const key=`${item.type||'chapter'}:${item.id}`;
+      if(!this.llmChapterSelected.find(o=>`${o.type||'chapter'}:${o.id}`===key))
+        this.llmChapterSelected.push({id:item.id,type:item.type||'chapter'});
+      this.llmChapterSearch='';
+    },
+    /* same for EO pane */
+    eoLlmContentSuggestions(){
+      const q=this.eoLlmChapterSearch.trim().toLowerCase();
+      const sel=new Set(this.eoLlmChapterSelected.map(o=>`${o.type||'chapter'}:${o.id}`));
+      const results=[];
+      (this.book?.chapters||[]).forEach((ch,idx)=>{
+        if(sel.has(`chapter:${ch.id}`)) return;
+        const num=String(idx+1);
+        const lbl=(ch.name||ch.label||'').toLowerCase();
+        if(!q||num.startsWith(q)||lbl.includes(q))
+          results.push({id:ch.id,type:'chapter',label:this.llmContentDisplayName({id:ch.id,type:'chapter'})});
+      });
+      (this.book?.passages||[]).forEach(p=>{
+        if(sel.has(`passage:${p.id}`)) return;
+        const lbl=p.name.toLowerCase();
+        if(!q||lbl.includes(q))
+          results.push({id:p.id,type:'passage',label:this.passageDisplayName(p)});
+      });
+      return results;
+    },
+    eoLlmContentAdd(item){
+      const key=`${item.type||'chapter'}:${item.id}`;
+      if(!this.eoLlmChapterSelected.find(o=>`${o.type||'chapter'}:${o.id}`===key))
+        this.eoLlmChapterSelected.push({id:item.id,type:item.type||'chapter'});
+      this.eoLlmChapterSearch='';
+    },
+    llmToggleChar(id){
+      const i=this.llmSelectedCharIds.indexOf(id);
+      if(i>=0) this.llmSelectedCharIds.splice(i,1);
+      else this.llmSelectedCharIds.push(id);
+    },
     async runLlmPrompt(){
       if(!this.currentChapterId||!this.llmSelectedModel) return;
       let text='';
@@ -499,12 +716,16 @@ createApp({
         const chapters=this.book.chapters||[];
         const parts=[];
         for(const item of this.llmChapterSelected){
-          const ch=chapters.find(c=>c.id===item.id);
-          if(!ch) continue;
-          const chText=this._chapterPlainText(ch).trim();
-          if(chText){
-            const label=this.llmChapterDisplayName(ch.id);
-            parts.push(`--- ${label} ---\n${chText}`);
+          if((item.type||'chapter')==='passage'){
+            const p=(this.book.passages||[]).find(x=>x.id===item.id);
+            if(!p) continue;
+            const pText=this._passagePlainText(p).trim();
+            if(pText) parts.push(`--- ${this.passageDisplayName(p)} ---\n${pText}`);
+          } else {
+            const ch=chapters.find(c=>c.id===item.id);
+            if(!ch) continue;
+            const chText=this._chapterPlainText(ch).trim();
+            if(chText) parts.push(`--- ${this.llmChapterDisplayName(ch.id)} ---\n${chText}`);
           }
         }
         text=parts.join('\n\n');
@@ -512,17 +733,34 @@ createApp({
         const ch=this.currentChapter();
         if(ch) text=this._chapterPlainText(ch);
       }
-      if(!text.trim()){ this.llmError='Chapter text is empty.'; return; }
-      if(this.llmPromptMode==='custom'&&!this.llmCustomPrompt.trim()){ this.llmError='Please enter a custom prompt.'; return; }
-      this.llmLoading=true; this.llmResult=''; this.llmError='';
-      try{
-        const body={mode:this.llmPromptMode,text,model:this.llmSelectedModel,custom_prompt:this.llmCustomPrompt};
-        const r=await fetch('/api/llm/prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const data=await r.json();
-        if(r.ok) this.llmResult=data.result||'';
-        else this.llmError=data.error||'LLM request failed';
-      }catch(e){ this.llmError=String(e); }
-      finally{ this.llmLoading=false; }
+      if(this.llmPromptMode==='custom'){
+        // Chat mode
+        if(!this.llmCustomPrompt.trim()){ this.llmError='Please enter a message.'; return; }
+        this.llmLoading=true; this.llmError='';
+        try{
+          const selectedChars = this.llmIncludeCharacters
+            ? (this.book.characters||[]).filter(c=>this.llmSelectedCharIds.includes(c.id)).map(c=>({name:c.name,description:c.description||''}))
+            : [];
+          const body={text,custom_prompt:this.llmCustomPrompt,model:this.llmSelectedModel,characters:selectedChars};
+          const r=await fetch('/api/llm/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+          const data=await r.json();
+          if(r.ok){ this.llmChatHistory=data.history||[]; this.llmCustomPrompt=''; this._llmScrollToBottom(); }
+          else this.llmError=data.error||'LLM request failed';
+        }catch(e){ this.llmError=String(e); }
+        finally{ this.llmLoading=false; }
+      } else {
+        // Plausibility mode
+        if(!text.trim()){ this.llmError='Chapter text is empty.'; return; }
+        this.llmLoading=true; this.llmResult=''; this.llmError='';
+        try{
+          const body={mode:'plausibility',text,model:this.llmSelectedModel,custom_prompt:''};
+          const r=await fetch('/api/llm/prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+          const data=await r.json();
+          if(r.ok) this.llmResult=data.result||'';
+          else this.llmError=data.error||'LLM request failed';
+        }catch(e){ this.llmError=String(e); }
+        finally{ this.llmLoading=false; }
+      }
     },
     /* ── timeline gap helpers ─────────── */
     markerY(idx){
@@ -690,7 +928,7 @@ createApp({
     createBook(){
       if(!this.setup.title.trim()||!this.setup.author.trim()) return;
       this.book={title:this.setup.title.trim(),author:this.setup.author.trim(),
-        tags:[],chapters:[],characters:[],character_relations:[],questions:[],locations:[],topics:[]};
+        tags:[],chapters:[],characters:[],character_relations:[],questions:[],locations:[],topics:[],passages:[]};
       this.canvasNodes=[];this.eventOrders=[];this.tagInputs={};this.dirty=false;
     },
     loadSavedBook(data){
@@ -1940,6 +2178,8 @@ createApp({
         <button v-if="eoSelectedTags.length" class="icon-btn" style="margin-left:4px;font-size:11px" @click="eoSelectedTags=[]" :title="t('Clear tag filter')">✕ {{t('Clear')}}</button>
       </div>
 
+      <!-- timeline + LLM panel -->
+      <div class="eo-content-row">
       <!-- timeline grid -->
       <div class="tl-scroll" ref="tlScroll" @dragover.prevent @drop.prevent="onTlCharDrop($event)">
         <!-- axis -->
@@ -2015,6 +2255,64 @@ createApp({
           <p>{{t('Drag characters from above or add a General column, then double-click to place events.')}}</p>
         </div>
       </div>
+
+      <!-- EO LLM panel -->
+      <div class="llm-panel eo-llm-panel">
+        <div class="llm-panel-title">🤖 LLM Tools</div>
+        <!-- Model selector -->
+        <div class="llm-section-label">Model</div>
+        <select class="llm-select" v-model="llmSelectedModel">
+          <option v-for="m in llmModels" :key="m" :value="m">{{m}}</option>
+        </select>
+        <!-- Chapter include -->
+        <div class="llm-scope-check" style="margin-top:10px"><input type="checkbox" v-model="eoLlmIncludeChapters">Include chapters</div>
+        <template v-if="eoLlmIncludeChapters">
+          <div class="llm-ch-search-wrap">
+            <input class="llm-ch-search-input" v-model="eoLlmChapterSearch"
+              @focus="eoLlmChapterShowSuggestions=true" @blur="eoLlmChapterBlur"
+              placeholder="Chapter or passage name…" autocomplete="off"/>
+            <div v-if="eoLlmChapterShowSuggestions&&eoLlmChapterSearch.trim().length>0&&eoLlmContentSuggestions().length" class="llm-ch-suggestions">
+              <div v-for="item in eoLlmContentSuggestions()" :key="item.type+':'+item.id"
+                   class="llm-ch-suggestion" :class="{'llm-ch-suggestion-passage':item.type==='passage'}" @mousedown.prevent="eoLlmContentAdd(item)">
+                {{item.label}}
+              </div>
+            </div>
+          </div>
+          <div class="llm-ch-selected">
+            <button v-for="item in eoLlmChapterSelected" :key="item.type+':'+item.id"
+                    class="llm-ch-pill" :class="{'llm-ch-pill-passage':item.type==='passage'}" @click="eoLlmChapterRemove(item.id)"
+                    :title="'Remove: '+llmContentDisplayName(item)">
+              {{llmContentDisplayName(item)}} ✕
+            </button>
+            <div v-if="!eoLlmChapterSelected.length" class="llm-ch-empty">Search for chapters or passages to include.</div>
+          </div>
+        </template>
+        <!-- Chat -->
+        <div class="llm-chat-header">
+          <span class="llm-section-label" style="margin-top:10px">Conversation</span>
+          <button class="llm-clear-btn" @click="clearEoLlmChat">Clear chat</button>
+        </div>
+        <div class="llm-chat-window" ref="eoLlmChatWindow">
+          <div v-if="!eoLlmChatHistory.length&&!eoLlmLoading" class="llm-chat-empty">The event order is automatically included as context. Ask anything below.</div>
+          <div v-for="(msg,i) in eoLlmChatHistory" :key="i"
+               class="llm-chat-msg" :class="msg.role==='user'?'llm-msg-user':'llm-msg-assistant'">
+            <div class="llm-chat-bubble">{{msg.content}}</div>
+          </div>
+          <div v-if="eoLlmLoading" class="llm-chat-msg llm-msg-assistant">
+            <div class="llm-chat-bubble llm-chat-typing"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+        <div v-if="eoLlmError" class="llm-error" style="margin:4px 0">{{eoLlmError}}</div>
+        <div class="llm-chat-input-row">
+          <textarea class="llm-chat-input" v-model="eoLlmCustomPrompt"
+            placeholder="Ask something about this event order… (Enter to send)"
+            rows="2" :disabled="eoLlmLoading"
+            @keydown.enter.exact.prevent="runEoLlmPrompt"></textarea>
+          <button class="llm-chat-send-btn" @click="runEoLlmPrompt"
+                  :disabled="eoLlmLoading||!eoLlmCustomPrompt.trim()">▶</button>
+        </div>
+      </div>
+      </div><!-- /eo-content-row -->
     </div>
   </section>
 
@@ -2417,6 +2715,40 @@ createApp({
                 <div ref="chapterEditor" class="te-quill-wrap" :class="{'te-layout-a5':teLayout==='A5'}"></div>
                 <!-- Word count bar -->
                 <div class="te-wordcount-bar">{{totalWordCount()}} {{t('words')}} {{t('total')}}</div>
+                <!-- Passages panel -->
+                <div class="te-passages-panel">
+                  <div class="te-passages-header">
+                    <span class="te-passages-title">✂ Passages</span>
+                    <button class="te-btn-sm" @click="newPassage.open=!newPassage.open">{{newPassage.open?'Cancel':'+ Add'}}</button>
+                  </div>
+                  <!-- existing passages for this chapter -->
+                  <div v-for="p in (book.passages||[]).filter(p=>p.chapterId===currentChapterId)" :key="p.id" class="te-passage-row">
+                    <span class="te-passage-name" :title="'Start: '+p.startText+'\\nEnd: '+p.endText">{{p.name}}</span>
+                    <button class="icon-btn sm" @click="removePassage(p.id)" title="Delete passage">✕</button>
+                  </div>
+                  <div v-if="!(book.passages||[]).some(p=>p.chapterId===currentChapterId)&&!newPassage.open" class="llm-ch-empty" style="font-size:11px;margin:2px 0">No passages yet.</div>
+                  <!-- add form -->
+                  <div v-if="newPassage.open" class="te-passage-form">
+                    <div class="te-passage-form-row">
+                      <label>Name</label>
+                      <input v-model="newPassage.name" placeholder="e.g. The Fight Scene" class="te-passage-input"/>
+                    </div>
+                    <div class="te-passage-form-row">
+                      <label>Starts with</label>
+                      <input v-model="newPassage.startText" placeholder="First words of passage…" class="te-passage-input" @input="newPassage.verified=false;newPassage.error=''"/>
+                    </div>
+                    <div class="te-passage-form-row">
+                      <label>Ends with</label>
+                      <input v-model="newPassage.endText" placeholder="Last words of passage…" class="te-passage-input" @input="newPassage.verified=false;newPassage.error=''"/>
+                    </div>
+                    <div v-if="newPassage.error" class="llm-error" style="font-size:11px">{{newPassage.error}}</div>
+                    <div v-if="newPassage.verified&&!newPassage.error" style="font-size:11px;color:#27ae60;margin:2px 0">✓ Passage found in chapter</div>
+                    <div class="te-passage-form-actions">
+                      <button class="te-btn-sm" @click="verifyPassage">Verify</button>
+                      <button class="te-btn-sm primary" @click="addPassage" :disabled="!newPassage.verified">Add Passage</button>
+                    </div>
+                  </div>
+                </div>
                 <!-- Comments panel -->
                 <div v-if="currentChapter().comments&&currentChapter().comments.length" class="te-comments">
                   <h5>💬 {{t('Comments')}} ({{currentChapter().comments.length}})</h5>
@@ -2429,54 +2761,95 @@ createApp({
               </div>
 
               <!-- LLM Tools panel -->
-              <div class="llm-panel">
-                <div class="llm-panel-title">🤖 LLM Tools</div>
+              <div class="llm-panel" :class="{'llm-panel-detached':llmChatDetached}">
+                <div class="llm-panel-title">
+                  🤖 LLM Tools
+                  <button v-if="llmPromptMode==='custom'" class="llm-detach-btn" @click="llmChatDetached=!llmChatDetached" :title="llmChatDetached?'Dock panel':'Detach chat'">{{llmChatDetached?'⊡':'⤢'}}</button>
+                </div>
                 <!-- Model selector -->
                 <div class="llm-section-label">Model</div>
                 <select class="llm-select" v-model="llmSelectedModel">
                   <option v-for="m in llmModels" :key="m" :value="m">{{m}}</option>
                 </select>
-                <!-- Prompt mode -->
-                <div class="llm-section-label" style="margin-top:12px">Prompt</div>
+                <!-- Mode -->
+                <div class="llm-section-label" style="margin-top:12px">Mode</div>
                 <select class="llm-select" v-model="llmPromptMode">
                   <option value="plausibility">Check plausibility</option>
-                  <option value="custom">Custom prompt</option>
+                  <option value="custom">Chat</option>
                 </select>
-                <textarea v-if="llmPromptMode==='custom'" class="llm-custom-input" v-model="llmCustomPrompt" placeholder="Enter your question or instruction…" rows="3"></textarea>
                 <!-- Text scope -->
                 <span class="llm-scope-check"><input type="checkbox" v-model="llmChapterScope">Include other chapters</span>
-                <!-- Chapter search + chips (shown when checked) -->
+                <!-- Chapter/Passage search + chips (shown when checked) -->
                 <template v-if="llmChapterScope">
                   <div class="llm-ch-search-wrap">
                     <input class="llm-ch-search-input" v-model="llmChapterSearch"
                       @focus="llmChapterShowSuggestions=true" @blur="llmChapterBlur"
-                      placeholder="Chapter number or name…" autocomplete="off"/>
-                    <div v-if="llmChapterShowSuggestions&&llmChapterSearch.trim().length>0&&llmChapterSuggestions().length" class="llm-ch-suggestions">
-                      <div v-for="ch in llmChapterSuggestions()" :key="ch.id"
-                           class="llm-ch-suggestion" @mousedown.prevent="llmChapterAdd(ch.id)">
-                        {{llmChapterDisplayName(ch.id)}}
+                      placeholder="Chapter or passage name…" autocomplete="off"/>
+                    <div v-if="llmChapterShowSuggestions&&llmChapterSearch.trim().length>0&&llmContentSuggestions().length" class="llm-ch-suggestions">
+                      <div v-for="item in llmContentSuggestions()" :key="item.type+':'+item.id"
+                           class="llm-ch-suggestion" :class="{'llm-ch-suggestion-passage':item.type==='passage'}" @mousedown.prevent="llmContentAdd(item)">
+                        {{item.label}}
                       </div>
                     </div>
                   </div>
                   <div class="llm-ch-selected">
-                    <button v-for="item in llmChapterSelected" :key="item.id"
-                            class="llm-ch-pill" @click="llmChapterRemove(item.id)"
-                            :title="'Remove: '+llmChapterDisplayName(item.id)">
-                      {{llmChapterDisplayName(item.id)}} ✕
+                    <button v-for="item in llmChapterSelected" :key="item.type+':'+item.id"
+                            class="llm-ch-pill" :class="{'llm-ch-pill-passage':item.type==='passage'}" @click="llmChapterRemove(item.id)"
+                            :title="'Remove: '+llmContentDisplayName(item)">
+                      {{llmContentDisplayName(item)}} ✕
                     </button>
-                    <div v-if="!llmChapterSelected.length" class="llm-ch-empty">Search for chapters to include.</div>
+                    <div v-if="!llmChapterSelected.length" class="llm-ch-empty">Search for chapters or passages to include.</div>
                   </div>
                 </template>
-                <!-- Run button -->
-                <button class="llm-run-btn" @click="runLlmPrompt" :disabled="llmLoading">
-                  <span v-if="llmLoading">⏳ Running…</span>
-                  <span v-else>▶ Run</span>
-                </button>
-                <!-- Error -->
-                <div v-if="llmError" class="llm-error">{{llmError}}</div>
-                <!-- Result -->
-                <div class="llm-section-label" style="margin-top:12px">Result</div>
-                <textarea class="llm-result" :value="llmResult" readonly :placeholder="llmLoading?'Waiting for response…':'Result will appear here…'" rows="12"></textarea>
+
+                <!-- ── CHAT mode ── -->
+                <template v-if="llmPromptMode==='custom'">
+                  <div class="llm-scope-check" style="margin-top:4px"><input type="checkbox" v-model="llmIncludeCharacters">Include character info</div>
+                  <div v-if="llmIncludeCharacters" class="llm-char-list">
+                    <div v-if="!book||!book.characters||!book.characters.length" class="llm-ch-empty">No characters in this book.</div>
+                    <div v-for="c in book.characters" :key="c.id"
+                         class="llm-char-row"
+                         :class="{'llm-char-row-active':llmSelectedCharIds.includes(c.id)}"
+                         @click="llmToggleChar(c.id)">
+                      <input type="checkbox" :checked="llmSelectedCharIds.includes(c.id)" @click.stop @change="llmToggleChar(c.id)">
+                      <span class="llm-char-name">{{c.name}}</span>
+                    </div>
+                  </div>
+                  <div class="llm-chat-header">
+                    <span class="llm-section-label" style="margin-top:10px">Conversation</span>
+                    <button class="llm-clear-btn" @click="clearLlmChat">Clear chat</button>
+                  </div>
+                  <div class="llm-chat-window" ref="llmChatWindow">
+                    <div v-if="!llmChatHistory.length&&!llmLoading" class="llm-chat-empty">Start the conversation below.</div>
+                    <div v-for="(msg,i) in llmChatHistory" :key="i"
+                         class="llm-chat-msg" :class="msg.role==='user'?'llm-msg-user':'llm-msg-assistant'">
+                      <div class="llm-chat-bubble">{{msg.content}}</div>
+                    </div>
+                    <div v-if="llmLoading" class="llm-chat-msg llm-msg-assistant">
+                      <div class="llm-chat-bubble llm-chat-typing"><span></span><span></span><span></span></div>
+                    </div>
+                  </div>
+                  <div v-if="llmError" class="llm-error" style="margin:4px 0">{{llmError}}</div>
+                  <div class="llm-chat-input-row">
+                    <textarea class="llm-chat-input" v-model="llmCustomPrompt"
+                      placeholder="Ask something about the text… (Enter to send)"
+                      rows="2" :disabled="llmLoading"
+                      @keydown.enter.exact.prevent="runLlmPrompt"></textarea>
+                    <button class="llm-chat-send-btn" @click="runLlmPrompt"
+                            :disabled="llmLoading||!llmCustomPrompt.trim()">▶</button>
+                  </div>
+                </template>
+
+                <!-- ── PLAUSIBILITY mode ── -->
+                <template v-else>
+                  <button class="llm-run-btn" @click="runLlmPrompt" :disabled="llmLoading">
+                    <span v-if="llmLoading">⏳ Running…</span>
+                    <span v-else>▶ Run</span>
+                  </button>
+                  <div v-if="llmError" class="llm-error">{{llmError}}</div>
+                  <div class="llm-section-label" style="margin-top:12px">Result</div>
+                  <textarea class="llm-result" :value="llmResult" readonly :placeholder="llmLoading?'Waiting for response…':'Result will appear here…'" rows="12"></textarea>
+                </template>
               </div>
             </div>
           </div>
