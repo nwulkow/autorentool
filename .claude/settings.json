@@ -60,13 +60,19 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('topics'\\), indent=2\\)\\)\")",
       "Bash(DEVICE=C812597E-A6E8-471F-B31F-BEA305033876 *)",
       "Bash(sed -n '201,291p' /tmp/notes_inspect_run.log)",
-      "Bash(rm -f '__TRACKED_VAR__/Documents/Books/Notes Test Book*.json')"
+      "Bash(rm -f '__TRACKED_VAR__/Documents/Books/Notes Test Book*.json')",
+      "Bash(mkdir -p ios/Autorino/Word)",
+      "Read(//Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/**)",
+      "Read(//Applications/Xcode.app/**)",
+      "Bash(grep -n \"DocumentType\\\\b\" /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Versions/C/Headers/NSAttributedString.h | head -20)",
+      "Read(//Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Versions/C/Headers/**)"
     ],
     "additionalDirectories": [
       "/private/tmp",
       "/private/tmp/autorino_dd",
       "/tmp",
-      "/Users/niklaswulkow/Library/Developer/Xcode/DerivedData"
+      "/Users/niklaswulkow/Library/Developer/Xcode/DerivedData",
+      "/Users/niklaswulkow/ResearchEngineering/autorentool/ios/Autorino"
     ]
   }
 }

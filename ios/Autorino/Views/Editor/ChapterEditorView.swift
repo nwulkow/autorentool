@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The chapter writing surface — `RichTextView` + `FormatToolbar` replace
 /// Quill (app.js:1468-1528); comments/passages/LLM assistant are reachable
@@ -16,6 +17,8 @@ struct ChapterEditorView: View {
     @State private var showingAddComment = false
     @State private var showingPassages = false
     @State private var showingLLM = false
+    @State private var exportDocument: DocxFileDocument?
+    @State private var showingExporter = false
 
     private var chapterIndex: Int? { editor.book.chapters.firstIndex { $0.id == chapterId } }
 
@@ -41,6 +44,7 @@ struct ChapterEditorView: View {
                         Menu {
                             Button { showingComments = true } label: { Label("Comments", systemImage: "text.bubble") }
                             Button { showingPassages = true } label: { Label("Passages", systemImage: "scissors") }
+                            Button { exportDocx() } label: { Label("Export DOCX", systemImage: "square.and.arrow.up") }
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
@@ -67,6 +71,12 @@ struct ChapterEditorView: View {
                 .sheet(isPresented: $showingLLM) {
                     LLMAssistantSheet(editor: editor, defaultScope: [ContentScopeItem(kind: .chapter, id: chapterId)])
                 }
+                .fileExporter(
+                    isPresented: $showingExporter,
+                    document: exportDocument,
+                    contentType: UTType(filenameExtension: "docx") ?? .data,
+                    defaultFilename: exportFilename
+                ) { _ in }
             } else {
                 EmptyStateView(systemImage: "doc.text.badge.xmark", title: "Chapter removed", message: "This chapter no longer exists.")
             }
@@ -114,5 +124,18 @@ struct ChapterEditorView: View {
     private func commit(_ attributed: NSAttributedString) {
         guard let index = chapterIndex else { return }
         editor.book.chapters[index].content = HTMLConversion.html(from: attributed)
+    }
+
+    private var exportFilename: String {
+        guard let index = chapterIndex else { return "chapter.docx" }
+        return DocxExporter.filename(forChapter: editor.book.chapters[index])
+    }
+
+    private func exportDocx() {
+        guard let index = chapterIndex else { return }
+        commitNow()
+        let chapter = editor.book.chapters[index]
+        exportDocument = DocxFileDocument(data: DocxExporter.exportChapter(chapter, index: index))
+        showingExporter = true
     }
 }

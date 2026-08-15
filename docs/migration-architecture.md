@@ -1,6 +1,6 @@
 # Migration Architecture: Autorino → Native iOS
 
-Status: **phases 1–9 shipped** (see `ios/README-iOS.md` for exactly what's
+Status: **phases 1–10 shipped** (see `ios/README-iOS.md` for exactly what's
 built vs. deferred). Target: SwiftUI app, no Python/FastAPI backend, no
 `http.server` JSON API. Source of truth for current behavior: `app.js` (Vue
 Options API, ~2900 lines), `server.py` (stdlib HTTP handler), `classes.py`
@@ -134,7 +134,7 @@ in `Models/EventOrder.swift`, ahead of the timeline view itself (§7).
 | Event orders (timeline, character columns, marker modes, gap sizing, drag to reposition) | `EventOrdersListView` + `TimelineView`/`TimelineConfigView`; `TimelineMath` (marker generation, `timeFromY`) | **Shipped** — LLM assistant side panel (today's per-feature pane) still deferred, to be wired onto `LLMAssistantSheet` rather than duplicated |
 | Notes/Topics (post-its, colors, URL links) | `NotesListView` + `TopicDetailView` | **Shipped** — topic list pushes into a detail screen with the post-it grid and links section stacked, instead of app.js's three-pane `.notes-layout` |
 | Text editor — chapters, rich text (Quill), comments, full-text mode | `ChapterEditorView` wrapping `UITextView` (`UIViewRepresentable`) bound to `NSAttributedString` | **Shipped** (layout/zoom/spell-language chrome deferred — see §5) |
-| Word export (`docx.js`) / import (`mammoth.js`) | `DocxExporter`/`DocxImporter` in Swift | Deferred |
+| Word export (`docx.js`) / import (`mammoth.js`) | `DocxExporter`/`DocxImporter` + `ZipWriter`/`ZipReader`/`OOXMLDocumentParser` in `ios/Autorino/Word/` | **Shipped** — see §5 for the correction to this table's original import assumption |
 | LLM: model picker, plausibility check, custom prompt, multi-turn chat, chat history, "include characters" / chapter-content-scope selector | `LLMService` protocol + `GeminiLLMService` (URLSession) | **Shipped** (Gemini only — no local/on-device model path; see §8) |
 | i18n (`I18N` dict, `t(key)`) | Xcode String Catalog (`Localizable.xcstrings`), `String(localized:)` | Deferred — UI text is English-only for now |
 | `/api/books*`, `/api/llm/*` routes; `server.py`, `start.sh`, `.env` parsing | **Deleted, not ported.** | N/A — pure transport for a browser that no longer exists |
@@ -165,18 +165,49 @@ Proposed native approach:
 - **Full-text mode:** a computed view concatenating chapter titles + bodies,
   same as today's `fullTextQuill`, just built from the native attributed
   strings.
-- **Word export/import:** no first-party Apple API writes `.docx`. Two
-  options, to be decided at implementation time (flagged as open decision,
-  not blocking earlier phases since chapters work without it):
+- **Word export/import — shipped, phase 10, in `ios/Autorino/Word/`.**
+  Neither direction is a first-party API on iOS, which corrects an
+  assumption this section originally made. Export took the path flagged
+  as option 1 below (no new dependency); import turned out to need the
+  same treatment, not the "likely free" API this section originally
+  named — see the correction beneath the (still-accurate) option list:
   1. Port the existing hand-rolled paragraph/run walker in `app.js`
      (`exportChapterDocx`/`htmlToDocxParagraphs`) to build the same minimal
-     OOXML by hand — no new dependency, more code to maintain.
+     OOXML by hand — no new dependency, more code to maintain. **Chosen.**
+     `DocxExporter` walks an `NSAttributedString` (reusing
+     `HTMLConversion`, the same parser already trusted for the editor)
+     paragraph-by-paragraph, inferring heading level from font
+     size+bold (calibrated against both `HTMLConversion`'s own `<h1-3>`
+     output and `RichTextController.HeadingLevel`'s toolbar sizes, which
+     use different point sizes for the same semantic level) and list/
+     blockquote indent from paragraph style, and emits `<w:p>`/`<w:r>`
+     OOXML. `ZipWriter` packages it — a from-scratch, stored-only
+     (uncompressed) ZIP writer, valid per spec and sidesteps needing a
+     compressor for output we control.
   2. Take a small, vetted dependency (e.g. a Swift docx/zip library) —
      less code, violates the "avoid unnecessary third-party dependencies"
-     preference, so only if (1) proves too costly.
-  `.docx` **import** is comparatively easy: `NSAttributedString(url:options:
-  [.documentType: .docx])` reads Word files on iOS/macOS directly, so
-  `mammoth.js` likely has no Swift equivalent needed at all.
+     preference. **Not taken**, per the same call made for export.
+  - **Correction to this section's original claim:** `.docx` import is
+    **not** free. `NSAttributedString`'s `.docFormat`/`.officeOpenXML`
+    document types (the ones that would read `.doc`/`.docx`) are
+    AppKit-only — checked against the iOS SDK headers directly, iOS's
+    `NSAttributedString.DocumentType` only has `.plainText`, `.rtf`,
+    `.rtfd`, and `.html`. So `.docx` **import** needed the same
+    "hand-roll it" treatment as export, not `mammoth.js`'s free lunch:
+    `ZipReader` (reads a real, deflate-compressed `.docx`'s central
+    directory — unlike `ZipWriter`'s own stored-only output, so it goes
+    through Apple's first-party `Compression` framework rather than a
+    hand-rolled inflate, since DEFLATE itself is a poor rebuild-by-hand
+    candidate) extracts `word/document.xml`, and `OOXMLDocumentParser`
+    (`XMLParser`, part of Foundation) walks `<w:p>`/`<w:r>` back into the
+    same HTML shape the exporter reads from. This covers the same
+    paragraph/run subset the exporter produces — not a general Word
+    reader; tables, images, and footnotes aren't handled. Legacy `.doc`
+    (pre-2007 binary format, not XML-in-a-zip) is out of scope entirely
+    and rejected with a clear error rather than mishandled. Verified via
+    a temporary in-app smoke test (export → `ZipReader` → parse → assert
+    formatting survived) run in the Simulator, not just compiled —
+    caught a real heading-level miscalibration before removal.
 
 ## 6. LLM integration
 
@@ -286,7 +317,10 @@ Dropbox sync first, since it was pulled forward from "stretch" to
    SwiftUI `Canvas`. **Done.**
 8. ~~**Locations**~~ — list + map editor (shapes/icons/areas). **Done** — see §9.
 9. ~~**Notes/Topics**~~ — post-its, URL links. **Done** — see §10.
-10. **Word import/export.**
+10. ~~**Word import/export**~~ — `DocxExporter`/`DocxImporter`,
+    `ZipWriter`/`ZipReader`, `OOXMLDocumentParser` (§5). **Done** — both
+    directions needed a hand-rolled OOXML implementation, correcting this
+    doc's original assumption that import was free via `NSAttributedString`.
 11. **Localization** — String Catalog (en/de), matching current coverage.
 12. **Polish** — `NavigationSplitView` trailing-column presentation for
     `LLMAssistantSheet` on iPad/regular width (§6.5); layout/zoom/spell-
@@ -313,9 +347,11 @@ Dropbox sync first, since it was pulled forward from "stretch" to
   revisit explicitly, not an implied continuation of this plan.
 - **Gemini API key lives in Keychain**, entered in a Settings screen,
   replacing `.env` parsing.
-- **`.docx` export approach (§5) is left as an implementation-time choice**
-  between porting the existing manual OOXML writer vs. taking a small
-  dependency; not a blocker for any earlier phase.
+- **`.docx` export and import approach (§5) — resolved, phase 10:** the
+  manual-OOXML-writer path was chosen for export over a dependency; import
+  turned out to need the same manual treatment (a hand-rolled ZIP reader
+  + `XMLParser` walk), not the free `NSAttributedString` path this
+  section originally assumed — see §5's correction.
 - **No FastAPI/HTTP layer of any kind ships in the iOS app** — confirmed
   non-goal per the migration rules; all `server.py` routes are transport,
   not logic, and are deleted rather than translated.

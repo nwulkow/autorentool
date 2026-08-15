@@ -6,7 +6,7 @@ file is the practical "how do I build and set this up" doc.
 
 ## Status
 
-**Shipped and building (phases 1–9):**
+**Shipped and building (phases 1–10):**
 - Project scaffold, all data models (full parity with `books/*.json`)
 - Local persistence (`Books/*.json` in the app sandbox — same schema/
   filenames as the Mac app)
@@ -40,12 +40,26 @@ file is the practical "how do I build and set this up" doc.
   `Button`; a multiline `TextField(axis: .vertical)` exposes text as
   `.value`, not `.label`).
 
+- Word import/export: `DocxExporter`/`DocxImporter` in `Autorino/Word/` —
+  export builds minimal OOXML by hand (`ZipWriter` + a paragraph/run
+  walker over `NSAttributedString`, ported from app.js's
+  `htmlToDocxParagraphs`/`nodeToRuns`); import needed the same treatment,
+  not a free ride: iOS's `NSAttributedString` has no `.docx`/`.doc`
+  document type at all (that's AppKit-only), so `ZipReader` (deflate via
+  the first-party `Compression` framework) + `OOXMLDocumentParser`
+  (`XMLParser`) rebuild HTML from `word/document.xml`. Covers the same
+  paragraph/run subset the exporter produces — bold/italic/underline/
+  strike, `<h1-3>`, blockquote indent — not tables/images/footnotes, and
+  not legacy binary `.doc` (rejected with a clear error). Reachable from
+  the chapter list toolbar (Import File / Export DOCX) and per-chapter
+  (swipe action, or the editor's `···` menu).
+
 **No local/on-device LLM — confirmed non-goal, not deferred.** The iOS app
 ships Gemini only (`GeminiLLMService`). Today's Ollama option is dropped
 outright and is not replaced by FoundationModels or anything else.
 
 **Deferred to later phases** (models exist, views are placeholders):
-Word export, localization (String Catalog).
+localization (String Catalog).
 
 ## Build
 
@@ -117,12 +131,20 @@ as `<title> (Dropbox <timestamp>).json` — nothing is silently dropped.
 Settings lists any such conflicts; merge by hand and delete the extra copy
 once you're done.
 
-## Notes for whoever picks up the next phase (Word import/export)
+## Notes for whoever picks up the next phase (Localization)
 
 - `BookTabContainer` (`Views/Shared/BookTabContainer.swift`) is where the
   placeholder tabs live — swap `PlaceholderTabView` for a real view per
-  tab as each one lands. All tabs are now real views; Word import/export
-  is next, see `docs/migration-architecture.md` §7.
+  tab as each one lands. All tabs are now real views, including Word
+  import/export (phase 10); localization is next, see
+  `docs/migration-architecture.md` §7.
+- If a future `.docx` import needs more than paragraphs/runs (tables,
+  images, styles beyond bold/italic/underline/strike/headings/
+  blockquote), `OOXMLDocumentParser` is the place to extend — it's a
+  straightforward `XMLParser` delegate over `word/document.xml`, not a
+  black box. `ZipReader`/`ZipWriter`/`Inflate` in the same directory are
+  general enough to reuse for anything else that needs a `.docx`-shaped
+  container.
 - Tab content views (`CanvasView`, `TimelineView`, etc.) cannot rely on
   `.toolbar`/`.navigationTitle` bubbling up to the shared nav bar — the
   single `NavigationStack` lives above `BookTabContainer`'s `TabView`, and
