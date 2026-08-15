@@ -76,7 +76,13 @@
       "Read(//Users/niklaswulkow/Library/Developer/Xcode/DerivedData/Autorino-fnuohgmovsesvlhgahmvforuxhkp/Build/Products/Debug-iphonesimulator/Autorino.app/**)",
       "Read(//Users/niklaswulkow/Library/Developer/Xcode/DerivedData/Autorino-fnuohgmovsesvlhgahmvforuxhkp/**)",
       "Bash(plutil -convert xml1 -o - /Users/niklaswulkow/Library/Developer/Xcode/DerivedData/Autorino-fnuohgmovsesvlhgahmvforuxhkp/Build/Products/Debug-iphonesimulator/Autorino.app/de.lproj/Localizable.strings)",
-      "Bash(python3 -m json.tool Autorino/Localizable.xcstrings)"
+      "Bash(python3 -m json.tool Autorino/Localizable.xcstrings)",
+      "Bash(xargs -I{} grep -rn \"setPreferredLanguages\\\\|preferredLanguages\\\\|class UITextChecker\" {}/System/Library/Frameworks/UIKit.framework/Headers/UITextChecker.h)",
+      "Bash(find / -name \"UITextChecker.h\")",
+      "Bash(grep -n \"^[+-]\\\\|@interface\\\\|@property\" /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UITextChecker.h)",
+      "Read(//Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/**)",
+      "Bash(grep -n \"textInputMode\\\\|primaryLanguage\\\\|UITextInputMode\" /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIResponder.h /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UITextInputTraits.h 2>/dev/null)",
+      "Bash(grep -n \"primaryLanguage\\\\|preferredKeyboard\\\\|UITextInputTraits\\\\|keyboardType\" /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UITextInputTraits.h)"
     ],
     "additionalDirectories": [
       "/private/tmp",

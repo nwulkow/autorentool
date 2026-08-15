@@ -1,7 +1,7 @@
 # Migration Architecture: Autorino → Native iOS
 
-Status: **phases 1–10 shipped** (see `ios/README-iOS.md` for exactly what's
-built vs. deferred). Target: SwiftUI app, no Python/FastAPI backend, no
+Status: **all 12 phases shipped** (see `ios/README-iOS.md` for exactly
+what's built). Target: SwiftUI app, no Python/FastAPI backend, no
 `http.server` JSON API. Source of truth for current behavior: `app.js` (Vue
 Options API, ~2900 lines), `server.py` (stdlib HTTP handler), `classes.py`
 (server-side model shape used for LLM prompts), `llm_utils.py` (Gemini/Ollama
@@ -131,9 +131,9 @@ in `Models/EventOrder.swift`, ahead of the timeline view itself (§7).
 | Questions tab | `QuestionsListView` | **Shipped** (pulled forward — trivial enough not to defer) |
 | Character canvas (draggable nodes, link mode, relation lines) | `CanvasView` using SwiftUI `Canvas` for link lines + `DragGesture` per node | **Shipped** — tap-to-place from a character pool stands in for the web version's drag-onto-map (no touch equivalent for native HTML drag-and-drop) |
 | Locations tab (map + drawable objects: rect/ellipse/icons/areas) | `LocationsListView` + `LocationEditorView` + `LocationMapCanvas` (SwiftUI `Canvas`), `LocationTools`, `LocationIconRenderer` | **Shipped** — see §9 |
-| Event orders (timeline, character columns, marker modes, gap sizing, drag to reposition) | `EventOrdersListView` + `TimelineView`/`TimelineConfigView`; `TimelineMath` (marker generation, `timeFromY`) | **Shipped** — LLM assistant side panel (today's per-feature pane) still deferred, to be wired onto `LLMAssistantSheet` rather than duplicated |
+| Event orders (timeline, character columns, marker modes, gap sizing, drag to reposition) | `EventOrdersListView` + `TimelineView`/`TimelineConfigView`; `TimelineMath` (marker generation, `timeFromY`) | **Shipped** — LLM assistant side panel now wired onto `LLMAssistantHost`/`LLMAssistantSheet` (`persist:false`, `baseContext` primed from `PromptBuilder.eventOrderPrompt`), see §12 |
 | Notes/Topics (post-its, colors, URL links) | `NotesListView` + `TopicDetailView` | **Shipped** — topic list pushes into a detail screen with the post-it grid and links section stacked, instead of app.js's three-pane `.notes-layout` |
-| Text editor — chapters, rich text (Quill), comments, full-text mode | `ChapterEditorView` wrapping `UITextView` (`UIViewRepresentable`) bound to `NSAttributedString` | **Shipped** (layout/zoom/spell-language chrome deferred — see §5) |
+| Text editor — chapters, rich text (Quill), comments, full-text mode | `ChapterEditorView` wrapping `UITextView` (`UIViewRepresentable`) bound to `NSAttributedString` | **Shipped**, including layout/zoom/spell-language chrome (`EditorChromeBar`, `EditorLayout`) — see §5 and §12 |
 | Word export (`docx.js`) / import (`mammoth.js`) | `DocxExporter`/`DocxImporter` + `ZipWriter`/`ZipReader`/`OOXMLDocumentParser` in `ios/Autorino/Word/` | **Shipped** — see §5 for the correction to this table's original import assumption |
 | LLM: model picker, plausibility check, custom prompt, multi-turn chat, chat history, "include characters" / chapter-content-scope selector | `LLMService` protocol + `GeminiLLMService` (URLSession) | **Shipped** (Gemini only — no local/on-device model path; see §8) |
 | i18n (`I18N` dict, `t(key)`) | Xcode String Catalog (`Localizable.xcstrings`), `String(localized:)` | **Shipped** — see §11 |
@@ -149,8 +149,14 @@ Proposed native approach:
 - **Editing surface:** `UITextView` bridged via `UIViewRepresentable`,
   backed by `NSAttributedString`. Gives native bold/italic/underline/strike,
   fonts, sizes, lists, headings — the same formatting surface Quill exposes
-  today — plus native selection, autocorrect, and `UITextChecker`-based
-  spellcheck for free (replacing `teSpellLang`).
+  today — plus native selection, autocorrect, and `spellCheckingType`'s
+  automatic red-squiggle pass. **Correction, phase 12:** the automatic
+  pass has no public per-view language override (checked against the SDK
+  headers directly — neither `UITextView` nor `UITextInputTraits` expose
+  one), so `teSpellLang`'s de/en switch could not be replicated "for free"
+  as this section originally assumed; `EditorChromeBar`'s DE/EN picker is
+  a persisted preference with no device effect beyond enabling spellcheck
+  itself. See §12.
 - **Storage format, shipped as:** chapter `content` stays **HTML on disk**,
   unchanged — not converted to RTF/AttributedString at rest. `HTMLConversion`
   (`Views/Editor/HTMLConversion.swift`) converts to/from `NSAttributedString`
@@ -251,15 +257,10 @@ toolbar button (`LLMAssistantButton`), starting at `.medium` so the editor
 stays visible above it, draggable to `.large` for a focused conversation.
 The content-scope picker (§6) collapses into the sheet instead of staying
 permanently visible. `LLMAssistantButton`/`LLMAssistantSheet` are written
-generically (take a `BookEditor` + a default scope) so the deferred tabs —
-event orders in particular, which has its own LLM pane today — can reuse the
-same surface once their views land, rather than growing a second chat
-implementation.
-
-Not yet done: presenting the same content as a `NavigationSplitView`
-trailing column on iPad/regular-width instead of a sheet (today's fixed Vue
-layout can't adapt to size class at all, which is the whole reason this was
-worth doing — but this phase only shipped the phone-width sheet).
+generically (take a `BookEditor` + a default scope) so other tabs — event
+orders in particular, which has its own LLM pane today — reuse the same
+surface once wired up, rather than growing a second chat implementation;
+see §12 for that wiring and the regular-width presentation.
 
 ## 6.6 Dropbox sync (net-new — not in the original Vue app)
 
@@ -324,12 +325,14 @@ Dropbox sync first, since it was pulled forward from "stretch" to
 11. ~~**Localization**~~ — String Catalog (en/de), matching current coverage.
     **Done** — see §11 for the ternary/computed-property extraction gaps
     this phase had to work around.
-12. **Polish** — `NavigationSplitView` trailing-column presentation for
-    `LLMAssistantSheet` on iPad/regular width (§6.5); layout/zoom/spell-
-    language editor chrome; event-order LLM assistant panel wired onto
-    `LLMAssistantSheet`.
+12. ~~**Polish**~~ — `NavigationSplitView` trailing-column presentation for
+    the LLM assistant on iPad/regular width (§6.5); layout/zoom/spell-
+    language editor chrome; event-order LLM assistant panel wired onto the
+    shared assistant surface. **Done** — see §12.
 
 **No on-device/local LLM phase.** Dropped as a non-goal, not deferred — see §8.
+
+**All 12 phases are now shipped.**
 
 ## 8. Assumptions & open decisions
 
@@ -527,3 +530,89 @@ fresh in the same register.
   all 206 cataloged keys came through with the exact key shape predicted,
   confirming the `%@`-for-`String`/`%lld`-for-`Int` convention this phase
   used matches Swift's actual compiled format-specifier behavior.
+
+## 12. Polish (phase 12)
+
+The three items left open after phase 11, closing out the migration.
+
+### Event-order LLM assistant panel
+
+`TimelineView` now wraps its content in `LLMAssistantHost` (see below) the
+same way `ChapterEditorView` does, rather than growing a second chat
+implementation as originally flagged as a risk in §6.5/§7. It passes:
+- `persist: false` — mirrors `runEoLlmPrompt`'s `persist:false` call
+  (app.js:539, `body={…,persist:false}`): the conversation lives in
+  view-local `@State` inside `LLMAssistantContent` and disappears when the
+  sheet/column closes, not in `ChatHistoryStore`'s per-book JSON file.
+- `baseContext: PromptBuilder.eventOrderPrompt(order, characters:)` — the
+  same chronologically-sorted event dump `classes.py`'s
+  `EventOrder.to_llm_prompt` builds, sent alongside every turn exactly as
+  `runEoLlmPrompt` prepends its `text` (the event-order dump) to
+  `custom_prompt` on each call (app.js:516-539). Unlike the chapter
+  editor's chapter/passage scope picker (additive, user-toggled), this
+  context is always present and never shown as its own chat bubble.
+
+`LLMAssistantSheet`/`LLMAssistantContent` were split so the same chat body
+(message list, input bar, history plumbing) could be reused both inside a
+`.sheet` and inside the `NavigationSplitView` column below, instead of
+duplicating that logic a second time for the split-view path.
+
+### `NavigationSplitView` trailing column on regular width
+
+`LLMAssistantHost<Content>` (`Views/LLMAssistant/LLMAssistantButton.swift`)
+now owns presentation instead of `ChapterEditorView`/`TimelineView` calling
+`.sheet` directly: on compact width it behaves exactly as §6.5 shipped
+(a `.sheet` at `.medium`/`.large`); on `horizontalSizeClass == .regular`
+(iPad, Mac Catalyst) it instead renders a `NavigationSplitView` with the
+tab's own content as the sidebar column and `LLMAssistantContent` as the
+detail column whenever `isPresented` is true — matching app.js's permanent
+side panel on desktop, the parity gap this section flagged as "not yet
+done" when phase 5/6 shipped. `LLMAssistantButton` now toggles a `Bool`
+binding rather than taking an arbitrary closure, so the same button works
+under both presentation styles without the call site knowing which one is
+active.
+
+### Editor layout/zoom/spell-language chrome
+
+`EditorChromeBar` (in `ChapterEditorView.swift`) ports app.js's
+`te-editor-toolbar-extra` row (app.js:2694-2707) as three controls above
+the text view, each an `@AppStorage`-backed preference (global across
+books, like `teLayout`/`teZoom`/`teSpellLang` being plain Vue `data()`
+fields shared by every open chapter):
+- **Layout** (`EditorLayout`, A4/A5) — A5 constrains `RichTextView` to a
+  520pt `maxWidth`, mirroring `.te-layout-a5 .ql-editor`'s `max-width:520px`
+  (styles.css:920-924); A4 is unconstrained. Purely a width cue — neither
+  platform paginates.
+- **Zoom** (50–200%, ±10 per tap, mirroring `teZoomIn`/`teZoomOut`,
+  app.js:1719-1727) — implemented as a **display-only** transform in
+  `RichTextView.scaled(_:)`/`unscaled(_:)`: the `NSAttributedString`
+  handed to the on-screen `UITextView` has every run's font scaled up for
+  display, and `Coordinator.textViewDidChange` scales it back down before
+  writing to the `attributedText` binding that `HTMLConversion` persists —
+  matching app.js's own `editor.style.fontSize` CSS zoom, which likewise
+  never touches the underlying Quill Delta. `RichTextController.zoomScale`
+  is kept in sync so toolbar-driven heading changes (`setHeading`, which
+  sets an absolute point size) land correctly relative to whatever zoom is
+  currently on screen, rather than baking the *current* zoom level into a
+  heading permanently the next time zoom changes.
+- **Spelling** (DE/EN) — **correction to §5's original assumption**:
+  checked directly against the iOS SDK headers, neither `UITextView` nor
+  `UITextInputTraits` expose a per-view spellcheck language override; the
+  automatic red-squiggle pass always follows whichever keyboard the user
+  has active system-wide, which an app cannot set. So this control is a
+  persisted preference with no device effect beyond `spellCheckingType =
+  .yes` (always on) — the closest a sandboxed `UITextView` gets to
+  `applySpellcheckSettings`'s `lang="de-DE"`/`"en-US"` (app.js:1734-1741),
+  which works because it's setting an attribute the *browser's* spell
+  checker reads, not an OS-level switch.
+
+### Verification
+
+`xcodebuild -project Autorino.xcodeproj -scheme Autorino -destination
+'platform=iOS Simulator,name=iPhone 17' build` succeeded with no warnings
+in any file this phase touched, after `xcodegen generate` picked up the
+new `EditorChromeBar`/`EditorLayout` symbols (no new files were added —
+`EditorChromeBar`/`EditorLayout` live in `ChapterEditorView.swift`, and
+`LLMAssistantContent`/`LLMAssistantHost` live in the existing
+`LLMAssistant/` files, so `project.yml`'s `sources:` glob needed no
+changes).

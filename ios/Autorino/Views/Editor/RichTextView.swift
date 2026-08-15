@@ -9,6 +9,12 @@ import UIKit
 @MainActor
 final class RichTextController: ObservableObject {
     fileprivate weak var textView: UITextView?
+    /// Kept in sync by `RichTextView.updateUIView` so `setHeading`'s
+    /// absolute point sizes land correctly relative to whatever zoom the
+    /// on-screen (display-only, see `RichTextView.scaled(_:)`) text is
+    /// currently rendered at — otherwise a heading set while zoomed would
+    /// persist at the wrong size once `unscaled()` divides it back down.
+    fileprivate var zoomScale: CGFloat = 1
 
     func toggleBold() { toggleSymbolicTrait(.traitBold) }
     func toggleItalic() { toggleSymbolicTrait(.traitItalic) }
@@ -25,7 +31,7 @@ final class RichTextController: ObservableObject {
             mutable.enumerateAttribute(.font, in: range) { value, subrange, _ in
                 let base = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
                 let descriptor = base.fontDescriptor.withSymbolicTraits(base.fontDescriptor.symbolicTraits) ?? base.fontDescriptor
-                let font = UIFont(descriptor: descriptor, size: level.pointSize)
+                let font = UIFont(descriptor: descriptor, size: level.pointSize * self.zoomScale)
                 mutable.addAttribute(.font, value: level.isHeading ? font.bold() : font, range: subrange)
             }
         }
@@ -94,26 +100,75 @@ struct RichTextView: UIViewRepresentable {
     @Binding var attributedText: NSAttributedString
     @Binding var selectedRange: NSRange
     @ObservedObject var controller: RichTextController
+    /// Display-only zoom; see `scaled(_:)` below for why `attributedText`
+    /// itself never carries this scale.
+    var zoomPercent: Int = 100
+    /// Mirrors `applySpellcheckSettings` (app.js:1734-1741), which sets
+    /// `lang="de-DE"`/`"en-US"` on the Quill root so the *browser's* spell
+    /// checker switches language. Checked directly against the iOS SDK
+    /// headers: `UITextView`/`UITextInputTraits` expose no per-view spell-
+    /// check language override — the automatic red-squiggle pass always
+    /// follows whichever keyboard the user has active, which the app
+    /// cannot set. So this stays a persisted user preference (surfaced in
+    /// `EditorChromeBar` for parity with app.js's picker) without a device
+    /// effect beyond `spellCheckingType = .yes` below; if Apple ever adds
+    /// a language override, this is the value it plugs into.
+    var spellLanguage: String = "de"
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.delegate = context.coordinator
         textView.font = .preferredFont(forTextStyle: .body)
-        textView.attributedText = attributedText
+        textView.attributedText = scaled(attributedText)
         textView.isScrollEnabled = true
         textView.textContainerInset = UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
         textView.alwaysBounceVertical = true
+        textView.spellCheckingType = .yes
         controller.textView = textView
+        controller.zoomScale = CGFloat(zoomPercent) / 100
         return textView
     }
 
     func updateUIView(_ uiView: UITextView, context: Context) {
-        if uiView.attributedText != attributedText, !context.coordinator.isEditingInternally {
-            let selected = uiView.selectedRange
-            uiView.attributedText = attributedText
-            uiView.selectedRange = selected
-        }
+        let needsModelSync = uiView.attributedText.string != scaled(attributedText).string && !context.coordinator.isEditingInternally
+        let zoomChanged = context.coordinator.lastAppliedZoom != zoomPercent
+        guard needsModelSync || zoomChanged else { return }
+        context.coordinator.lastAppliedZoom = zoomPercent
+        let selected = uiView.selectedRange
+        uiView.attributedText = scaled(attributedText)
+        uiView.selectedRange = selected
         controller.textView = uiView
+        controller.zoomScale = CGFloat(zoomPercent) / 100
+    }
+
+    /// Mirrors `applyTeZoom` scaling the whole editor's `font-size`
+    /// (app.js:1727-1732): a *display-only* transform, same as app.js's
+    /// CSS `font-size` on the Quill root never touching the underlying
+    /// Delta. `attributedText` (the model/binding, persisted as HTML via
+    /// `HTMLConversion`) always stays at 100% — only the copy handed to
+    /// `UITextView` is scaled; `Coordinator.textViewDidChange` scales back
+    /// down before writing to the binding, so zoom never bakes into saved
+    /// content.
+    private func scaled(_ text: NSAttributedString) -> NSAttributedString {
+        guard zoomPercent != 100 else { return text }
+        let scale = CGFloat(zoomPercent) / 100
+        let mutable = NSMutableAttributedString(attributedString: text)
+        mutable.enumerateAttribute(.font, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
+            let base = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
+            mutable.addAttribute(.font, value: base.withSize(base.pointSize * scale), range: range)
+        }
+        return mutable
+    }
+
+    private func unscaled(_ text: NSAttributedString) -> NSAttributedString {
+        guard zoomPercent != 100 else { return text }
+        let scale = CGFloat(zoomPercent) / 100
+        let mutable = NSMutableAttributedString(attributedString: text)
+        mutable.enumerateAttribute(.font, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
+            let base = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
+            mutable.addAttribute(.font, value: base.withSize(base.pointSize / scale), range: range)
+        }
+        return mutable
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -122,6 +177,7 @@ struct RichTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: RichTextView
         var isEditingInternally = false
+        var lastAppliedZoom = 100
 
         init(_ parent: RichTextView) {
             self.parent = parent
@@ -129,7 +185,7 @@ struct RichTextView: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             isEditingInternally = true
-            parent.attributedText = textView.attributedText
+            parent.attributedText = parent.unscaled(textView.attributedText)
             isEditingInternally = false
         }
 

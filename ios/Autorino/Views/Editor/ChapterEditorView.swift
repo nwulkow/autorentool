@@ -19,68 +19,83 @@ struct ChapterEditorView: View {
     @State private var showingLLM = false
     @State private var exportDocument: DocxFileDocument?
     @State private var showingExporter = false
+    @AppStorage("editorZoom") private var editorZoom = 100
+    @AppStorage("editorLayout") private var editorLayout = EditorLayout.a4
+    @AppStorage("editorSpellLanguage") private var editorSpellLanguage = "de"
 
     private var chapterIndex: Int? { editor.book.chapters.firstIndex { $0.id == chapterId } }
 
     var body: some View {
         Group {
             if chapterIndex != nil {
-                VStack(spacing: 0) {
-                    FormatToolbar(controller: richTextController)
-                    RichTextView(attributedText: $attributedText, selectedRange: $selectedRange, controller: richTextController)
-                        .onChange(of: attributedText) { _, newValue in scheduleSave(newValue) }
+                LLMAssistantHost(
+                    editor: editor,
+                    isPresented: $showingLLM,
+                    defaultScope: [ContentScopeItem(kind: .chapter, id: chapterId)],
+                    title: currentChapterTitle
+                ) {
+                    editorBody
                 }
-                .navigationTitle(currentChapterTitle)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button {
-                            showingAddComment = true
-                        } label: {
-                            Label("Comment", systemImage: "text.bubble")
-                        }
-                        .disabled(selectedRange.length == 0)
-
-                        Menu {
-                            Button { showingComments = true } label: { Label("Comments", systemImage: "text.bubble") }
-                            Button { showingPassages = true } label: { Label("Passages", systemImage: "scissors") }
-                            Button { exportDocx() } label: { Label("Export DOCX", systemImage: "square.and.arrow.up") }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                        }
-
-                        LLMAssistantButton { showingLLM = true }
-                    }
-                }
-                .onAppear(perform: loadContent)
-                .onDisappear { commitNow() }
-                .sheet(isPresented: $showingComments) {
-                    CommentsListView(comments: commentsBinding)
-                }
-                .sheet(isPresented: $showingAddComment) {
-                    AddCommentSheet(
-                        comments: commentsBinding,
-                        selection: selectedText,
-                        rangeIndex: selectedRange.location,
-                        rangeLength: selectedRange.length
-                    )
-                }
-                .sheet(isPresented: $showingPassages) {
-                    PassagesSheet(editor: editor, chapterId: chapterId)
-                }
-                .sheet(isPresented: $showingLLM) {
-                    LLMAssistantSheet(editor: editor, defaultScope: [ContentScopeItem(kind: .chapter, id: chapterId)])
-                }
-                .fileExporter(
-                    isPresented: $showingExporter,
-                    document: exportDocument,
-                    contentType: UTType(filenameExtension: "docx") ?? .data,
-                    defaultFilename: exportFilename
-                ) { _ in }
             } else {
                 EmptyStateView(systemImage: "doc.text.badge.xmark", title: String(localized: "Chapter removed"), message: String(localized: "This chapter no longer exists."))
             }
         }
+    }
+
+    private var editorBody: some View {
+        VStack(spacing: 0) {
+            FormatToolbar(controller: richTextController)
+            EditorChromeBar(zoom: $editorZoom, layout: $editorLayout, spellLanguage: $editorSpellLanguage)
+            RichTextView(attributedText: $attributedText, selectedRange: $selectedRange, controller: richTextController, zoomPercent: editorZoom, spellLanguage: editorSpellLanguage)
+                .onChange(of: attributedText) { _, newValue in scheduleSave(newValue) }
+                .frame(maxWidth: editorLayout.maxWidth)
+                .frame(maxWidth: .infinity)
+                .background(Color(uiColor: .systemGroupedBackground))
+        }
+        .navigationTitle(currentChapterTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    showingAddComment = true
+                } label: {
+                    Label("Comment", systemImage: "text.bubble")
+                }
+                .disabled(selectedRange.length == 0)
+
+                Menu {
+                    Button { showingComments = true } label: { Label("Comments", systemImage: "text.bubble") }
+                    Button { showingPassages = true } label: { Label("Passages", systemImage: "scissors") }
+                    Button { exportDocx() } label: { Label("Export DOCX", systemImage: "square.and.arrow.up") }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+
+                LLMAssistantButton(isPresented: $showingLLM)
+            }
+        }
+        .onAppear(perform: loadContent)
+        .onDisappear { commitNow() }
+        .sheet(isPresented: $showingComments) {
+            CommentsListView(comments: commentsBinding)
+        }
+        .sheet(isPresented: $showingAddComment) {
+            AddCommentSheet(
+                comments: commentsBinding,
+                selection: selectedText,
+                rangeIndex: selectedRange.location,
+                rangeLength: selectedRange.length
+            )
+        }
+        .sheet(isPresented: $showingPassages) {
+            PassagesSheet(editor: editor, chapterId: chapterId)
+        }
+        .fileExporter(
+            isPresented: $showingExporter,
+            document: exportDocument,
+            contentType: UTType(filenameExtension: "docx") ?? .data,
+            defaultFilename: exportFilename
+        ) { _ in }
     }
 
     private var currentChapterTitle: String {
@@ -137,5 +152,63 @@ struct ChapterEditorView: View {
         let chapter = editor.book.chapters[index]
         exportDocument = DocxFileDocument(data: DocxExporter.exportChapter(chapter, index: index))
         showingExporter = true
+    }
+}
+
+/// Page-width simulation to match app.js's `teLayout` (app.js:308,
+/// 2695-2697): A5 constrains the editor to a narrower reading column, A4
+/// is full width. Purely a `maxWidth` on the text view — there's no
+/// pagination on either platform, just a visual width cue.
+enum EditorLayout: String, CaseIterable {
+    case a4 = "A4"
+    case a5 = "A5"
+
+    var maxWidth: CGFloat? {
+        switch self {
+        case .a4: return nil
+        case .a5: return 520
+        }
+    }
+}
+
+/// Mirrors app.js's `te-editor-toolbar-extra` row (app.js:2694-2707):
+/// layout (A4/A5), spell-check language (DE/EN), and zoom (50–200%, ±10
+/// per tap, matching `teZoomIn`/`teZoomOut`, app.js:1719-1727).
+private struct EditorChromeBar: View {
+    @Binding var zoom: Int
+    @Binding var layout: EditorLayout
+    @Binding var spellLanguage: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Picker("Layout", selection: $layout) {
+                ForEach(EditorLayout.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 110)
+
+            Picker("Spelling", selection: $spellLanguage) {
+                Text("DE").tag("de")
+                Text("EN").tag("en")
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 90)
+
+            Spacer()
+
+            HStack(spacing: 4) {
+                Button {
+                    zoom = max(50, zoom - 10)
+                } label: { Image(systemName: "minus.circle") }
+                Text("\(zoom)%").font(.caption).foregroundStyle(.secondary).frame(minWidth: 36)
+                Button {
+                    zoom = min(200, zoom + 10)
+                } label: { Image(systemName: "plus.circle") }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(.bar)
     }
 }

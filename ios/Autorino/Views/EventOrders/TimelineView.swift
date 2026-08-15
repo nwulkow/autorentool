@@ -3,9 +3,12 @@ import SwiftUI
 /// Mirrors the `tl-editor` timeline grid (app.js:2097-2257): a fixed axis of
 /// time markers alongside one scrollable column per character (plus an
 /// optional "General" column), with events placed/dragged/resized by
-/// vertical position. The LLM assistant side panel (app.js:2259+) is
-/// deferred — it duplicates `LLMAssistantSheet`'s machinery and belongs in
-/// its own pass rather than growing this view further.
+/// vertical position. The LLM assistant side panel (app.js:2259-2320,
+/// `runEoLlmPrompt`) reuses `LLMAssistantHost`/`LLMAssistantSheet` rather
+/// than growing its own chat surface — `persist: false` and `baseContext:
+/// PromptBuilder.eventOrderPrompt(...)` reproduce `runEoLlmPrompt`'s
+/// `persist:false` history and its `text` (the event-order dump) sent
+/// alongside every turn (app.js:516-545).
 ///
 /// Touch adaptation: app.js drags characters onto columns and drags column
 /// headers to reorder via native HTML drag-and-drop, which has no direct
@@ -20,6 +23,7 @@ struct TimelineView: View {
     @State private var configOpen = false
     @State private var selectedTags: Set<String> = []
     @State private var editingEventId: String?
+    @State private var showingLLM = false
 
     private var orderIndex: Int? {
         editor.book.eventOrders.firstIndex { $0.id == orderId }
@@ -28,7 +32,15 @@ struct TimelineView: View {
     var body: some View {
         Group {
             if let orderIndex {
-                content(orderIndex: orderIndex)
+                LLMAssistantHost(
+                    editor: editor,
+                    isPresented: $showingLLM,
+                    persist: false,
+                    baseContext: PromptBuilder.eventOrderPrompt(editor.book.eventOrders[orderIndex], characters: editor.book.characters),
+                    title: editor.book.eventOrders[orderIndex].name
+                ) {
+                    content(orderIndex: orderIndex)
+                }
             } else {
                 EmptyStateView(systemImage: "clock.arrow.circlepath", title: String(localized: "Event order not found."), message: "", actionTitle: nil, action: nil)
             }
@@ -88,6 +100,8 @@ struct TimelineView: View {
                 } label: { Image(systemName: "plus.circle") }
             }
             .buttonStyle(.plain)
+
+            LLMAssistantButton(isPresented: $showingLLM)
         }
         .padding(8)
     }

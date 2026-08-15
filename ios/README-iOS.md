@@ -6,7 +6,7 @@ file is the practical "how do I build and set this up" doc.
 
 ## Status
 
-**Shipped and building (phases 1–10):**
+**All 12 phases shipped and building.**
 - Project scaffold, all data models (full parity with `books/*.json`)
 - Local persistence (`Books/*.json` in the app sandbox — same schema/
   filenames as the Mac app)
@@ -17,8 +17,9 @@ file is the practical "how do I build and set this up" doc.
 - Chapter editor (rich text via `UITextView`, comments, passages, full-text
   mode) + the LLM assistant, redesigned as a bottom sheet for phone width
 - Event orders: `EventOrdersListView`/`TimelineView`/`TimelineConfigView`,
-  built on the `TimelineMath` marker math — only its own LLM assistant side
-  panel is still open (reuse `LLMAssistantSheet` rather than duplicate it)
+  built on the `TimelineMath` marker math, including its own LLM assistant
+  panel — wired onto the shared `LLMAssistantHost` surface rather than a
+  duplicate chat implementation (phase 12, see below)
 - Canvas (relationship map): `CanvasView` — tap-to-place characters
   (touch stand-in for the web version's drag-onto-map), drag to reposition,
   link mode + relation modal, relation lines drawn with SwiftUI `Canvas`
@@ -140,22 +141,55 @@ as `<title> (Dropbox <timestamp>).json` — nothing is silently dropped.
 Settings lists any such conflicts; merge by hand and delete the extra copy
 once you're done.
 
-## Notes for whoever picks up the next phase (Polish)
+## Polish (phase 12) — what landed
 
-- `BookTabContainer` (`Views/Shared/BookTabContainer.swift`) is where the
-  placeholder tabs live — swap `PlaceholderTabView` for a real view per
-  tab as each one lands. All tabs are now real views, including Word
-  import/export (phase 10) and localization (phase 11); Polish (phase 12)
-  is next, see `docs/migration-architecture.md` §7: `NavigationSplitView`
-  trailing-column presentation for `LLMAssistantSheet` on iPad/regular
-  width (§6.5), layout/zoom/spell-language editor chrome, and the
-  event-order LLM assistant panel wired onto `LLMAssistantSheet`.
-- Any new user-facing string literal added in a future phase should go
-  into `Localizable.xcstrings` with a German translation — see
-  `docs/migration-architecture.md` §11 for the two patterns that don't
-  auto-extract (a ternary's literal branch, or a literal passed to a
-  custom `String`-typed view parameter rather than directly to `Text`/
-  `Button`/etc.) and need an explicit `String(localized:)` wrap instead.
+- **Event-order LLM assistant**: `TimelineView` now wraps its content in
+  `LLMAssistantHost` (`Views/LLMAssistant/LLMAssistantButton.swift`), the
+  same as `ChapterEditorView`, passing `persist: false` (mirrors
+  `runEoLlmPrompt`'s `persist:false`, app.js:539 — an ephemeral,
+  view-local conversation, not the shared per-book `ChatHistoryStore`) and
+  `baseContext: PromptBuilder.eventOrderPrompt(...)` (the event-order dump
+  sent alongside every turn, matching `runEoLlmPrompt`'s `text` param).
+- **Regular-width presentation**: `LLMAssistantHost<Content>` picks
+  `.sheet` (compact width, unchanged from phase 5/6) vs. a
+  `NavigationSplitView` trailing column (`horizontalSizeClass == .regular`
+  — iPad, Mac Catalyst) so the assistant can stay open alongside the tab
+  it's discussing on wider screens, matching app.js's permanent side
+  panel there. `LLMAssistantButton` now toggles a `Bool` binding instead
+  of taking a closure, so the same call site works under either
+  presentation. `LLMAssistantSheet` was split into `LLMAssistantContent`
+  (the reusable chat body) + `LLMAssistantSheet` (the sheet wrapper) so
+  the split-view path reuses the same message list/input bar/history code.
+- **Editor chrome**: `EditorChromeBar` in `ChapterEditorView.swift` adds
+  layout (A4/A5 via `EditorLayout`, a `maxWidth` on `RichTextView`), zoom
+  (50–200%, ±10 per tap — a *display-only* transform in
+  `RichTextView.scaled(_:)`/`unscaled(_:)` that never touches the
+  `attributedText` binding `HTMLConversion` persists, matching app.js's
+  own CSS-only `editor.style.fontSize` zoom), and a DE/EN spelling
+  picker. **The spelling picker is UI-only** — checked against the iOS
+  SDK headers directly, `UITextView`/`UITextInputTraits` expose no
+  per-view spellcheck-language override, so unlike app.js's
+  `lang="de-DE"`/`"en-US"` (which the *browser's* checker reads), there's
+  no OS hook to plug this into beyond enabling `spellCheckingType = .yes`
+  itself. See `docs/migration-architecture.md` §12 for the full writeup.
+
+Verified via `xcodebuild -project Autorino.xcodeproj -scheme Autorino
+-destination 'platform=iOS Simulator,name=iPhone 17' build` — succeeded
+with no warnings in any file this phase touched.
+
+## Notes for whoever picks up the next phase
+
+There is no further planned phase — all 12 are shipped. If you're
+extending the app from here:
+
+- `BookTabContainer` (`Views/Shared/BookTabContainer.swift`) is where all
+  seven tabs live as real views (no placeholders remain).
+- Any new user-facing string literal should go into `Localizable.xcstrings`
+  with a German translation — see `docs/migration-architecture.md` §11 for
+  the two patterns that don't auto-extract (a ternary's literal branch, or
+  a literal passed to a custom `String`-typed view parameter rather than
+  directly to `Text`/`Button`/etc.) and need an explicit
+  `String(localized:)` wrap instead.
 - If a future `.docx` import needs more than paragraphs/runs (tables,
   images, styles beyond bold/italic/underline/strike/headings/
   blockquote), `OOXMLDocumentParser` is the place to extend — it's a
@@ -171,9 +205,10 @@ once you're done.
   way `CanvasView`'s `header` and `TimelineView`'s `toolbar` computed
   property do — confirmed by XCUITest: a `.toolbar` item declared on
   `CanvasView` itself never appeared in the accessibility tree.
-- `LLMAssistantSheet`/`LLMAssistantButton` are written to be reusable from
-  any tab, not just the editor — wire them into the event-order assistant
-  the same way once that gets picked up.
+- `LLMAssistantHost`/`LLMAssistantContent`/`LLMAssistantButton` are
+  written to be reusable from any tab — follow the `TimelineView` wiring
+  (`persist`/`baseContext` params) as the template for a future feature-
+  scoped assistant pane.
 - The bundle id (`com.autorino.app`) in `project.yml` is a placeholder;
   change it (and re-provision) before shipping to a device you don't
   control via Xcode's free personal team. The Dropbox redirect scheme
