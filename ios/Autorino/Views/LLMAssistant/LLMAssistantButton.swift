@@ -41,7 +41,7 @@ struct LLMAssistantHost<Content: View>: View {
     var defaultScope: [ContentScopeItem] = []
     var persist = true
     var baseContext: String?
-    var title: String = "Assistant"
+    var title: String = String(localized: "Assistant")
     @ViewBuilder var content: () -> Content
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass

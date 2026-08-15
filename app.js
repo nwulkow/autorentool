@@ -377,6 +377,13 @@ createApp({
     ALL_ICONS,
   }},
   computed:{
+    syncButtonTitle(){
+      if(this.dropboxSyncing) return this.t('Syncing…');
+      if(this.dropboxError) return this.dropboxError;
+      if(this.dropboxConflicts.length) return this.t('Some books had conflicting edits on both sides. The Dropbox version was kept as a separate file — check your book list.');
+      if(this.dropboxLastSyncedAt) return this.t('Last synced:')+' '+this.dropboxLastSyncedAt.toLocaleString();
+      return this.t('Sync now');
+    },
     currentOrder(){ return this.eventOrders.find(o=>o.id===this.currentOrderId)||null; },
     currentMarkers(){ return this.currentOrder?generateMarkers(this.currentOrder.timelineConfig):[]; },
     totalTlHeight(){
@@ -2059,6 +2066,7 @@ createApp({
     <img src="flag_images/english.png" class="lang-flag" :class="{active:locale==='en'}" @click="locale='en'" alt="English" title="English"/>
     <img src="flag_images/german.png" class="lang-flag" :class="{active:locale==='de'}" @click="locale='de'" alt="Deutsch" title="Deutsch"/>
     <button class="settings-btn" @click="openDropboxModal" :title="t('Settings')">{{t('⚙ Settings')}}</button>
+    <button v-if="dropboxConnected" class="sync-btn" :class="{syncing:dropboxSyncing,'has-error':dropboxError,'has-conflict':dropboxConflicts.length}" :disabled="dropboxSyncing" @click="syncDropbox" :title="syncButtonTitle">🔄</button>
   </div>
 </div>
 
@@ -2075,6 +2083,7 @@ createApp({
       <img src="flag_images/english.png" class="lang-flag" :class="{active:locale==='en'}" @click="locale='en'" alt="English" title="English"/>
       <img src="flag_images/german.png" class="lang-flag" :class="{active:locale==='de'}" @click="locale='de'" alt="Deutsch" title="Deutsch"/>
       <button class="settings-btn" @click="openDropboxModal" :title="t('Settings')">{{t('⚙ Settings')}}</button>
+      <button v-if="dropboxConnected" class="sync-btn" :class="{syncing:dropboxSyncing,'has-error':dropboxError,'has-conflict':dropboxConflicts.length}" :disabled="dropboxSyncing" @click="syncDropbox" :title="syncButtonTitle">🔄</button>
     </div>
   </aside>
 

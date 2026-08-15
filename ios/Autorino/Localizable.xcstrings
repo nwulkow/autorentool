@@ -233,6 +233,16 @@
         }
       }
     },
+    "Add chapters, passages or characters above to give me more to work with." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füge oben Kapitel, Passagen oder Figuren hinzu, damit ich mehr Kontext habe."
+          }
+        }
+      }
+    },
     "Add Character" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -374,7 +384,11 @@
         }
       }
     },
+    "Appearance" : {
+
+    },
     "Ask about your characters, chapters, or plot. Turn on chapters/passages above to give the assistant more context." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -445,6 +459,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Text"
+          }
+        }
+      }
+    },
+    "Bold" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fett"
           }
         }
       }
@@ -590,7 +615,6 @@
       }
     },
     "Characters" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -705,6 +729,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Verbunden"
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren"
           }
         }
       }
@@ -826,9 +861,6 @@
         }
       }
     },
-    "DE" : {
-
-    },
     "Delete Object" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -868,6 +900,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dropbox trennen"
+          }
+        }
+      }
+    },
+    "Does this character sound like themselves?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klingt diese Figur nach sich selbst?"
           }
         }
       }
@@ -969,9 +1012,6 @@
           }
         }
       }
-    },
-    "EN" : {
-
     },
     "End (20:00)" : {
       "extractionState" : "stale",
@@ -1233,6 +1273,28 @@
         }
       }
     },
+    "Include chapters/passages/characters" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapitel/Passagen/Figuren einbeziehen"
+          }
+        }
+      }
+    },
+    "Included: %lld selected" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einbezogen: %lld ausgewählt"
+          }
+        }
+      }
+    },
     "Insert here" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1271,6 +1333,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Er wurde möglicherweise gelöscht."
+          }
+        }
+      }
+    },
+    "Italic" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kursiv"
           }
         }
       }
@@ -1319,6 +1392,17 @@
         }
       }
     },
+    "Learn Spelling" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schreibweise lernen"
+          }
+        }
+      }
+    },
     "Legacy .doc files aren't supported — please convert to .docx first." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1326,6 +1410,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alte .doc-Dateien werden nicht unterstützt — bitte zuerst in .docx umwandeln."
+          }
+        }
+      }
+    },
+    "Let's talk about your book" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sprechen wir über dein Buch"
           }
         }
       }
@@ -1570,7 +1664,6 @@
       }
     },
     "No characters yet." : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1698,6 +1791,16 @@
         }
       }
     },
+    "Off" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus"
+          }
+        }
+      }
+    },
     "OK" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1716,6 +1819,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Orange"
+          }
+        }
+      }
+    },
+    "Paragraph style" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absatzformat"
           }
         }
       }
@@ -2002,6 +2115,17 @@
         }
       }
     },
+    "Spell check" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechtschreibprüfung"
+          }
+        }
+      }
+    },
     "Start (08:00)" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2079,6 +2203,28 @@
         }
       }
     },
+    "Suggest three ways this could continue." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schlage drei Möglichkeiten vor, wie es weitergehen könnte."
+          }
+        }
+      }
+    },
+    "Summarize what happens here." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fasse zusammen, was hier passiert."
+          }
+        }
+      }
+    },
     "Sync now" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2110,6 +2256,9 @@
           }
         }
       }
+    },
+    "System follows your phone's Light/Dark setting." : {
+
     },
     "table" : {
       "extractionState" : "stale",
@@ -2296,6 +2445,17 @@
         }
       }
     },
+    "Underline" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterstrichen"
+          }
+        }
+      }
+    },
     "Undo" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2328,6 +2488,9 @@
         }
       }
     },
+    "Use this if sync reports success but files you expect are missing. It doesn't touch your books or your Dropbox connection — only this device's memory of what's already synced. Run Sync now again afterward." : {
+
+    },
     "Used for the LLM assistant. Stored in the Keychain, never leaves the device except to call the Gemini API directly." : {
       "localizations" : {
         "de" : {
@@ -2355,6 +2518,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wochen"
+          }
+        }
+      }
+    },
+    "What's inconsistent or unclear?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was ist widersprüchlich oder unklar?"
           }
         }
       }

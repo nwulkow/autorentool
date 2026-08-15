@@ -52,7 +52,10 @@ struct ContentScopePickerView: View {
         .padding(.vertical, 6)
     }
 
-    private var label: String {
+    /// `LocalizedStringKey`, not `String`: `Text` only looks a plain `String`
+    /// up in the catalog when it's a literal, so building this as a `String`
+    /// left the row in English inside an otherwise German UI.
+    private var label: LocalizedStringKey {
         selection.isEmpty ? "Include chapters/passages/characters" : "Included: \(selection.count) selected"
     }
 

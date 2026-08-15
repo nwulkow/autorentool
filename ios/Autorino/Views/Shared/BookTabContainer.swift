@@ -4,18 +4,24 @@ import SwiftUI
 /// by how often writing actually touches them: **Text** first (and the
 /// default when a book opens — you came here to write), then Characters
 /// (which now also holds the relationship map), Event Orders, Notes (which
-/// now also holds Questions), and More (Locations, Settings).
+/// now also holds Questions), and More (Locations, for now).
 ///
 /// This is deliberately not app.js's flat seven-tab row: seven doesn't fit
 /// a phone tab bar, and iOS collapses anything past five into a system
 /// "More" list. Folding Canvas into Characters and Questions into Notes
 /// keeps every destination one tap away and leaves the fifth slot for a
 /// "More" tab we control (`MoreTabView`) instead of the system's.
+///
+/// Settings is reachable via the gear icon in the toolbar below, mirroring
+/// `RootView`'s top-right gear on the book list — both present `SettingsView`
+/// as a sheet, since it owns its own `NavigationStack` and a `dismiss()`-driven
+/// Done button that only behave correctly when presented modally.
 struct BookTabContainer: View {
     @EnvironmentObject private var env: AppEnvironment
     @StateObject var editor: BookEditor
     @State private var showingRename = false
     @State private var renameText = ""
+    @State private var showingSettings = false
     /// Told about a successful rename so the caller (`BookListView`) can
     /// rewrite its navigation path — see the note on `BookListView.path`.
     /// Optional/no-op default so other callers (previews, tests) don't need
@@ -53,6 +59,16 @@ struct BookTabContainer: View {
                         .foregroundStyle(Theme.ink)
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                SyncStatusButton()
+            }
         }
         .alert("Rename Book", isPresented: $showingRename) {
             TextField("Title", text: $renameText)
@@ -63,6 +79,9 @@ struct BookTabContainer: View {
                 editor.book = env.bookStore.rename(editor.book, to: trimmed)
                 onRename(editor.book.title)
             }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
         }
     }
 }

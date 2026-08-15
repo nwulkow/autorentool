@@ -1,8 +1,16 @@
 import SwiftUI
 
 /// The fifth tab. Holds the parts of the book that don't earn a permanent
-/// slot in the bar — Locations today — plus a way into Settings without
-/// backing all the way out to the book list.
+/// slot in the bar — Locations today. Settings lives behind the gear icon
+/// in `BookTabContainer`'s toolbar instead (mirroring the book list's own
+/// top-right gear in `RootView`), presented as a sheet — not pushed here —
+/// because `SettingsView` wraps its own `NavigationStack` and a
+/// `dismiss()`-driven Done button, which only behaves correctly when
+/// presented modally. Pushing it via `NavigationLink` nested a
+/// `NavigationStack` inside a pushed destination of the outer stack that
+/// owns `BookListView`'s `path`, which could pop more levels than intended
+/// and leave `path` out of sync with what was on screen (taps on a book
+/// afterwards silently did nothing).
 struct MoreTabView: View {
     @ObservedObject var editor: BookEditor
 
@@ -17,20 +25,6 @@ struct MoreTabView: View {
                         subtitle: locationsSubtitle,
                         systemImage: "mappin.and.ellipse",
                         tint: Theme.accent
-                    )
-                }
-                .bookCardRow()
-            }
-
-            Section {
-                NavigationLink {
-                    SettingsView()
-                } label: {
-                    MoreRow(
-                        title: String(localized: "Settings"),
-                        subtitle: String(localized: "Sync, Gemini key, conflicts"),
-                        systemImage: "gearshape",
-                        tint: Theme.muted
                     )
                 }
                 .bookCardRow()

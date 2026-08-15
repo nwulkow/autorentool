@@ -728,6 +728,20 @@ textarea{min-height:80px;resize:vertical}
 }
 .settings-btn:hover{opacity:1;background:var(--hover,rgba(0,0,0,.04))}
 
+/* Small always-visible sync trigger, next to Settings, so a sync doesn't
+   need the modal open first. */
+.sync-btn{
+  background:none;border:1px solid var(--border);border-radius:6px;
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;line-height:1;cursor:pointer;color:var(--text);opacity:.75;
+  transition:opacity .15s,background .15s,color .15s,border-color .15s;
+}
+.sync-btn:hover{opacity:1;background:var(--hover,rgba(0,0,0,.04))}
+.sync-btn.syncing{opacity:1;animation:sync-spin 1s linear infinite}
+.sync-btn.has-error{opacity:1;color:var(--danger);border-color:var(--danger)}
+.sync-btn.has-conflict{opacity:1;color:#b8860b;border-color:#b8860b}
+@keyframes sync-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
 /* ═══════════════ DROPBOX SYNC MODAL ═══════════════ */
 
 .dropbox-hint{font-size:12px;color:var(--muted,#888);margin:6px 0 0}

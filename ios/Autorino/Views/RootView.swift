@@ -16,6 +16,9 @@ struct RootView: View {
                             Label("Settings", systemImage: "gearshape")
                         }
                     }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        SyncStatusButton()
+                    }
                 }
                 .sheet(isPresented: $showingSettings) {
                     SettingsView()

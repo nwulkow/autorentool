@@ -22,7 +22,7 @@ struct LLMAssistantSheet: View {
     var defaultScope: [ContentScopeItem] = []
     var persist = true
     var baseContext: String?
-    var title: String = "Assistant"
+    var title: String = String(localized: "Assistant")
 
     var body: some View {
         NavigationStack {
@@ -42,7 +42,7 @@ struct LLMAssistantContent: View {
     var defaultScope: [ContentScopeItem] = []
     var persist = true
     var baseContext: String?
-    var title: String = "Assistant"
+    var title: String = String(localized: "Assistant")
 
     @EnvironmentObject private var env: AppEnvironment
     @StateObject private var persistedHistory: ChatHistoryStore
@@ -52,7 +52,7 @@ struct LLMAssistantContent: View {
     @State private var isLoading = false
     @State private var error: String?
 
-    init(editor: BookEditor, defaultScope: [ContentScopeItem] = [], persist: Bool = true, baseContext: String? = nil, title: String = "Assistant") {
+    init(editor: BookEditor, defaultScope: [ContentScopeItem] = [], persist: Bool = true, baseContext: String? = nil, title: String = String(localized: "Assistant")) {
         self.editor = editor
         self.defaultScope = defaultScope
         self.persist = persist
@@ -67,38 +67,38 @@ struct LLMAssistantContent: View {
     var body: some View {
         VStack(spacing: 0) {
             ContentScopePickerView(book: editor.book, selection: $scope)
-            Divider()
+                .background(Theme.chrome)
+                .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .bottom)
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
+                    LazyVStack(alignment: .leading, spacing: 12) {
                         if messages.isEmpty {
-                            Text("Ask about your characters, chapters, or plot. Turn on chapters, passages, or characters above to give the assistant more context.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .padding()
+                            emptyState
                         }
                         ForEach(messages) { message in
                             ChatBubbleView(message: message).id(message.id)
                         }
                         if isLoading {
-                            HStack { ProgressView(); Text("Thinking…").font(.footnote).foregroundStyle(.secondary) }
-                                .padding(.horizontal)
+                            ChatTypingIndicator().id(Self.typingIndicatorID)
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
                 }
-                .onChange(of: messages.count) { _, _ in
-                    if let last = messages.last {
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                    }
-                }
+                .scrollDismissesKeyboard(.interactively)
+                .onChange(of: messages.count) { _, _ in scrollToEnd(proxy) }
+                .onChange(of: isLoading) { _, _ in scrollToEnd(proxy) }
             }
             if let error {
-                Text(error).font(.caption).foregroundStyle(.red).padding(.horizontal)
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(Theme.danger)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
             }
             inputBar
         }
+        .background(Theme.paper)
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -111,19 +111,113 @@ struct LLMAssistantContent: View {
         }
     }
 
-    private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField("Message…", text: $prompt, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...4)
-            Button {
-                send()
-            } label: {
-                Image(systemName: "arrow.up.circle.fill").font(.title2)
+    private static let typingIndicatorID = "typing"
+
+    private func scrollToEnd(_ proxy: ScrollViewProxy) {
+        withAnimation(.easeOut(duration: 0.25)) {
+            if isLoading {
+                proxy.scrollTo(Self.typingIndicatorID, anchor: .bottom)
+            } else if let last = messages.last {
+                proxy.scrollTo(last.id, anchor: .bottom)
             }
-            .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
         }
-        .padding()
+    }
+
+    /// An empty transcript is the assistant's first impression, so it opens
+    /// with something to tap rather than a grey paragraph explaining itself.
+    /// The starters fill the field instead of sending, so a prompt can still
+    /// be adjusted before it goes.
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 38, height: 38)
+                    .background(Theme.accentSoft, in: Circle())
+                    .overlay(Circle().stroke(Theme.line, lineWidth: 1))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Let's talk about your book")
+                        .font(Theme.sectionTitle)
+                        .foregroundStyle(Theme.ink)
+                    Text("Add chapters, passages or characters above to give me more to work with.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Self.starters, id: \.self) { starter in
+                    Button {
+                        prompt = starter
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(starter)
+                                .font(.footnote)
+                                .multilineTextAlignment(.leading)
+                                .foregroundStyle(Theme.ink)
+                            Spacer(minLength: 0)
+                            Image(systemName: "arrow.up.left")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Theme.accent)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.panel, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
+                                .stroke(Theme.line, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    private static let starters: [String] = [
+        String(localized: "Summarize what happens here."),
+        String(localized: "What's inconsistent or unclear?"),
+        String(localized: "Suggest three ways this could continue."),
+        String(localized: "Does this character sound like themselves?"),
+    ]
+
+    private var inputBar: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            TextField("Message…", text: $prompt, axis: .vertical)
+                .font(.callout)
+                .lineLimit(1...5)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(Theme.panel, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Theme.line, lineWidth: 1)
+                )
+
+            Button(action: send) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(canSend ? Theme.accent : Theme.muted.opacity(0.4), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+            .animation(.easeOut(duration: 0.15), value: canSend)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Theme.chrome)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .top)
+    }
+
+    private var canSend: Bool {
+        !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isLoading
     }
 
     private func clear() {

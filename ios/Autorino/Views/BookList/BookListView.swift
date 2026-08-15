@@ -3,6 +3,7 @@ import SwiftUI
 struct BookListView: View {
     @EnvironmentObject private var env: AppEnvironment
     @State private var showingNewBook = false
+    @State private var showingConflictSettings = false
     // Explicit path, owned by `RootView`'s `NavigationStack` and passed in
     // (rather than letting the stack manage it internally) so a rename can
     // rewrite the pushed title in place — see `navigationDestination`
@@ -33,14 +34,20 @@ struct BookListView: View {
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
 
                     if !env.syncStatus.conflicts.isEmpty {
-                        NavigationLink {
-                            SettingsView()
+                        // A sheet, not a NavigationLink push: `SettingsView`
+                        // owns its own `NavigationStack` and a
+                        // `dismiss()`-driven Done button, which only behaves
+                        // correctly when presented modally — see the note on
+                        // `MoreTabView`.
+                        Button {
+                            showingConflictSettings = true
                         } label: {
                             Label("\(env.syncStatus.conflicts.count) sync conflict(s) — review in Settings", systemImage: "exclamationmark.triangle.fill")
                                 .font(.footnote.weight(.medium))
                                 .foregroundStyle(Theme.danger)
                                 .bookCard(padding: 12)
                         }
+                        .buttonStyle(.plain)
                         .bookCardRow()
                     }
 
@@ -96,6 +103,9 @@ struct BookListView: View {
         }
         .sheet(isPresented: $showingNewBook) {
             NewBookSheet()
+        }
+        .sheet(isPresented: $showingConflictSettings) {
+            SettingsView()
         }
     }
 }
