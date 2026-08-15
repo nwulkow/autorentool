@@ -55,7 +55,12 @@
       "Bash(cp /Users/niklaswulkow/ResearchEngineering/autorentool/books/Book1.json __CMDSUB_OUTPUT__/Documents/Books/)",
       "Bash(rm -rf __TRACKED_VAR__/results.xcresult)",
       "Bash(xcrun xcresulttool *)",
-      "Bash(rm -rf __TRACKED_VAR__/r4.xcresult)"
+      "Bash(rm -rf __TRACKED_VAR__/r4.xcresult)",
+      "Bash(xargs cat)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('topics'\\), indent=2\\)\\)\")",
+      "Bash(DEVICE=C812597E-A6E8-471F-B31F-BEA305033876 *)",
+      "Bash(sed -n '201,291p' /tmp/notes_inspect_run.log)",
+      "Bash(rm -f '__TRACKED_VAR__/Documents/Books/Notes Test Book*.json')"
     ],
     "additionalDirectories": [
       "/private/tmp",

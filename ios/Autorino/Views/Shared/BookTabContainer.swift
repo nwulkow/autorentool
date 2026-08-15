@@ -1,12 +1,11 @@
 import SwiftUI
 
 /// Replaces app.js's per-book tab bar (Characters / Canvas / Locations /
-/// Event orders / Questions / Notes / Editor). Notes is the last remaining
-/// `PlaceholderTabView` — its data model already exists (see `Models/`), the
-/// view lands in a later phase. Event orders landed in
+/// Event orders / Questions / Notes / Editor). Event orders landed in
 /// `EventOrdersListView`/`TimelineView`, minus the LLM assistant side panel
 /// (deferred — it duplicates `LLMAssistantSheet`'s machinery). Canvas
-/// landed in `CanvasView`, Locations in `LocationsListView`.
+/// landed in `CanvasView`, Locations in `LocationsListView`, Notes in
+/// `NotesListView`/`TopicDetailView`.
 struct BookTabContainer: View {
     @EnvironmentObject private var env: AppEnvironment
     @StateObject var editor: BookEditor
@@ -30,8 +29,7 @@ struct BookTabContainer: View {
             QuestionsListView(editor: editor)
                 .tabItem { Label("Questions", systemImage: "questionmark.circle") }
 
-            PlaceholderTabView(title: "Notes", systemImage: "note.text",
-                                note: "The post-it notes board is coming in the next update.")
+            NotesListView(editor: editor)
                 .tabItem { Label("Notes", systemImage: "note.text") }
 
             ChapterListView(editor: editor)

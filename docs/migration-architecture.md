@@ -1,6 +1,6 @@
 # Migration Architecture: Autorino → Native iOS
 
-Status: **phases 1–6 shipped** (see `ios/README-iOS.md` for exactly what's
+Status: **phases 1–9 shipped** (see `ios/README-iOS.md` for exactly what's
 built vs. deferred). Target: SwiftUI app, no Python/FastAPI backend, no
 `http.server` JSON API. Source of truth for current behavior: `app.js` (Vue
 Options API, ~2900 lines), `server.py` (stdlib HTTP handler), `classes.py`
@@ -132,7 +132,7 @@ in `Models/EventOrder.swift`, ahead of the timeline view itself (§7).
 | Character canvas (draggable nodes, link mode, relation lines) | `CanvasView` using SwiftUI `Canvas` for link lines + `DragGesture` per node | **Shipped** — tap-to-place from a character pool stands in for the web version's drag-onto-map (no touch equivalent for native HTML drag-and-drop) |
 | Locations tab (map + drawable objects: rect/ellipse/icons/areas) | `LocationsListView` + `LocationEditorView` + `LocationMapCanvas` (SwiftUI `Canvas`), `LocationTools`, `LocationIconRenderer` | **Shipped** — see §9 |
 | Event orders (timeline, character columns, marker modes, gap sizing, drag to reposition) | `EventOrdersListView` + `TimelineView`/`TimelineConfigView`; `TimelineMath` (marker generation, `timeFromY`) | **Shipped** — LLM assistant side panel (today's per-feature pane) still deferred, to be wired onto `LLMAssistantSheet` rather than duplicated |
-| Notes/Topics (post-its, colors, URL links) | `NotesView` | Deferred — `Topic`/`Note` models exist |
+| Notes/Topics (post-its, colors, URL links) | `NotesListView` + `TopicDetailView` | **Shipped** — topic list pushes into a detail screen with the post-it grid and links section stacked, instead of app.js's three-pane `.notes-layout` |
 | Text editor — chapters, rich text (Quill), comments, full-text mode | `ChapterEditorView` wrapping `UITextView` (`UIViewRepresentable`) bound to `NSAttributedString` | **Shipped** (layout/zoom/spell-language chrome deferred — see §5) |
 | Word export (`docx.js`) / import (`mammoth.js`) | `DocxExporter`/`DocxImporter` in Swift | Deferred |
 | LLM: model picker, plausibility check, custom prompt, multi-turn chat, chat history, "include characters" / chapter-content-scope selector | `LLMService` protocol + `GeminiLLMService` (URLSession) | **Shipped** (Gemini only — no local/on-device model path; see §8) |
@@ -285,7 +285,7 @@ Dropbox sync first, since it was pulled forward from "stretch" to
    drag to reposition, link mode + relation modal, relation lines via
    SwiftUI `Canvas`. **Done.**
 8. ~~**Locations**~~ — list + map editor (shapes/icons/areas). **Done** — see §9.
-9. **Notes/Topics** — post-its, URL links.
+9. ~~**Notes/Topics**~~ — post-its, URL links. **Done** — see §10.
 10. **Word import/export.**
 11. **Localization** — String Catalog (en/de), matching current coverage.
 12. **Polish** — `NavigationSplitView` trailing-column presentation for
@@ -372,3 +372,35 @@ half the map); roads, being open strokes, test distance-to-segment.
   the Swift side now mirrors that and re-encodes `nil` back to `null`.
   Worth noting as a class of bug: a strict `Codable` shape against
   another app's JSON turns one unexpected field into an invisible book.
+
+## 10. Notes/Topics (phase 9)
+
+Ported as `NotesListView` (topics list, create/delete) → `TopicDetailView`
+(the post-it grid + links section for the selected topic). app.js's
+`.notes-layout` is three side-by-side panes — topics sidebar, post-it grid,
+URL sidebar (app.js:2579-2633) — which doesn't fit phone width; the iOS
+version follows the same pattern as Locations/Canvas: the topics list is its
+own screen, and picking one pushes into `TopicDetailView`, where the post-it
+grid and links live in two stacked `List` sections instead of two side
+panes.
+
+- **Post-it color picker** is a `Menu` listing `NotePostItColor.all`, a
+  direct port of app.js's `POST_IT_COLORS` (app.js:24-29) — same eight
+  values and labels, rendered via `CSSColor.color(_:fallback:)` (already
+  used by Locations, see §9) rather than a new hex parser.
+- **Notes and URL links are both `List` rows** with swipe-to-delete
+  (`.onDelete`) instead of app.js's per-item ✕ button, matching the
+  swipe-to-delete convention already used for topics, locations, and
+  characters elsewhere in the app.
+- **Verification note:** driving this feature end-to-end in the iOS
+  Simulator via XCUITest surfaced a harness quirk worth recording — a
+  `List` that flips between an empty-state view and populated rows inside
+  the same live session doesn't reliably reappear in XCUITest's
+  accessibility snapshot (confirmed as a test-harness artifact, not an app
+  bug: screenshots and the saved book JSON on disk were correct at every
+  step). Relaunching the app before each such assertion forces a fresh
+  `BookStore.reload()` and sidesteps it. Two SwiftUI accessibility-typing
+  quirks also came up and are worth knowing for future UI tests in this
+  app: a `Link` surfaces to XCUITest as a `Button` (not `StaticText`), and
+  a multiline `TextField(axis: .vertical)` exposes its content as a
+  `value`, not a `label`.

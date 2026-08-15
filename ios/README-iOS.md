@@ -6,7 +6,7 @@ file is the practical "how do I build and set this up" doc.
 
 ## Status
 
-**Shipped and building (phases 1–8):**
+**Shipped and building (phases 1–9):**
 - Project scaffold, all data models (full parity with `books/*.json`)
 - Local persistence (`Books/*.json` in the app sandbox — same schema/
   filenames as the Mac app)
@@ -31,13 +31,21 @@ file is the practical "how do I build and set this up" doc.
   book-compatibility fixes this phase forced (`CSSColor`, optional
   `Comment.rangeIndex`/`rangeLength` — the latter was silently hiding every
   real book in `books/` from the library before this phase caught it).
+- Notes/Topics: `NotesListView` + `TopicDetailView` — topics list pushes
+  into a detail screen with the post-it grid and URL links stacked, in
+  place of app.js's three-pane `.notes-layout`. Post-it color picker is a
+  direct port of `POST_IT_COLORS`. See `docs/migration-architecture.md`
+  §10, including two XCUITest accessibility-typing quirks worth knowing
+  before writing more UI tests against this app (`Link` surfaces as a
+  `Button`; a multiline `TextField(axis: .vertical)` exposes text as
+  `.value`, not `.label`).
 
 **No local/on-device LLM — confirmed non-goal, not deferred.** The iOS app
 ships Gemini only (`GeminiLLMService`). Today's Ollama option is dropped
 outright and is not replaced by FoundationModels or anything else.
 
 **Deferred to later phases** (models exist, views are placeholders):
-Notes/Topics, Word export, localization (String Catalog).
+Word export, localization (String Catalog).
 
 ## Build
 
@@ -109,12 +117,12 @@ as `<title> (Dropbox <timestamp>).json` — nothing is silently dropped.
 Settings lists any such conflicts; merge by hand and delete the extra copy
 once you're done.
 
-## Notes for whoever picks up the next phase (Notes/Topics)
+## Notes for whoever picks up the next phase (Word import/export)
 
 - `BookTabContainer` (`Views/Shared/BookTabContainer.swift`) is where the
   placeholder tabs live — swap `PlaceholderTabView` for a real view per
-  tab as each one lands. Notes/Topics is next; see
-  `docs/migration-architecture.md` §7.
+  tab as each one lands. All tabs are now real views; Word import/export
+  is next, see `docs/migration-architecture.md` §7.
 - Tab content views (`CanvasView`, `TimelineView`, etc.) cannot rely on
   `.toolbar`/`.navigationTitle` bubbling up to the shared nav bar — the
   single `NavigationStack` lives above `BookTabContainer`'s `TabView`, and
