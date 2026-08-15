@@ -88,4 +88,18 @@ final class SyncIndexStore: ObservableObject {
     func dirtyFilenames() -> [String] {
         entries.filter { $0.value.dirty }.map { $0.key }
     }
+
+    /// Wipes the cursor and all per-file bookkeeping so the next sync does a
+    /// full fresh `list_folder` and re-evaluates every remote file from
+    /// scratch. Doesn't touch local books or the Dropbox connection — only
+    /// this app's memory of what it already synced. Needed as a manual
+    /// escape hatch because a cursor can end up pointing past files that
+    /// were never actually downloaded (e.g. after a transient failure mid
+    /// batch on an older build); the fix keeps that from happening on new
+    /// syncs, but can't retroactively repair a cursor that already moved.
+    func reset() {
+        entries = [:]
+        cursor = nil
+        persist()
+    }
 }

@@ -280,6 +280,25 @@ const I18N={de:{
   'Font':'Schrift','Size':'Größe','Layout':'Layout',
   'Zoom':'Zoom','words':'Wörter','total':'gesamt',
   'Spelling':'Rechtschreibung',
+  '⚙ Settings':'⚙ Einstellungen','Settings':'Einstellungen',
+  'Dropbox Sync':'Dropbox-Synchronisierung',
+  'Connect this Mac to the same Dropbox App folder your iPhone app uses, so books stay in sync on both.':
+    'Verbinde diesen Mac mit demselben Dropbox-App-Ordner, den auch deine iPhone-App nutzt, damit Bücher auf beiden Geräten synchron bleiben.',
+  'Access Token':'Zugriffstoken',
+  'Generate one in the Dropbox App Console → your app → Settings → OAuth 2 → Generate access token.':
+    'Erstelle eines in der Dropbox-App-Konsole → deine App → Settings → OAuth 2 → Generate access token.',
+  'Connect':'Verbinden','Connecting…':'Verbinde…','Disconnect':'Trennen',
+  'Connected ✓':'Verbunden ✓','Not connected':'Nicht verbunden',
+  'Sync now':'Jetzt synchronisieren','Syncing…':'Synchronisiere…',
+  'Last synced:':'Zuletzt synchronisiert:','Never synced yet':'Noch nie synchronisiert',
+  'Close':'Schließen',
+  'Connection failed. Check the token and try again.':'Verbindung fehlgeschlagen. Token prüfen und erneut versuchen.',
+  'Dropbox connected ✓':'Dropbox verbunden ✓','Dropbox disconnected':'Dropbox getrennt',
+  'Sync complete ✓':'Synchronisierung abgeschlossen ✓','Sync failed!':'Synchronisierung fehlgeschlagen!',
+  'Some books had conflicting edits on both sides. The Dropbox version was kept as a separate file — check your book list.':
+    'Einige Bücher wurden auf beiden Seiten bearbeitet. Die Dropbox-Version wurde als separate Datei behalten — prüfe deine Bücherliste.',
+  "Dropbox sync isn't available on this server (missing dependency).":
+    'Dropbox-Synchronisierung ist auf diesem Server nicht verfügbar (fehlende Abhängigkeit).',
 }};
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -350,6 +369,10 @@ createApp({
     postitColors:POST_IT_COLORS,
     // toast
     toast:'',
+    // Dropbox sync
+    dropboxAvailable:false, dropboxConnected:false, dropboxSyncing:false,
+    dropboxLastSyncedAt:null, dropboxError:'', dropboxConflicts:[],
+    showDropboxModal:false, dropboxTokenInput:'',
     // constants exposed to template
     ALL_ICONS,
   }},
@@ -431,6 +454,7 @@ createApp({
     await this.fetchBooks(); this.loading=false;
     this.fetchLlmModels();
     this.loadChatHistory();
+    this.fetchDropboxStatus();
     this._autosaveTimer=setInterval(()=>{this.autoSaveBook();},10000);
   },
   beforeUnmount(){
@@ -887,6 +911,81 @@ createApp({
     autoSaveBook(){
       if(!this.book||!this.dirty) return;
       this.saveBook({silent:true});
+    },
+    /* ── Dropbox sync ─────────────────── */
+    async fetchDropboxStatus(){
+      try{
+        const r=await fetch('/api/dropbox/status');
+        const d=await r.json();
+        this.dropboxAvailable=!!d.available;
+        this.dropboxConnected=!!d.connected;
+      }catch(e){console.error(e);}
+    },
+    openDropboxModal(){
+      this.dropboxTokenInput='';
+      this.dropboxError='';
+      this.showDropboxModal=true;
+    },
+    closeDropboxModal(){
+      this.showDropboxModal=false;
+    },
+    async connectDropbox(){
+      if(!this.dropboxTokenInput.trim()) return;
+      this.dropboxSyncing=true;
+      this.dropboxError='';
+      try{
+        const r=await fetch('/api/dropbox/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:this.dropboxTokenInput.trim()})});
+        const d=await r.json();
+        if(r.ok){
+          this.dropboxConnected=true;
+          this.dropboxTokenInput='';
+          this.showToast(this.t('Dropbox connected ✓'));
+          await this.syncDropbox();
+        } else {
+          this.dropboxError=d.error||this.t('Connection failed. Check the token and try again.');
+        }
+      }catch(e){
+        console.error(e);
+        this.dropboxError=this.t('Connection failed. Check the token and try again.');
+      }finally{
+        this.dropboxSyncing=false;
+      }
+    },
+    async disconnectDropbox(){
+      try{ await fetch('/api/dropbox/disconnect',{method:'POST'}); }
+      catch(e){ console.error(e); }
+      this.dropboxConnected=false;
+      this.dropboxLastSyncedAt=null;
+      this.dropboxConflicts=[];
+      this.showToast(this.t('Dropbox disconnected'));
+    },
+    async syncDropbox(){
+      if(!this.dropboxConnected||this.dropboxSyncing) return;
+      this.dropboxSyncing=true;
+      this.dropboxError='';
+      try{
+        const r=await fetch('/api/dropbox/sync',{method:'POST'});
+        const d=await r.json();
+        if(r.ok){
+          this.dropboxLastSyncedAt=new Date();
+          this.dropboxConflicts=d.conflicts||[];
+          await this.fetchBooks();
+          if(this.dropboxConflicts.length){
+            this.showToast(this.t('Some books had conflicting edits on both sides. The Dropbox version was kept as a separate file — check your book list.'));
+          } else {
+            this.showToast(this.t('Sync complete ✓'));
+          }
+        } else {
+          this.dropboxError=d.error||this.t('Sync failed!');
+          this.showToast(this.t('Sync failed!'));
+        }
+      }catch(e){
+        console.error(e);
+        this.dropboxError=this.t('Sync failed!');
+        this.showToast(this.t('Sync failed!'));
+      }finally{
+        this.dropboxSyncing=false;
+      }
     },
     /* ── title rename ─────────────────── */
     startEditTitle(){
@@ -1959,6 +2058,7 @@ createApp({
   <div class="lang-switcher" style="justify-content:center;border-top:none;padding-top:24px">
     <img src="flag_images/english.png" class="lang-flag" :class="{active:locale==='en'}" @click="locale='en'" alt="English" title="English"/>
     <img src="flag_images/german.png" class="lang-flag" :class="{active:locale==='de'}" @click="locale='de'" alt="Deutsch" title="Deutsch"/>
+    <button class="settings-btn" @click="openDropboxModal" :title="t('Settings')">{{t('⚙ Settings')}}</button>
   </div>
 </div>
 
@@ -1974,6 +2074,7 @@ createApp({
     <div class="lang-switcher">
       <img src="flag_images/english.png" class="lang-flag" :class="{active:locale==='en'}" @click="locale='en'" alt="English" title="English"/>
       <img src="flag_images/german.png" class="lang-flag" :class="{active:locale==='de'}" @click="locale='de'" alt="Deutsch" title="Deutsch"/>
+      <button class="settings-btn" @click="openDropboxModal" :title="t('Settings')">{{t('⚙ Settings')}}</button>
     </div>
   </aside>
 
@@ -2876,6 +2977,39 @@ createApp({
 </div>
 
 <!-- MODALS -->
+<div v-if="showDropboxModal" class="modal-overlay" @click.self="closeDropboxModal">
+  <div class="modal-card">
+    <h4>{{t('Dropbox Sync')}}</h4>
+    <p>{{t('Connect this Mac to the same Dropbox App folder your iPhone app uses, so books stay in sync on both.')}}</p>
+
+    <div v-if="!dropboxAvailable" class="dropbox-error">{{t("Dropbox sync isn't available on this server (missing dependency).")}}</div>
+
+    <template v-else>
+      <div v-if="!dropboxConnected" class="field">
+        <label>{{t('Access Token')}}</label>
+        <input v-model="dropboxTokenInput" type="password" :placeholder="t('Access Token')" @keyup.enter="connectDropbox"/>
+        <p class="dropbox-hint">{{t('Generate one in the Dropbox App Console → your app → Settings → OAuth 2 → Generate access token.')}}</p>
+        <div v-if="dropboxError" class="dropbox-error">{{dropboxError}}</div>
+        <div class="modal-actions">
+          <button class="primary" :disabled="dropboxSyncing||!dropboxTokenInput.trim()" @click="connectDropbox">{{dropboxSyncing?t('Connecting…'):t('Connect')}}</button>
+          <button @click="closeDropboxModal">{{t('Cancel')}}</button>
+        </div>
+      </div>
+
+      <div v-else>
+        <p class="dropbox-status">✓ {{t('Connected ✓')}}</p>
+        <p class="dropbox-hint">{{t('Last synced:')}} {{dropboxLastSyncedAt?dropboxLastSyncedAt.toLocaleString():t('Never synced yet')}}</p>
+        <div v-if="dropboxError" class="dropbox-error">{{dropboxError}}</div>
+        <div class="modal-actions">
+          <button class="primary" :disabled="dropboxSyncing" @click="syncDropbox">{{dropboxSyncing?t('Syncing…'):t('Sync now')}}</button>
+          <button @click="disconnectDropbox">{{t('Disconnect')}}</button>
+          <button @click="closeDropboxModal">{{t('Close')}}</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
 <div v-if="linkModal.open" class="modal-overlay" @click.self="cancelLinkModal">
   <div class="modal-card">
     <h4>{{t('Create Relation')}}</h4>

@@ -133,7 +133,12 @@ actor DropboxClient {
 }
 
 struct DropboxEntry: Codable, Hashable {
-    let tag: String
+    /// `.tag` disambiguates the `list_folder`/`list_folder/continue` union
+    /// type (`file` / `folder` / `deleted`). `files/upload` and
+    /// `files/download` return a `FileMetadata` object directly — no `.tag`
+    /// at all, since the endpoint already fixes the type — so this must be
+    /// optional or decoding those two responses throws `keyNotFound`.
+    let tag: String?
     let name: String
     let pathLower: String?
     let id: String?
@@ -151,7 +156,9 @@ struct DropboxEntry: Codable, Hashable {
     }
 
     var isDeleted: Bool { tag == "deleted" }
-    var isFile: Bool { tag == "file" }
+    // No `.tag` (upload/download responses) still means "this is a file" —
+    // those endpoints only ever return file metadata.
+    var isFile: Bool { tag == "file" || tag == nil }
 }
 
 struct ListFolderResult: Codable {

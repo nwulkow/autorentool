@@ -72,6 +72,16 @@ private struct DropboxSettingsSection: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Button {
+                    env.bookStore.syncIndex.reset()
+                } label: {
+                    Label("Reset sync state", systemImage: "arrow.counterclockwise")
+                }
+                .disabled(isSyncing)
+                Text("Use this if sync reports success but files you expect are missing. It doesn't touch your books or your Dropbox connection — only this device's memory of what's already synced. Run Sync now again afterward.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 Button(role: .destructive) {
                     env.dropboxAuth.disconnect()
                 } label: {

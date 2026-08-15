@@ -32,6 +32,7 @@ final class DropboxSyncEngine {
             status.lastSyncedAt = Date()
             status.phase = .idle
         } catch {
+            NSLog("[DropboxSync] sync failed: \(String(reflecting: error))")
             status.phase = .error(error.localizedDescription)
         }
     }
@@ -51,28 +52,48 @@ final class DropboxSyncEngine {
             allEntries += result.entries
             cursor = result.cursor
         }
-        syncIndex.cursor = cursor
-        syncIndex.persist()
 
+        // The cursor is only advanced once every entry in this batch has been
+        // handled. Persisting it earlier (e.g. right after list_folder) would
+        // permanently "use up" the batch if a single file's download failed
+        // partway through — the next sync would resume from a cursor that
+        // already points past files that were never actually pulled down,
+        // silently reporting success with those files missing.
+        var pendingError: Error?
         for entry in allEntries {
             guard entry.name.hasSuffix(".json") else { continue }
             let filename = entry.name
 
-            if entry.isDeleted {
-                try await handleRemoteDeletion(filename: filename)
-                continue
-            }
-            guard entry.isFile else { continue }
+            do {
+                if entry.isDeleted {
+                    try await handleRemoteDeletion(filename: filename)
+                    continue
+                }
+                guard entry.isFile else { continue }
 
-            let localRecord = syncIndex.entries[filename]
-            guard localRecord?.contentHash != entry.contentHash else { continue } // already in sync
+                let localRecord = syncIndex.entries[filename]
+                guard localRecord?.contentHash != entry.contentHash else { continue } // already in sync
 
-            if syncIndex.isDirty(filename: filename) && bookStore.load(filename: filename) != nil {
-                try await handleConflict(filename: filename, remoteEntry: entry)
-            } else {
-                try await downloadAndStore(filename: filename, entry: entry)
+                if syncIndex.isDirty(filename: filename) && bookStore.load(filename: filename) != nil {
+                    try await handleConflict(filename: filename, remoteEntry: entry)
+                } else {
+                    try await downloadAndStore(filename: filename, entry: entry)
+                }
+            } catch {
+                // Don't let one bad file (network blip, stale rev, etc.)
+                // abort the whole batch — try the rest, then surface the
+                // failure and leave the cursor where it was so this entry is
+                // reconsidered on the next sync instead of being skipped
+                // forever.
+                if pendingError == nil { pendingError = error }
             }
         }
+
+        if let pendingError {
+            throw pendingError
+        }
+        syncIndex.cursor = cursor
+        syncIndex.persist()
     }
 
     private func handleRemoteDeletion(filename: String) async throws {

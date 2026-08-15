@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+
+Be precise and save unnecessary words when you communicate or think.
+
 ## What this is
 
 Autorino is a local-first writer's workbench: characters, relationships, locations, event-order

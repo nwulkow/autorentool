@@ -721,6 +721,22 @@ textarea{min-height:80px;resize:vertical}
 .lang-flag:hover{opacity:.85}
 .lang-flag.active{opacity:1;border-color:var(--accent);box-shadow:0 0 0 2px rgba(180,130,60,.25)}
 
+.settings-btn{
+  margin-left:auto;background:none;border:1px solid var(--border);
+  border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;
+  color:var(--text);opacity:.75;transition:opacity .15s,background .15s;
+}
+.settings-btn:hover{opacity:1;background:var(--hover,rgba(0,0,0,.04))}
+
+/* ═══════════════ DROPBOX SYNC MODAL ═══════════════ */
+
+.dropbox-hint{font-size:12px;color:var(--muted,#888);margin:6px 0 0}
+.dropbox-error{
+  font-size:13px;color:#c0392b;background:rgba(192,57,43,.08);
+  border-radius:6px;padding:8px 10px;margin-top:10px;
+}
+.dropbox-status{font-weight:600;color:#27ae60;margin:0 0 4px}
+
 /* ═══════════════ GAP +/- BUTTONS ═══════════════ */
 
 .gap-btns{

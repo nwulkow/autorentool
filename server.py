@@ -4,6 +4,12 @@
 Serves static files and exposes two API endpoints:
   GET  /api/books      – return every book JSON stored in ./books/
   POST /api/books/save – persist a book JSON to ./books/<title>.json
+
+Also exposes Dropbox sync routes (see dropbox_sync.py):
+  GET  /api/dropbox/status     – {available, connected}
+  POST /api/dropbox/token      – {token} -> validate + store it
+  POST /api/dropbox/disconnect – forget the stored token
+  POST /api/dropbox/sync       – run a two-way sync pass now
 """
 
 import json
@@ -50,6 +56,14 @@ except Exception as _e:
     _LLM_AVAILABLE = False
     print(f"[LLM] llm_utils not available: {_e}")
 
+# ── Dropbox sync (import once; failures are non-fatal) ─────────────────────────
+try:
+    import dropbox_sync
+    _DROPBOX_AVAILABLE = True
+except Exception as _e:
+    _DROPBOX_AVAILABLE = False
+    print(f"[Dropbox] dropbox_sync not available: {_e}")
+
 
 def _get_ollama_models():
     """Return model names from a running (or just-started) ollama server."""
@@ -81,6 +95,8 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._llm_models()
         elif path == "/api/llm/chat/history":
             self._llm_chat_history()
+        elif path == "/api/dropbox/status":
+            self._dropbox_status()
         else:
             super().do_GET()
 
@@ -106,6 +122,12 @@ class BookHandler(SimpleHTTPRequestHandler):
             history = []
             _write_chat_history(history)
             self._json_response(200, {"status": "ok"})
+        elif path == "/api/dropbox/token":
+            self._dropbox_set_token()
+        elif path == "/api/dropbox/disconnect":
+            self._dropbox_disconnect()
+        elif path == "/api/dropbox/sync":
+            self._dropbox_sync()
         else:
             self.send_error(404)
 
@@ -153,6 +175,8 @@ class BookHandler(SimpleHTTPRequestHandler):
         dest = os.path.join(BOOKS_DIR, f"{safe}.json")
         with open(dest, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=4, ensure_ascii=False)
+        if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
+            dropbox_sync.mark_dirty(f"{safe}.json")
         body = json.dumps({"status": "ok", "path": dest}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -257,6 +281,48 @@ class BookHandler(SimpleHTTPRequestHandler):
             if persist and external_history is None:
                 _write_chat_history(history)
             self._json_response(200, {"result": answer, "history": history})
+        except Exception as e:
+            self._json_response(500, {"error": str(e)})
+
+    def _dropbox_status(self):
+        connected = _DROPBOX_AVAILABLE and dropbox_sync.is_configured()
+        self._json_response(200, {"available": _DROPBOX_AVAILABLE, "connected": connected})
+
+    def _dropbox_set_token(self):
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+        if not _DROPBOX_AVAILABLE:
+            self._json_response(500, {"error": "dropbox_sync not available on server"})
+            return
+        token = data.get("token", "")
+        try:
+            dropbox_sync.test_connection(token)
+        except Exception as e:
+            self._json_response(400, {"error": f"Could not connect to Dropbox: {e}"})
+            return
+        dropbox_sync.set_token(token)
+        self._json_response(200, {"status": "ok"})
+
+    def _dropbox_disconnect(self):
+        if _DROPBOX_AVAILABLE:
+            dropbox_sync.clear_token()
+        self._json_response(200, {"status": "ok"})
+
+    def _dropbox_sync(self):
+        if not _DROPBOX_AVAILABLE:
+            self._json_response(500, {"error": "dropbox_sync not available on server"})
+            return
+        if not dropbox_sync.is_configured():
+            self._json_response(400, {"error": "Not connected to Dropbox."})
+            return
+        try:
+            result = dropbox_sync.sync()
+            self._json_response(200, result)
         except Exception as e:
             self._json_response(500, {"error": str(e)})
 
