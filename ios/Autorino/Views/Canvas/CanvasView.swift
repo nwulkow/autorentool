@@ -46,9 +46,17 @@ struct CanvasView: View {
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 8).padding(.vertical, 4)
                     }
-                    canvasPane
-                    if !editor.book.characterRelations.isEmpty {
-                        relationsList
+                    // `canvasPane` gets a fixed height instead of expanding
+                    // to fill the VStack — a `GeometryReader` left unbounded
+                    // here would greedily claim all remaining space and
+                    // push `relationsList` fully off-screen with no way to
+                    // reach it. The whole lower section then scrolls so the
+                    // relations list is always reachable below the pane.
+                    ScrollView {
+                        canvasPane
+                        if !editor.book.characterRelations.isEmpty {
+                            relationsList
+                        }
                     }
                 }
             }
@@ -167,7 +175,12 @@ struct CanvasView: View {
             .contentShape(Rectangle())
             .onTapGesture { selectedNodeId = nil }
         }
-        .frame(minHeight: 360)
+        // A fixed height, not `minHeight`: inside the enclosing `ScrollView`
+        // a `GeometryReader` has no intrinsic size to report, so without an
+        // explicit (bounded) height here it collapses to zero instead of
+        // sizing itself against the viewport the way it did as the lone
+        // flexible child of a plain VStack.
+        .frame(height: 360)
     }
 
     /// Mirrors `rel-list` (app.js:2069-2077).

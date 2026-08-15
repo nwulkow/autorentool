@@ -72,7 +72,7 @@ struct LLMAssistantContent: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         if messages.isEmpty {
-                            Text("Ask about your characters, chapters, or plot. Turn on chapters/passages above to give the assistant more context.")
+                            Text("Ask about your characters, chapters, or plot. Turn on chapters, passages, or characters above to give the assistant more context.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                                 .padding()
@@ -145,11 +145,13 @@ struct LLMAssistantContent: View {
         let context = [baseContext, scopeContext].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n\n")
         let historyForCall = Array(messages.dropLast())
 
+        let selectedCharacters = PromptBuilder.selectedCharacters(for: scope, book: editor.book)
+
         isLoading = true
         Task {
             defer { isLoading = false }
             do {
-                let reply = try await env.llmService.chat(text: context, userPrompt: text, history: historyForCall, characters: editor.book.characters)
+                let reply = try await env.llmService.chat(text: context, userPrompt: text, history: historyForCall, characters: selectedCharacters)
                 append(reply)
             } catch {
                 self.error = error.localizedDescription

@@ -124,7 +124,11 @@
       "Bash(jobs)",
       "Bash(pkill -f \"lldb -s lldb_script.txt\")",
       "Bash(pkill -f \"devicectl device process launch.*console\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(./autorino_env/bin/python -c \"import numpy, PIL; print\\('ok'\\)\")",
+      "Bash(pip3 show *)",
+      "Bash(mv /Users/niklaswulkow/ResearchEngineering/autorentool/ios/Autorino/Assets.xcassets/AppIcon.appiconset/AppIcon.pre-recenter-backup.png /private/tmp/claude-501/-Users-niklaswulkow-ResearchEngineering-autorentool/29e895b6-2835-4093-8dde-0e16fc2abaa1/scratchpad/AppIcon-original-backup.png *)",
+      "Bash(xcodebuild -project Autorino.xcodeproj -scheme Autorino -destination 'generic/platform=iOS Simulator' build)"
     ],
     "additionalDirectories": [
       "/private/tmp",
@@ -132,7 +136,8 @@
       "/tmp",
       "/Users/niklaswulkow/Library/Developer/Xcode/DerivedData",
       "/Users/niklaswulkow/ResearchEngineering/autorentool/ios/Autorino",
-      "/Users/niklaswulkow/ResearchEngineering/autorentool"
+      "/Users/niklaswulkow/ResearchEngineering/autorentool",
+      "/Users/niklaswulkow/ResearchEngineering/autorentool/ios/Autorino/Assets.xcassets/AppIcon.appiconset"
     ]
   }
 }

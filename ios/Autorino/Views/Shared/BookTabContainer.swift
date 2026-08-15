@@ -16,6 +16,11 @@ struct BookTabContainer: View {
     @StateObject var editor: BookEditor
     @State private var showingRename = false
     @State private var renameText = ""
+    /// Told about a successful rename so the caller (`BookListView`) can
+    /// rewrite its navigation path — see the note on `BookListView.path`.
+    /// Optional/no-op default so other callers (previews, tests) don't need
+    /// to supply one.
+    var onRename: (String) -> Void = { _ in }
 
     var body: some View {
         TabView {
@@ -56,6 +61,7 @@ struct BookTabContainer: View {
                 let trimmed = renameText.trimmingCharacters(in: .whitespaces)
                 guard !trimmed.isEmpty, trimmed != editor.book.title else { return }
                 editor.book = env.bookStore.rename(editor.book, to: trimmed)
+                onRename(editor.book.title)
             }
         }
     }

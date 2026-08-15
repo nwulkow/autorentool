@@ -3,6 +3,16 @@ import SwiftUI
 struct BookListView: View {
     @EnvironmentObject private var env: AppEnvironment
     @State private var showingNewBook = false
+    // Explicit path, owned by `RootView`'s `NavigationStack` and passed in
+    // (rather than letting the stack manage it internally) so a rename can
+    // rewrite the pushed title in place — see `navigationDestination`
+    // below. Without this, renaming the open book leaves the path holding
+    // the pre-rename title, which no longer matches any entry in
+    // `env.bookStore.books` (`rename` removes the old-titled entry once it
+    // saves under the new one); the destination then has nothing to
+    // resolve, and taps on the book list can stop navigating until the app
+    // restarts.
+    @Binding var path: NavigationPath
 
     var body: some View {
         Group {
@@ -57,7 +67,20 @@ struct BookListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: String.self) { title in
             if let book = env.bookStore.books.first(where: { $0.title == title }) {
-                BookTabContainer(editor: BookEditor(book: book, bookStore: env.bookStore))
+                BookTabContainer(editor: BookEditor(book: book, bookStore: env.bookStore)) { newTitle in
+                    // Keep the pushed path element in sync with a rename so
+                    // it keeps resolving against `env.bookStore.books` (see
+                    // the note on `path` above) instead of pointing at a
+                    // title that no longer exists.
+                    if !path.isEmpty { path.removeLast() }
+                    path.append(newTitle)
+                }
+            } else {
+                // The pushed title no longer matches any book (renamed from
+                // elsewhere, deleted, or a stale path entry from before a
+                // sync reload) — pop back to the list instead of leaving a
+                // dead screen the user can't navigate away from.
+                Color.clear.onAppear { if !path.isEmpty { path.removeLast() } }
             }
         }
         .toolbar {

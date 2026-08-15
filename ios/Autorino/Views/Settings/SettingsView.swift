@@ -7,6 +7,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                AppearanceSection()
                 DropboxSettingsSection()
                 GeminiKeySection()
                 Section {
@@ -19,6 +20,24 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+        }
+    }
+}
+
+private struct AppearanceSection: View {
+    @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system
+
+    var body: some View {
+        Section {
+            Picker("Appearance", selection: $appearanceMode) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+        } header: {
+            Text("Appearance")
+        } footer: {
+            Text("System follows your phone's Light/Dark setting.")
         }
     }
 }

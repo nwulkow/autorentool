@@ -1,6 +1,34 @@
 import SwiftUI
 import UIKit
 
+/// The app's own Light/Dark/System toggle (Settings → Appearance), separate
+/// from the phone-wide setting since there's otherwise no in-app control —
+/// dark colors are wired up throughout `Theme` but with nothing to switch
+/// to them but the system's own Settings app, which is easy to miss.
+/// Persisted via `AppStorage` and applied through `preferredColorScheme`
+/// at the root (`AutorinoApp`).
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return String(localized: "System")
+        case .light: return String(localized: "Light")
+        case .dark: return String(localized: "Dark")
+        }
+    }
+
+    /// `nil` means "follow the system", the only value `preferredColorScheme` accepts for that.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
 /// Design tokens ported from the Vue app's `styles.css` `:root` block
 /// (styles.css:5-19) so the iOS app reads as the same product rather than a
 /// generic SwiftUI shell: warm paper cream instead of system gray, a tan

@@ -1,10 +1,12 @@
 import Foundation
 
-/// A chapter or passage the user has picked to include as LLM context —
-/// mirrors app.js's `llmChapterSelected` entries (`{id, type}`,
-/// app.js:566-598, 647-653).
+/// A chapter, passage, or character the user has picked to include as LLM
+/// context. Chapter/passage mirrors app.js's `llmChapterSelected` entries
+/// (`{id, type}`, app.js:566-598, 647-653); character mirrors
+/// `llmSelectedCharIds` gated by `llmIncludeCharacters` (app.js:341-342,
+/// 731-734, 765-766) — opt-in and per-character, not automatic.
 struct ContentScopeItem: Identifiable, Hashable {
-    enum Kind { case chapter, passage }
+    enum Kind { case chapter, passage, character }
     var kind: Kind
     var id: String
 }
@@ -60,6 +62,10 @@ enum PromptBuilder {
     /// Concatenates the selected chapters/passages into the
     /// `--- label ---\ntext` blocks appended to a prompt (app.js:520-536,
     /// 647ff — the "include characters / chapter content" scope picker).
+    /// Character items are excluded here — they go through
+    /// `selectedCharacters`/`characterSystemInstruction` as a system
+    /// instruction instead, matching `llmSelectedCharIds`'s handling
+    /// (app.js:765-766).
     static func contentContextText(for items: [ContentScopeItem], book: Book) -> String {
         var parts: [String] = []
         for item in items {
@@ -74,9 +80,20 @@ enum PromptBuilder {
                 let text = passagePlainText(passage, chapters: book.chapters).trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { continue }
                 parts.append("--- \(passageDisplayName(passage, in: book.chapters)) ---\n\(text)")
+            case .character:
+                continue
             }
         }
         return parts.joined(separator: "\n\n")
+    }
+
+    /// The characters picked in the scope picker, resolved against the
+    /// book — mirrors `llmSelectedCharIds` filtered against `book.characters`
+    /// (app.js:765-766).
+    static func selectedCharacters(for items: [ContentScopeItem], book: Book) -> [Character] {
+        let ids = Set(items.filter { $0.kind == .character }.map(\.id))
+        guard !ids.isEmpty else { return [] }
+        return book.characters.filter { ids.contains($0.id) }
     }
 
     /// Combines a base prompt/context (e.g. an event-order dump) with the
