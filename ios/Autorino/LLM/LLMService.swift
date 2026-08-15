@@ -22,7 +22,7 @@ enum LLMServiceError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .missingAPIKey: return "No Gemini API key set. Add one in Settings."
+        case .missingAPIKey: return String(localized: "No Gemini API key set. Add one in Settings.")
         case .requestFailed(let message): return message
         }
     }

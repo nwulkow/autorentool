@@ -57,7 +57,7 @@ struct CharacterDetailView: View {
                 .navigationTitle(editor.book.characters[index].name.isEmpty ? "Character" : editor.book.characters[index].name)
                 .navigationBarTitleDisplayMode(.inline)
             } else {
-                EmptyStateView(systemImage: "person.crop.circle.badge.xmark", title: "Character removed", message: "This character no longer exists.")
+                EmptyStateView(systemImage: "person.crop.circle.badge.xmark", title: String(localized: "Character removed"), message: String(localized: "This character no longer exists."))
             }
         }
     }

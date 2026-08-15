@@ -19,9 +19,9 @@ struct ChapterListView: View {
             if editor.book.chapters.isEmpty {
                 EmptyStateView(
                     systemImage: "doc.text",
-                    title: "No chapters yet.",
-                    message: "Start writing by adding your first chapter.",
-                    actionTitle: "+ Add Chapter"
+                    title: String(localized: "No chapters yet."),
+                    message: String(localized: "Start writing by adding your first chapter."),
+                    actionTitle: String(localized: "+ Add Chapter")
                 ) { showingAdd = true }
             } else {
                 List {

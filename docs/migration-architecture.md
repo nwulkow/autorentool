@@ -136,7 +136,7 @@ in `Models/EventOrder.swift`, ahead of the timeline view itself (§7).
 | Text editor — chapters, rich text (Quill), comments, full-text mode | `ChapterEditorView` wrapping `UITextView` (`UIViewRepresentable`) bound to `NSAttributedString` | **Shipped** (layout/zoom/spell-language chrome deferred — see §5) |
 | Word export (`docx.js`) / import (`mammoth.js`) | `DocxExporter`/`DocxImporter` + `ZipWriter`/`ZipReader`/`OOXMLDocumentParser` in `ios/Autorino/Word/` | **Shipped** — see §5 for the correction to this table's original import assumption |
 | LLM: model picker, plausibility check, custom prompt, multi-turn chat, chat history, "include characters" / chapter-content-scope selector | `LLMService` protocol + `GeminiLLMService` (URLSession) | **Shipped** (Gemini only — no local/on-device model path; see §8) |
-| i18n (`I18N` dict, `t(key)`) | Xcode String Catalog (`Localizable.xcstrings`), `String(localized:)` | Deferred — UI text is English-only for now |
+| i18n (`I18N` dict, `t(key)`) | Xcode String Catalog (`Localizable.xcstrings`), `String(localized:)` | **Shipped** — see §11 |
 | `/api/books*`, `/api/llm/*` routes; `server.py`, `start.sh`, `.env` parsing | **Deleted, not ported.** | N/A — pure transport for a browser that no longer exists |
 
 ## 5. Rich text editor (highest-risk item)
@@ -321,7 +321,9 @@ Dropbox sync first, since it was pulled forward from "stretch" to
     `ZipWriter`/`ZipReader`, `OOXMLDocumentParser` (§5). **Done** — both
     directions needed a hand-rolled OOXML implementation, correcting this
     doc's original assumption that import was free via `NSAttributedString`.
-11. **Localization** — String Catalog (en/de), matching current coverage.
+11. ~~**Localization**~~ — String Catalog (en/de), matching current coverage.
+    **Done** — see §11 for the ternary/computed-property extraction gaps
+    this phase had to work around.
 12. **Polish** — `NavigationSplitView` trailing-column presentation for
     `LLMAssistantSheet` on iPad/regular width (§6.5); layout/zoom/spell-
     language editor chrome; event-order LLM assistant panel wired onto
@@ -440,3 +442,88 @@ panes.
   app: a `Link` surfaces to XCUITest as a `Button` (not `StaticText`), and
   a multiline `TextField(axis: .vertical)` exposes its content as a
   `value`, not a `label`.
+
+## 11. Localization (phase 11)
+
+`Localizable.xcstrings` (`ios/Autorino/Localizable.xcstrings`), en (source) +
+de, covering every UI-chrome string literal across `Views/`, `App/`, `Word/`,
+and the handful of chrome strings that live outside those folders in
+`Sync/`/`LLM/` (see below). German translations reuse app.js's `I18N` dict
+verbatim wherever the English text matches or closely matches an existing
+key, for consistency between the two apps; strings with no `I18N` equivalent
+(Settings/Dropbox/Word-import chrome, all net-new on iOS) were translated
+fresh in the same register.
+
+- **What auto-extracts vs. what doesn't.** Xcode's compiler-driven
+  extraction handles any literal passed directly to `Text`/`Label`/`Button`/
+  `.navigationTitle`/`TextField`/`Section`/etc., including interpolated
+  literals (`Text("\(count) columns")` extracts as the format-key `"%lld
+  columns"`). It does **not** extract a literal that's merely the *result*
+  of a ternary or a custom `String`-typed parameter on a non-SwiftUI-native
+  view — both patterns showed up here:
+  - `EmptyStateView`/`PlaceholderTabView` (`Views/Shared/EmptyStateView.swift`)
+    take plain `String` for `title`/`message`/`actionTitle`, not `Text`, so
+    every one of its ~13 call sites across the app needed its literal
+    arguments wrapped in `String(localized:)` at the call site rather than
+    relying on auto-extraction.
+  - `TimelineView.swift`'s `Text(event.description.isEmpty ? "(tap to
+    edit)" : event.description)` — only the placeholder branch is a
+    literal (the other is user data), so only that branch got wrapped:
+    `String(localized: "(tap to edit)")`, matching the task's guidance to
+    fix the literal in place rather than restructure the call.
+  - Two model-layer computed properties that feed `Text`/`Button` with a
+    derived (non-literal) string: `LocationTools.Tool.label` (was
+    `rawValue.capitalized`, e.g. `"rectangle"` → `"Rectangle"`) and
+    `RichTextController.HeadingLevel.label` (`"Body"`/`"H1"`/`"H2"`/`"H3"`).
+    Both were rewritten as explicit `switch` statements returning
+    `String(localized: "...")` per case — `LocationTools`'s tool labels
+    reuse app.js's lowercase `I18N` keys (`'rectangle'`, `'tree'`, `'lake'`,
+    …) directly, since those are the same physical strings persisted as
+    `LocationObject.type`. `H1`/`H2`/`H3` were left untranslated
+    (abbreviations, not words) — only `"Body"` got a German value.
+  - `LocationObjectPropertiesView`'s sheet title used to be
+    `object.type.capitalized` (a raw persisted-type string, capitalized);
+    it now looks the type back up via `LocationTools.tool(forType:)` and
+    uses that tool's localized `.label`, falling back to the old
+    capitalized-raw-string behavior only if the type is unrecognized.
+- **A few chrome strings outside `Views/`/`App/`/`Word/` also needed
+  wrapping**, per the task's "search broadly" scope: `DropboxAuthService`'s
+  two app-authored `lastError` literals (`Views/Settings/SettingsView.swift`
+  displays `lastError` via `Text(error)`, a variable, so the literals had to
+  be wrapped at their assignment site, not the display site) and
+  `LLMServiceError.missingAPIKey`'s message. Their sibling cases
+  (`DropboxAuthError.requestFailed(body)`, `LLMServiceError.requestFailed
+  (message)`) were deliberately **not** wrapped — those carry a raw
+  server/API error string as their payload, which is data being echoed
+  back, not app-authored chrome.
+- **Deliberately left untranslated:** `Models/EventOrder.swift`'s
+  `generateMarkers` (weekday/month marker labels: `"Mon"`…`"Sun"`,
+  `"Jan"`…`"Dec"`, `"Week \(n)"`) — this is a verbatim port of app.js's own
+  `generateMarkers` (app.js:118-127), which hardcodes the same English
+  abbreviations regardless of `this.locale` and never routes them through
+  `t()`. Matching that (rather than "fixing" it) keeps timeline data
+  consistent with what the Mac app already writes/reads for the same book.
+  `LocationsListView`'s object-count row (`"12×8 m · 3 objects"`) was also
+  left uncataloged: app.js does translate its `'objects'` key, but the only
+  translatable word in that iOS string sits inside a four-part interpolated
+  line with a nested singular/plural ternary, and wrapping just that one
+  word would have meant restructuring the line for a single low-value noun
+  — not worth the churn this phase, consistent with the "don't
+  over-engineer" instruction for pluralization.
+- **`project.yml`**: added `CFBundleDevelopmentRegion: en` to the target's
+  `info.properties` block. No `sources:`/`resources:` change was needed —
+  `Localizable.xcstrings` lives under `Autorino/`, already covered by the
+  target's `sources: - path: Autorino`, and XcodeGen picked it up as a
+  resource on the next `xcodegen generate` the same way it already picks up
+  the asset catalog. Xcode infers the app's available localizations
+  (`de` alongside the `en` source language) from the string catalog itself
+  at build time — no `knownRegions`-equivalent key exists in XcodeGen's
+  schema, and none was needed.
+- **Verification:** `xcodebuild … build` succeeded with the regenerated
+  project, and the compiled `de.lproj/Localizable.strings` inside the built
+  `.app` was decoded (`plutil -convert xml1`) and diffed against every
+  interpolated/format-key string this phase guessed at compile time (e.g.
+  `"by %@"`, `"“%@”"`, `"“%@” … “%@”"`, `"📍 %@"`, `"Start week: %lld"`) —
+  all 206 cataloged keys came through with the exact key shape predicted,
+  confirming the `%@`-for-`String`/`%lld`-for-`Int` convention this phase
+  used matches Swift's actual compiled format-specifier behavior.

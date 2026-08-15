@@ -28,7 +28,7 @@ final class DropboxAuthService: NSObject, ObservableObject {
 
     func startAuth() {
         guard let appKey = DropboxConfig.appKey else {
-            lastError = "Add your Dropbox App Key in Settings before connecting — see README-iOS.md."
+            lastError = String(localized: "Add your Dropbox App Key in Settings before connecting — see README-iOS.md.")
             return
         }
         let verifier = Self.randomURLSafeString(length: 64)
@@ -81,7 +81,7 @@ final class DropboxAuthService: NSObject, ObservableObject {
         guard let verifier = pendingCodeVerifier,
               let code = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "code" })?.value else {
-            lastError = "Dropbox sign-in did not return an authorization code."
+            lastError = String(localized: "Dropbox sign-in did not return an authorization code.")
             return
         }
         do {
@@ -222,7 +222,7 @@ enum DropboxAuthError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConnected: return "Not connected to Dropbox."
+        case .notConnected: return String(localized: "Not connected to Dropbox.")
         case .requestFailed(let body): return "Dropbox request failed: \(body)"
         }
     }

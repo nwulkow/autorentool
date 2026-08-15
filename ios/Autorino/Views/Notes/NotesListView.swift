@@ -14,8 +14,8 @@ struct NotesListView: View {
             if editor.book.topics.isEmpty {
                 EmptyStateView(
                     systemImage: "note.text",
-                    title: "No topics yet.",
-                    message: "Create a topic to start adding post-it notes and links."
+                    title: String(localized: "No topics yet."),
+                    message: String(localized: "Create a topic to start adding post-it notes and links.")
                 )
             } else {
                 List {

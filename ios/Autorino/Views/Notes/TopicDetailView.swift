@@ -64,8 +64,8 @@ struct TopicDetailView: View {
             } else {
                 EmptyStateView(
                     systemImage: "note.text",
-                    title: "Topic removed",
-                    message: "This topic no longer exists."
+                    title: String(localized: "Topic removed"),
+                    message: String(localized: "This topic no longer exists.")
                 )
             }
         }

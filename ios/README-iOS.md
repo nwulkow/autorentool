@@ -54,12 +54,21 @@ file is the practical "how do I build and set this up" doc.
   the chapter list toolbar (Import File / Export DOCX) and per-chapter
   (swipe action, or the editor's `···` menu).
 
+- Localization: `Localizable.xcstrings` (en source + de), covering every
+  UI-chrome string across `Views/`, `App/`, `Word/`, and a handful of
+  chrome strings in `Sync/`/`LLM/` (Dropbox/Gemini error text). German
+  translations reuse app.js's `I18N` dict wherever the English text
+  matches; iOS-only strings (Settings, Dropbox, Word import/export) were
+  translated fresh in the same register. See
+  `docs/migration-architecture.md` §11 for the extraction gaps this phase
+  had to work around (custom `String`-typed view params don't
+  auto-extract like `Text` does) and what was deliberately left
+  untranslated (timeline weekday/month markers, matching app.js's own
+  unlocalized `generateMarkers`).
+
 **No local/on-device LLM — confirmed non-goal, not deferred.** The iOS app
 ships Gemini only (`GeminiLLMService`). Today's Ollama option is dropped
 outright and is not replaced by FoundationModels or anything else.
-
-**Deferred to later phases** (models exist, views are placeholders):
-localization (String Catalog).
 
 ## Build
 
@@ -131,13 +140,22 @@ as `<title> (Dropbox <timestamp>).json` — nothing is silently dropped.
 Settings lists any such conflicts; merge by hand and delete the extra copy
 once you're done.
 
-## Notes for whoever picks up the next phase (Localization)
+## Notes for whoever picks up the next phase (Polish)
 
 - `BookTabContainer` (`Views/Shared/BookTabContainer.swift`) is where the
   placeholder tabs live — swap `PlaceholderTabView` for a real view per
   tab as each one lands. All tabs are now real views, including Word
-  import/export (phase 10); localization is next, see
-  `docs/migration-architecture.md` §7.
+  import/export (phase 10) and localization (phase 11); Polish (phase 12)
+  is next, see `docs/migration-architecture.md` §7: `NavigationSplitView`
+  trailing-column presentation for `LLMAssistantSheet` on iPad/regular
+  width (§6.5), layout/zoom/spell-language editor chrome, and the
+  event-order LLM assistant panel wired onto `LLMAssistantSheet`.
+- Any new user-facing string literal added in a future phase should go
+  into `Localizable.xcstrings` with a German translation — see
+  `docs/migration-architecture.md` §11 for the two patterns that don't
+  auto-extract (a ternary's literal branch, or a literal passed to a
+  custom `String`-typed view parameter rather than directly to `Text`/
+  `Button`/etc.) and need an explicit `String(localized:)` wrap instead.
 - If a future `.docx` import needs more than paragraphs/runs (tables,
   images, styles beyond bold/italic/underline/strike/headings/
   blockquote), `OOXMLDocumentParser` is the place to extend — it's a

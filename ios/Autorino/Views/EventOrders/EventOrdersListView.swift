@@ -11,9 +11,9 @@ struct EventOrdersListView: View {
             if editor.book.eventOrders.isEmpty {
                 EmptyStateView(
                     systemImage: "clock.arrow.circlepath",
-                    title: "No event orders yet.",
-                    message: "Build a timeline of events per character.",
-                    actionTitle: "+ New Event Order"
+                    title: String(localized: "No event orders yet."),
+                    message: String(localized: "Build a timeline of events per character."),
+                    actionTitle: String(localized: "+ New Event Order")
                 ) { addEventOrder() }
             } else {
                 List {

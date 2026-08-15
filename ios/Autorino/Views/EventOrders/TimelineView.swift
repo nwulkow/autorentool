@@ -30,7 +30,7 @@ struct TimelineView: View {
             if let orderIndex {
                 content(orderIndex: orderIndex)
             } else {
-                EmptyStateView(systemImage: "clock.arrow.circlepath", title: "Event order not found.", message: "", actionTitle: nil, action: nil)
+                EmptyStateView(systemImage: "clock.arrow.circlepath", title: String(localized: "Event order not found."), message: "", actionTitle: nil, action: nil)
             }
         }
     }
@@ -56,8 +56,8 @@ struct TimelineView: View {
             if order.wrappedValue.characterColumns.isEmpty {
                 EmptyStateView(
                     systemImage: "clock.arrow.circlepath",
-                    title: "No columns yet.",
-                    message: "Add characters from above or a General column, then tap the timeline to place events.",
+                    title: String(localized: "No columns yet."),
+                    message: String(localized: "Add characters from above or a General column, then tap the timeline to place events."),
                     actionTitle: nil, action: nil
                 )
             } else {
@@ -393,7 +393,7 @@ private struct EventBlock: View {
                             .font(.caption2)
                     }
                 } else {
-                    Text(event.description.isEmpty ? "(tap to edit)" : event.description)
+                    Text(event.description.isEmpty ? String(localized: "(tap to edit)") : event.description)
                         .font(.caption)
                         .lineLimit(2)
                     HStack {

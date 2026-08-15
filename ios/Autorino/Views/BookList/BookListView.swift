@@ -9,9 +9,9 @@ struct BookListView: View {
             if env.bookStore.books.isEmpty {
                 EmptyStateView(
                     systemImage: "books.vertical",
-                    title: "Your Books",
-                    message: "Create your first book to get started.",
-                    actionTitle: "Create your first book"
+                    title: String(localized: "Your Books"),
+                    message: String(localized: "Create your first book to get started."),
+                    actionTitle: String(localized: "Create your first book")
                 ) { showingNewBook = true }
             } else {
                 List {

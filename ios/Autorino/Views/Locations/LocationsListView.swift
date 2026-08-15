@@ -13,9 +13,9 @@ struct LocationsListView: View {
             if editor.book.locations.isEmpty {
                 EmptyStateView(
                     systemImage: "mappin.and.ellipse",
-                    title: "No locations yet.",
-                    message: "Draw maps of the places in your story.",
-                    actionTitle: "+ New Location"
+                    title: String(localized: "No locations yet."),
+                    message: String(localized: "Draw maps of the places in your story."),
+                    actionTitle: String(localized: "+ New Location")
                 ) { showingNewLocation = true }
             } else {
                 List {

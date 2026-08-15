@@ -66,8 +66,8 @@ struct LocationEditorView: View {
             } else {
                 EmptyStateView(
                     systemImage: "mappin.slash",
-                    title: "Location not found",
-                    message: "It may have been deleted."
+                    title: String(localized: "Location not found"),
+                    message: String(localized: "It may have been deleted.")
                 )
             }
         }
@@ -237,7 +237,7 @@ struct LocationObjectPropertiesView: View {
                     Button("Delete Object", role: .destructive, action: onDelete)
                 }
             }
-            .navigationTitle(object.type.capitalized)
+            .navigationTitle(LocationTools.tool(forType: object.type)?.label ?? object.type.capitalized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

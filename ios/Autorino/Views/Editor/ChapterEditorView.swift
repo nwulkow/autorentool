@@ -78,7 +78,7 @@ struct ChapterEditorView: View {
                     defaultFilename: exportFilename
                 ) { _ in }
             } else {
-                EmptyStateView(systemImage: "doc.text.badge.xmark", title: "Chapter removed", message: "This chapter no longer exists.")
+                EmptyStateView(systemImage: "doc.text.badge.xmark", title: String(localized: "Chapter removed"), message: String(localized: "This chapter no longer exists."))
             }
         }
     }

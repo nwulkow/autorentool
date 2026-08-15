@@ -65,7 +65,18 @@
       "Read(//Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/**)",
       "Read(//Applications/Xcode.app/**)",
       "Bash(grep -n \"DocumentType\\\\b\" /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Versions/C/Headers/NSAttributedString.h | head -20)",
-      "Read(//Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Versions/C/Headers/**)"
+      "Read(//Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Versions/C/Headers/**)",
+      "Bash(awk -F: '{s+=$2} END{print s}')",
+      "Bash(xcodegen version *)",
+      "Bash(grep -rEo '\"[^\"]{1,80}\"' Views/ App/ Word/ Models/LocationTools.swift)",
+      "Bash(xcrun --sdk iphonesimulator --show-sdk-path)",
+      "Bash(python3)",
+      "Bash(python3 build_xcstrings.py)",
+      "Bash(python3 -m json.tool /Users/niklaswulkow/ResearchEngineering/autorentool/ios/Autorino/Localizable.xcstrings)",
+      "Read(//Users/niklaswulkow/Library/Developer/Xcode/DerivedData/Autorino-fnuohgmovsesvlhgahmvforuxhkp/Build/Products/Debug-iphonesimulator/Autorino.app/**)",
+      "Read(//Users/niklaswulkow/Library/Developer/Xcode/DerivedData/Autorino-fnuohgmovsesvlhgahmvforuxhkp/**)",
+      "Bash(plutil -convert xml1 -o - /Users/niklaswulkow/Library/Developer/Xcode/DerivedData/Autorino-fnuohgmovsesvlhgahmvforuxhkp/Build/Products/Debug-iphonesimulator/Autorino.app/de.lproj/Localizable.strings)",
+      "Bash(python3 -m json.tool Autorino/Localizable.xcstrings)"
     ],
     "additionalDirectories": [
       "/private/tmp",

@@ -32,8 +32,8 @@ struct CanvasView: View {
             if editor.book.characters.isEmpty {
                 EmptyStateView(
                     systemImage: "point.3.connected.trianglepath.dotted",
-                    title: "No characters yet.",
-                    message: "Add characters first, then place them on the map.",
+                    title: String(localized: "No characters yet."),
+                    message: String(localized: "Add characters first, then place them on the map."),
                     actionTitle: nil, action: nil
                 )
             } else {

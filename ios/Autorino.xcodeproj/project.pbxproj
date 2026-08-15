@@ -66,6 +66,7 @@
 		D74726BC6455AF032863EF33 /* Identifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D20EA78E0DF8FD33AD35B68 /* Identifiers.swift */; };
 		DCAD19CE52F60ED639F57A4B /* DocxFileDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7AE24D367BBD11B03762CA /* DocxFileDocument.swift */; };
 		DDFDB03617B95D8FD2FF8225 /* CSSColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EE916037AAF6658097FF84 /* CSSColor.swift */; };
+		DEBA3F8B81656F58A91C0F1A /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 91ADF54C30618CCDEB009184 /* Localizable.xcstrings */; };
 		E041A5E63EC848FA4E3E75DF /* Location.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85028E12F40BF0ED607BDCD /* Location.swift */; };
 		E8FE1826D474C47E584391C5 /* DropboxSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60CD0216D641C9D8CF269460 /* DropboxSyncEngine.swift */; };
 		EF6D973405957A7C12497A1E /* EventOrdersListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFED8B2CA1519ED320190EF /* EventOrdersListView.swift */; };
@@ -124,6 +125,7 @@
 		7E1A02394D4298D8025A3ECF /* PassagesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassagesSheet.swift; sourceTree = "<group>"; };
 		7F860D1771A1ABCD6A9D33D2 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		83393AD114FCA52DBBD01B28 /* ChapterEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChapterEditorView.swift; sourceTree = "<group>"; };
+		91ADF54C30618CCDEB009184 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		933551EF3C1D8D34B97B75E4 /* DropboxClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropboxClient.swift; sourceTree = "<group>"; };
 		99D3C1AE79D20DE144F1B475 /* TimelineConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineConfigView.swift; sourceTree = "<group>"; };
 		9E18A96CD2948C9E6DAD55EE /* CharactersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharactersListView.swift; sourceTree = "<group>"; };
@@ -338,6 +340,7 @@
 			children = (
 				63CA53FC3D7F22BB4BD119A4 /* Assets.xcassets */,
 				187810C4053BCCFAE9062C8F /* Info.plist */,
+				91ADF54C30618CCDEB009184 /* Localizable.xcstrings */,
 				3CF84BABE56284EE6EAF050B /* App */,
 				3AF198AF03B430FE988BA547 /* LLM */,
 				FAA0BE74F0D9097DD0C0ED6E /* Models */,
@@ -432,6 +435,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
+				de,
 				en,
 			);
 			mainGroup = 5D07E8CB2893ABED391B04FE;
@@ -452,6 +456,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F3FEA66A8C5425C8AEE7E91E /* Assets.xcassets in Resources */,
+				DEBA3F8B81656F58A91C0F1A /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

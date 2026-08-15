@@ -45,7 +45,7 @@ final class RichTextController: ObservableObject {
         var isHeading: Bool { self != .body }
         var label: String {
             switch self {
-            case .body: return "Body"
+            case .body: return String(localized: "Body")
             case .h1: return "H1"
             case .h2: return "H2"
             case .h3: return "H3"

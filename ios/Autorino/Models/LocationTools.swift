@@ -46,10 +46,10 @@ enum LocationTools {
 
         var label: String {
             switch self {
-            case .select: return "Select"
-            case .shape(let s): return s.rawValue.capitalized
-            case .icon(let i): return i.rawValue.capitalized
-            case .area(let a): return a.rawValue.capitalized
+            case .select: return String(localized: "select")
+            case .shape(let s): return s.label
+            case .icon(let i): return i.label
+            case .area(let a): return a.label
             }
         }
     }
@@ -63,6 +63,16 @@ enum LocationTools {
             case .rectangle: return "rectangle"
             case .ellipse: return "oval"
             case .circle: return "circle.fill"
+            }
+        }
+
+        /// Localized tool-palette label — matches app.js's `I18N` keys
+        /// (`'rectangle'`/`'ellipse'`/`'circle'`), which are lowercase.
+        var label: String {
+            switch self {
+            case .rectangle: return String(localized: "rectangle")
+            case .ellipse: return String(localized: "ellipse")
+            case .circle: return String(localized: "circle")
             }
         }
 
@@ -104,6 +114,23 @@ enum LocationTools {
             case .fountain: return "drop.circle"
             }
         }
+
+        /// Localized tool-palette label — matches app.js's `I18N` keys,
+        /// which are lowercase.
+        var label: String {
+            switch self {
+            case .tree: return String(localized: "tree")
+            case .house: return String(localized: "house")
+            case .castle: return String(localized: "castle")
+            case .car: return String(localized: "car")
+            case .bed: return String(localized: "bed")
+            case .table: return String(localized: "table")
+            case .door: return String(localized: "door")
+            case .shop: return String(localized: "shop")
+            case .building: return String(localized: "building")
+            case .fountain: return String(localized: "fountain")
+            }
+        }
     }
 
     /// Tap-to-outline polygon areas — from `AREA_DEFAULTS` (app.js:11-16).
@@ -142,6 +169,17 @@ enum LocationTools {
             case .road: return "road.lanes"
             case .sand: return "beach.umbrella"
             case .garden: return "leaf.fill"
+            }
+        }
+
+        /// Localized tool-palette label — matches app.js's `I18N` keys,
+        /// which are lowercase.
+        var label: String {
+            switch self {
+            case .lake: return String(localized: "lake")
+            case .road: return String(localized: "road")
+            case .sand: return String(localized: "sand")
+            case .garden: return String(localized: "garden")
             }
         }
     }

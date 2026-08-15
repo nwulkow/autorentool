@@ -12,9 +12,9 @@ struct CharactersListView: View {
             if editor.book.characters.isEmpty {
                 EmptyStateView(
                     systemImage: "person.2",
-                    title: "No characters yet.",
-                    message: "Add the people who populate your story.",
-                    actionTitle: "+ Add Character"
+                    title: String(localized: "No characters yet."),
+                    message: String(localized: "Add the people who populate your story."),
+                    actionTitle: String(localized: "+ Add Character")
                 ) { showingAdd = true }
             } else {
                 List {
