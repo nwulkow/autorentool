@@ -4,6 +4,10 @@ import SwiftUI
 struct AutorinoApp: App {
     @StateObject private var appEnvironment = AppEnvironment()
 
+    init() {
+        Theme.applyGlobalAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

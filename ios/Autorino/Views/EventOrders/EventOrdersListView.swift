@@ -23,19 +23,21 @@ struct EventOrdersListView: View {
                         } label: {
                             EventOrderRow(order: order)
                         }
+                        .bookCardRow()
                     }
                     .onDelete { indexSet in
                         editor.book.eventOrders.remove(atOffsets: indexSet)
                     }
                 }
+                .listStyle(.plain)
+                .paperBackground()
+                .safeAreaInset(edge: .bottom) {
+                    AddBarButton(title: String(localized: "New Event Order")) { addEventOrder() }
+                }
             }
         }
+        .background(Theme.paper)
         .navigationTitle("Event Orders")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { addEventOrder() } label: { Label("New Event Order", systemImage: "plus") }
-            }
-        }
     }
 
     /// Mirrors `addEventOrder` (app.js:1060-1066).
@@ -48,13 +50,23 @@ struct EventOrdersListView: View {
 private struct EventOrderRow: View {
     let order: EventOrder
 
+    private var eventCount: Int {
+        order.characterColumns.reduce(0) { $0 + $1.events.count }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(order.name).font(.headline)
-            Text("\(order.characterColumns.count) columns")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            Image(systemName: "clock.arrow.circlepath")
+                .foregroundStyle(Theme.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(order.name)
+                    .font(Theme.rowTitle)
+                    .foregroundStyle(Theme.ink)
+                Text("\(order.characterColumns.count) columns · \(eventCount) events")
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+            }
         }
-        .padding(.vertical, 4)
+        .bookCard(padding: 14)
     }
 }

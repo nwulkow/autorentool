@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%lld chapters": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Kapitel"
+          }
+        }
+      }
+    },
     "%lld columns": {
       "localizations": {
         "de": {
@@ -11,12 +21,42 @@
         }
       }
     },
+    "%lld columns · %lld events": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Spalten · %lld Ereignisse"
+          }
+        }
+      }
+    },
+    "%lld places": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Orte"
+          }
+        }
+      }
+    },
     "%lld sync conflict(s) — review in Settings": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld Synchronisierungskonflikt(e) — in den Einstellungen prüfen"
+          }
+        }
+      }
+    },
+    "%lld words": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Wörter"
           }
         }
       }
@@ -77,6 +117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "+ Ort hinzufügen"
+          }
+        }
+      }
+    },
+    "1 place": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Ort"
           }
         }
       }
@@ -1011,6 +1061,16 @@
         }
       }
     },
+    "Manuscript": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuskript"
+          }
+        }
+      }
+    },
     "Message…": {
       "localizations": {
         "de": {
@@ -1037,6 +1097,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Monate"
+          }
+        }
+      }
+    },
+    "More": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr"
           }
         }
       }
@@ -1331,6 +1401,16 @@
         }
       }
     },
+    "People": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personen"
+          }
+        }
+      }
+    },
     "Pink": {
       "localizations": {
         "de": {
@@ -1407,6 +1487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Beziehungskarte"
+          }
+        }
+      }
+    },
+    "Relationships": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beziehungen"
           }
         }
       }
@@ -1581,6 +1671,16 @@
         }
       }
     },
+    "Sync, Gemini key, conflicts": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync, Gemini-Schlüssel, Konflikte"
+          }
+        }
+      }
+    },
     "Syncing…": {
       "localizations": {
         "de": {
@@ -1617,6 +1717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Türkis"
+          }
+        }
+      }
+    },
+    "Text": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
           }
         }
       }
@@ -1707,6 +1817,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thema entfernt"
+          }
+        }
+      }
+    },
+    "Topics": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Themen"
+          }
+        }
+      }
+    },
+    "Track what you still need to figure out.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halte fest, was du noch klären musst."
           }
         }
       }

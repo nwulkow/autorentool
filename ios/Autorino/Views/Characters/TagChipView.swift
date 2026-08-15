@@ -1,12 +1,14 @@
 import SwiftUI
 
+/// Mirrors `.char-tag` (styles.css:195) — a soft blue wash with a light
+/// blue border, not a solid accent fill.
 struct TagChipView: View {
     let text: String
     var onRemove: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 4) {
-            Text(text).font(.caption)
+            Text(text).font(.caption.weight(.medium))
             if let onRemove {
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle.fill")
@@ -15,10 +17,11 @@ struct TagChipView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(Capsule().fill(Color.accentColor.opacity(0.15)))
-        .foregroundStyle(Color.accentColor)
+        .foregroundStyle(Theme.accent)
+        .background(Theme.accentSoft, in: Capsule())
+        .overlay(Capsule().stroke(Theme.accent.opacity(0.25), lineWidth: 1))
     }
 }
 

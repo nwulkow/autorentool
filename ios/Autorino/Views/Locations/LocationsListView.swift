@@ -25,13 +25,17 @@ struct LocationsListView: View {
                         } label: {
                             LocationRow(location: location)
                         }
+                        .bookCardRow()
                     }
                     .onDelete { indexSet in
                         editor.book.locations.remove(atOffsets: indexSet)
                     }
                 }
+                .listStyle(.plain)
+                .paperBackground()
             }
         }
+        .background(Theme.paper)
         .navigationTitle("Locations")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -50,19 +54,25 @@ private struct LocationRow: View {
     let location: Location
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(location.name).font(.headline)
-            Text("\(LocationTools.tickLabel(location.width))×\(LocationTools.tickLabel(location.height)) \(location.unit) · \(location.objects.count) object\(location.objects.count == 1 ? "" : "s")")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            if !location.description.isEmpty {
-                Text(location.description)
+        HStack(spacing: 12) {
+            Image(systemName: "mappin.and.ellipse")
+                .foregroundStyle(Theme.accent)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(location.name)
+                    .font(Theme.rowTitle)
+                    .foregroundStyle(Theme.ink)
+                Text("\(LocationTools.tickLabel(location.width))×\(LocationTools.tickLabel(location.height)) \(location.unit) · \(location.objects.count) object\(location.objects.count == 1 ? "" : "s")")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .foregroundStyle(Theme.muted)
+                if !location.description.isEmpty {
+                    Text(location.description)
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(2)
+                }
             }
         }
-        .padding(.vertical, 4)
+        .bookCard(padding: 14)
     }
 }
 

@@ -82,7 +82,10 @@
       "Bash(grep -n \"^[+-]\\\\|@interface\\\\|@property\" /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UITextChecker.h)",
       "Read(//Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/**)",
       "Bash(grep -n \"textInputMode\\\\|primaryLanguage\\\\|UITextInputMode\" /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIResponder.h /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UITextInputTraits.h 2>/dev/null)",
-      "Bash(grep -n \"primaryLanguage\\\\|preferredKeyboard\\\\|UITextInputTraits\\\\|keyboardType\" /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UITextInputTraits.h)"
+      "Bash(grep -n \"primaryLanguage\\\\|preferredKeyboard\\\\|UITextInputTraits\\\\|keyboardType\" /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UITextInputTraits.h)",
+      "Bash(xcodebuild -project Autorino.xcodeproj -scheme Autorino -destination 'platform=iOS Simulator,name=iPhone 17' build-for-testing)",
+      "Bash(xcodebuild -project Autorino.xcodeproj -scheme Autorino -destination 'platform=iOS Simulator,name=iPhone 17' test-without-building -only-testing:AutorinoUITests/ScreenshotTour/testWalkTabs)",
+      "Bash(plutil -convert xml1 -o - __TRACKED_VAR__/de.lproj/Localizable.strings)"
     ],
     "additionalDirectories": [
       "/private/tmp",

@@ -6,7 +6,9 @@ file is the practical "how do I build and set this up" doc.
 
 ## Status
 
-**All 12 phases shipped and building.**
+**All 12 migration phases shipped and building**, plus a post-migration
+navigation restructure and visual design pass (see "Navigation & design"
+below, and `docs/migration-architecture.md` §13).
 - Project scaffold, all data models (full parity with `books/*.json`)
 - Local persistence (`Books/*.json` in the app sandbox — same schema/
   filenames as the Mac app)
@@ -70,6 +72,43 @@ file is the practical "how do I build and set this up" doc.
 **No local/on-device LLM — confirmed non-goal, not deferred.** The iOS app
 ships Gemini only (`GeminiLLMService`). Today's Ollama option is dropped
 outright and is not replaced by FoundationModels or anything else.
+
+## Navigation & design
+
+**Five tabs, not seven.** app.js's flat tab row doesn't fit a phone bar —
+iOS collapses anything past five into a system "More" list. The bar is now
+ordered by how often writing touches each area:
+
+1. **Text** — chapters, full text, DOCX import/export. **Opens by default.**
+2. **Characters** — a People ⟷ Relationships switch (list + the canvas map).
+3. **Event Orders**
+4. **Notes** — a Topics ⟷ Questions switch.
+5. **More** — Locations, Settings.
+
+Canvas folded into Characters (the map is a view *of* the characters) and
+Questions into Notes; neither filled a tab alone, and taking the fifth slot
+with our own `MoreTabView` keeps it designed and localized rather than
+system-generated.
+
+**`Views/Shared/Theme.swift`** ports the web app's `styles.css` `:root`
+tokens so both apps read as one product: warm paper `#F8F6F1` ground, tan
+`#DDD6C8` rules, warm near-black ink, the `#4A7DFF` accent, `.book-card`
+surfaces, and Georgia for titles and names. Tokens are dynamic colors, so
+dark mode stays warm rather than reverting to system gray. Nav/tab bar
+chrome is set once via `Theme.applyGlobalAppearance()` (SwiftUI modifiers
+can't reach those bars).
+
+Two things worth knowing before touching this:
+
+- **A tab child's `.toolbar` never renders** (see the nav-bar note further
+  down). Several "add"/import buttons had been silently invisible because
+  of this; they're now in-body (`AddBarButton`, and Text's in-body header).
+  Put new per-tab controls in the body, not `.toolbar`.
+- **A custom font in `largeTitleTextAttributes` renders blank on iOS 26**
+  through the appearance proxy (inline titles are fine). Screens wanting a
+  big serif heading draw one in their own content — `BookListView` does
+  this, which also matches the web app, where `.saved-section h2` is a
+  content heading rather than chrome.
 
 ## Build
 

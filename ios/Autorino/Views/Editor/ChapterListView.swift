@@ -15,70 +15,12 @@ struct ChapterListView: View {
     @State private var importErrorMessage: String?
 
     var body: some View {
-        Group {
-            if editor.book.chapters.isEmpty {
-                EmptyStateView(
-                    systemImage: "doc.text",
-                    title: String(localized: "No chapters yet."),
-                    message: String(localized: "Start writing by adding your first chapter."),
-                    actionTitle: String(localized: "+ Add Chapter")
-                ) { showingAdd = true }
-            } else {
-                List {
-                    Section {
-                        NavigationLink {
-                            FullTextView(editor: editor)
-                        } label: {
-                            Label("Full text", systemImage: "doc.text.magnifyingglass")
-                        }
-                    }
-                    Section("Chapters") {
-                        ForEach(Array(editor.book.chapters.enumerated()), id: \.element.id) { index, chapter in
-                            NavigationLink {
-                                ChapterEditorView(editor: editor, chapterId: chapter.id)
-                            } label: {
-                                VStack(alignment: .leading) {
-                                    Text(chapter.name.isEmpty ? chapter.label : chapter.name).font(.headline)
-                                    if !chapter.name.isEmpty {
-                                        Text(chapter.label).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button {
-                                    exportChapterDocx(chapter, index: index)
-                                } label: {
-                                    Label("Export DOCX", systemImage: "square.and.arrow.up")
-                                }
-                                .tint(.blue)
-                            }
-                        }
-                        .onMove { indices, newOffset in
-                            editor.book.chapters.move(fromOffsets: indices, toOffset: newOffset)
-                        }
-                        .onDelete { indexSet in
-                            editor.book.chapters.remove(atOffsets: indexSet)
-                        }
-                    }
-                }
-                .toolbar { EditButton() }
-            }
+        VStack(spacing: 0) {
+            header
+            content
         }
-        .navigationTitle("Editor")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button { showingImporter = true } label: { Label("Import File", systemImage: "square.and.arrow.down") }
-                    Button { exportBookDocx() } label: { Label("Export DOCX", systemImage: "square.and.arrow.up") }
-                        .disabled(editor.book.chapters.isEmpty)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showingAdd = true } label: { Label("Add Chapter", systemImage: "plus") }
-            }
-        }
+        .background(Theme.paper)
+        .navigationTitle("Text")
         .sheet(isPresented: $showingAdd) {
             AddChapterSheet(editor: editor)
         }
@@ -102,6 +44,95 @@ struct ChapterListView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(importErrorMessage ?? "")
+        }
+    }
+
+    /// In-body header: a tab child's `.toolbar` doesn't merge into the
+    /// shared nav bar (see `ios/README-iOS.md`), so the import/export menu
+    /// lives here rather than silently never rendering.
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Manuscript")
+                .font(Theme.sectionTitle)
+                .foregroundStyle(Theme.ink)
+            Spacer()
+            Menu {
+                Button { showingImporter = true } label: { Label("Import File", systemImage: "square.and.arrow.down") }
+                Button { exportBookDocx() } label: { Label("Export DOCX", systemImage: "square.and.arrow.up") }
+                    .disabled(editor.book.chapters.isEmpty)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.title3)
+                    .foregroundStyle(Theme.accent)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .background(Theme.chrome)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .bottom)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        Group {
+            if editor.book.chapters.isEmpty {
+                EmptyStateView(
+                    systemImage: "doc.text",
+                    title: String(localized: "No chapters yet."),
+                    message: String(localized: "Start writing by adding your first chapter."),
+                    actionTitle: String(localized: "+ Add Chapter")
+                ) { showingAdd = true }
+            } else {
+                List {
+                    NavigationLink {
+                        FullTextView(editor: editor)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .foregroundStyle(Theme.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Full text")
+                                    .font(Theme.rowTitle)
+                                    .foregroundStyle(Theme.ink)
+                                Text("\(editor.book.chapters.count) chapters")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.muted)
+                            }
+                        }
+                        .bookCard(padding: 14)
+                    }
+                    .bookCardRow()
+
+                    ForEach(Array(editor.book.chapters.enumerated()), id: \.element.id) { index, chapter in
+                        NavigationLink {
+                            ChapterEditorView(editor: editor, chapterId: chapter.id)
+                        } label: {
+                            ChapterRow(index: index, chapter: chapter)
+                        }
+                        .bookCardRow()
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                exportChapterDocx(chapter, index: index)
+                            } label: {
+                                Label("Export DOCX", systemImage: "square.and.arrow.up")
+                            }
+                            .tint(Theme.accent)
+                        }
+                    }
+                    .onMove { indices, newOffset in
+                        editor.book.chapters.move(fromOffsets: indices, toOffset: newOffset)
+                    }
+                    .onDelete { indexSet in
+                        editor.book.chapters.remove(atOffsets: indexSet)
+                    }
+                }
+                .listStyle(.plain)
+                .paperBackground()
+                .safeAreaInset(edge: .bottom) {
+                    AddBarButton(title: String(localized: "Add Chapter")) { showingAdd = true }
+                }
+            }
         }
     }
 
@@ -134,6 +165,47 @@ struct ChapterListView: View {
                 importErrorMessage = "Import failed!"
             }
         }
+    }
+}
+
+/// Mirrors `.te-ch-item` (app.js:2669-2681): a numbered spine, the label,
+/// the optional title, and a word count.
+private struct ChapterRow: View {
+    let index: Int
+    let chapter: Chapter
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Text("\(index + 1)")
+                .font(Theme.serif(17, relativeTo: .headline).weight(.bold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 28, height: 28)
+                .background(Theme.accentSoft, in: Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(chapter.name.isEmpty ? chapter.label : chapter.name)
+                    .font(Theme.rowTitle)
+                    .foregroundStyle(Theme.ink)
+                HStack(spacing: 6) {
+                    if !chapter.name.isEmpty {
+                        Text(chapter.label)
+                        Text("·")
+                    }
+                    Text("\(wordCount) words")
+                }
+                .font(.caption)
+                .foregroundStyle(Theme.muted)
+            }
+        }
+        .bookCard(padding: 14)
+    }
+
+    /// Mirrors `wordCount` (app.js:1744-1748) — strip tags, split on
+    /// whitespace.
+    private var wordCount: Int {
+        PromptBuilder.chapterPlainText(chapter)
+            .split(whereSeparator: { $0.isWhitespace })
+            .count
     }
 }
 

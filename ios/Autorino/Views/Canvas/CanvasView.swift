@@ -76,7 +76,9 @@ struct CanvasView: View {
     /// toolbar convention.
     private var header: some View {
         HStack {
-            Text("Relationship Map").font(.headline)
+            Text("Relationship Map")
+                .font(Theme.sectionTitle)
+                .foregroundStyle(Theme.ink)
             Spacer()
             if linkMode {
                 Button("Cancel", role: .destructive) { cancelLinkMode() }
@@ -125,7 +127,9 @@ struct CanvasView: View {
     private var canvasPane: some View {
         GeometryReader { _ in
             ZStack(alignment: .topLeading) {
-                Color(uiColor: .secondarySystemBackground)
+                // `.canvas-pane`'s warm off-white (styles.css:239), not the
+                // system's cool gray.
+                Theme.canvasGround
 
                 Canvas { context, _ in
                     for link in computedLinks {
@@ -169,7 +173,10 @@ struct CanvasView: View {
     /// Mirrors `rel-list` (app.js:2069-2077).
     private var relationsList: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Relations").font(.headline)
+            Text("Relations")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.muted)
+                .textCase(.uppercase)
             ForEach(editor.book.characterRelations) { relation in
                 HStack {
                     Text(charName(relation.character1Id))

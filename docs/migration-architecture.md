@@ -1,7 +1,9 @@
 # Migration Architecture: Autorino → Native iOS
 
-Status: **all 12 phases shipped** (see `ios/README-iOS.md` for exactly
-what's built). Target: SwiftUI app, no Python/FastAPI backend, no
+Status: **all 12 migration phases shipped**, plus a post-migration
+navigation restructure and visual design pass (§13). See
+`ios/README-iOS.md` for exactly what's built. Target: SwiftUI app, no
+Python/FastAPI backend, no
 `http.server` JSON API. Source of truth for current behavior: `app.js` (Vue
 Options API, ~2900 lines), `server.py` (stdlib HTTP handler), `classes.py`
 (server-side model shape used for LLM prompts), `llm_utils.py` (Gemini/Ollama
@@ -616,3 +618,91 @@ new `EditorChromeBar`/`EditorLayout` symbols (no new files were added —
 `LLMAssistantContent`/`LLMAssistantHost` live in the existing
 `LLMAssistant/` files, so `project.yml`'s `sources:` glob needed no
 changes).
+
+## 13. Navigation restructure + visual design (phase 13)
+
+Two changes driven by using the app rather than by parity with `app.js`.
+
+### Tab bar: seven flat tabs → five, ordered by how writing actually goes
+
+The first layout mirrored app.js's flat tab row (Characters, Canvas,
+Locations, Event orders, Questions, Notes, Editor). Seven doesn't fit a
+phone tab bar — iOS silently collapses anything past five into a *system*
+"More" list, which is where Locations/Questions/Editor were ending up. The
+bar is now five slots, ordered by frequency of use:
+
+| Slot | Tab | Holds |
+|---|---|---|
+| 1 | **Text** (`ChapterListView`) — **the default when a book opens** | chapters, full-text, DOCX import/export |
+| 2 | **Characters** (`CharactersTabView`) | People ⟷ Relationships switch (`CharactersListView` / `CanvasView`) |
+| 3 | **Event Orders** (`EventOrdersListView`) | unchanged |
+| 4 | **Notes** (`NotesTabView`) | Topics ⟷ Questions switch (`NotesListView` / `QuestionsListView`) |
+| 5 | **More** (`MoreTabView`) | Locations, Settings |
+
+Text is first and therefore the default tab (`TabView` selects its first
+child), which is the point — the app opens on the manuscript.
+
+Canvas folded into Characters because the relationship map *is* a view of
+the characters, and Questions folded into Notes because both are
+"unresolved things to come back to"; neither filled a tab alone. The
+switch between the two halves is `BookSegmentedControl`, styled as the web
+app's tag chips (`.eo-tag-chip`, styles.css:140-142) rather than
+`.pickerStyle(.segmented)`, whose gray capsule reads as system chrome.
+
+Taking the fifth slot with our own `MoreTabView` (rather than letting iOS
+generate one) means its contents are designed and localized like any other
+screen.
+
+**A real bug this surfaced:** `ChapterListView`, `CharactersListView`,
+`EventOrdersListView` and `QuestionsListView` all declared their "add" and
+import/export controls in `.toolbar`. As `ios/README-iOS.md` already
+warned, a tab child's toolbar never merges into the shared nav bar — so
+those buttons had been *invisible* (the empty-state buttons were the only
+way to add a character or chapter). They're now in-body: `AddBarButton`
+along the bottom edge, and an in-body header on Text carrying the
+import/export menu.
+
+### Visual design: `Theme.swift`
+
+The SwiftUI default (system gray, SF, hairline separators) read as sterile
+next to the web app. `Views/Shared/Theme.swift` ports the `styles.css`
+`:root` tokens (styles.css:5-19) so both apps look like one product:
+
+- **Palette** — `--bg` warm paper `#F8F6F1`, `--panel` white, `--line` tan
+  `#DDD6C8`, `--text` warm near-black `#2C2720`, `--muted` brown-gray
+  `#8A7E72`, `--accent` `#4A7DFF`, plus the `#EEF3FF` accent wash and the
+  `.canvas-pane` off-white. The web app is light-only; each token here is a
+  *dynamic* color so dark mode stays warm (espresso) instead of falling
+  back to neutral system gray.
+- **Type** — Georgia (the member of `.brand-name`'s
+  Palatino/Book Antiqua/Georgia stack, styles.css:87, that ships on iOS)
+  for titles, book/character/chapter names, and question text. Body copy
+  and controls stay SF. All sizes go through `relativeTo:` so Dynamic Type
+  still works.
+- **Surfaces** — `.bookCard()` reproduces `.book-card` (styles.css:94-98):
+  white panel, tan hairline, 12pt radius, soft shadow. `.paperBackground()`
+  drops `List`'s system background so the cream shows through. Character
+  rows additionally carry their palette color as a left spine, which is how
+  the web app ties a character to their timeline column and canvas node.
+- **Bars** — SwiftUI can't restyle the nav/tab bars from a modifier, so
+  `Theme.applyGlobalAppearance()` pushes the paper ground and the serif
+  inline title through `UIAppearance` at launch.
+
+**One iOS 26 constraint worth recording:** a custom font in
+`largeTitleTextAttributes` renders *blank* through the appearance proxy
+(the inline title is fine). So screens wanting a big serif heading draw one
+in their own content instead — which is also what the web app does
+(`.saved-section h2` is a content heading, not chrome), so `BookListView`
+now matches it with an empty nav title and a serif "Your Books" in the
+list.
+
+### Localization
+
+13 new keys with German translations (`Text`, `More`, `People`,
+`Relationships`, `Topics`, `Manuscript`, `%lld chapters`, `%lld words`,
+`%lld places`, `1 place`, `%lld columns · %lld events`, and two empty-state
+lines). Note that the Xcode build did **not** auto-extract these into
+`Localizable.xcstrings` the way §11 described — the catalog stayed at 206
+keys across a full build — so they were added to the catalog directly and
+verified by decoding the compiled `de.lproj/Localizable.strings` out of the
+built `.app`, the same check §11 used.

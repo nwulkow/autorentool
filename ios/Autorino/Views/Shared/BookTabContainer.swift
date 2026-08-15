@@ -1,11 +1,16 @@
 import SwiftUI
 
-/// Replaces app.js's per-book tab bar (Characters / Canvas / Locations /
-/// Event orders / Questions / Notes / Editor). Event orders landed in
-/// `EventOrdersListView`/`TimelineView`, minus the LLM assistant side panel
-/// (deferred — it duplicates `LLMAssistantSheet`'s machinery). Canvas
-/// landed in `CanvasView`, Locations in `LocationsListView`, Notes in
-/// `NotesListView`/`TopicDetailView`.
+/// Replaces app.js's per-book tab bar. The bar is five slots deep, ordered
+/// by how often writing actually touches them: **Text** first (and the
+/// default when a book opens — you came here to write), then Characters
+/// (which now also holds the relationship map), Event Orders, Notes (which
+/// now also holds Questions), and More (Locations, Settings).
+///
+/// This is deliberately not app.js's flat seven-tab row: seven doesn't fit
+/// a phone tab bar, and iOS collapses anything past five into a system
+/// "More" list. Folding Canvas into Characters and Questions into Notes
+/// keeps every destination one tap away and leaves the fifth slot for a
+/// "More" tab we control (`MoreTabView`) instead of the system's.
 struct BookTabContainer: View {
     @EnvironmentObject private var env: AppEnvironment
     @StateObject var editor: BookEditor
@@ -14,27 +19,22 @@ struct BookTabContainer: View {
 
     var body: some View {
         TabView {
-            CharactersListView(editor: editor)
+            ChapterListView(editor: editor)
+                .tabItem { Label("Text", systemImage: "book.closed") }
+
+            CharactersTabView(editor: editor)
                 .tabItem { Label("Characters", systemImage: "person.2") }
 
-            CanvasView(editor: editor)
-                .tabItem { Label("Canvas", systemImage: "point.3.connected.trianglepath.dotted") }
-
-            LocationsListView(editor: editor)
-                .tabItem { Label("Locations", systemImage: "mappin.and.ellipse") }
-
             EventOrdersListView(editor: editor)
-                .tabItem { Label("Timeline", systemImage: "clock.arrow.circlepath") }
+                .tabItem { Label("Event Orders", systemImage: "clock.arrow.circlepath") }
 
-            QuestionsListView(editor: editor)
-                .tabItem { Label("Questions", systemImage: "questionmark.circle") }
-
-            NotesListView(editor: editor)
+            NotesTabView(editor: editor)
                 .tabItem { Label("Notes", systemImage: "note.text") }
 
-            ChapterListView(editor: editor)
-                .tabItem { Label("Editor", systemImage: "doc.text") }
+            MoreTabView(editor: editor)
+                .tabItem { Label("More", systemImage: "ellipsis.circle") }
         }
+        .tint(Theme.accent)
         .navigationTitle(editor.book.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -43,7 +43,9 @@ struct BookTabContainer: View {
                     renameText = editor.book.title
                     showingRename = true
                 } label: {
-                    Text(editor.book.title).font(.headline)
+                    Text(editor.book.title)
+                        .font(Theme.serif(17, relativeTo: .headline))
+                        .foregroundStyle(Theme.ink)
                 }
             }
         }
