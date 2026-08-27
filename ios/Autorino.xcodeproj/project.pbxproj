@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		90623E114AFA06537E9F1E74 /* SyncStatusButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400A902FEA8511F0B1FCBFA6 /* SyncStatusButton.swift */; };
 		08031DB590963B9CE524D1E9 /* DropboxAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D97C64BEEFF89A0B214075D /* DropboxAuthService.swift */; };
 		085DAD8E0D09B2C343FB85B7 /* ContentScopePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F011AFD83ADED3AAD576C2A /* ContentScopePickerView.swift */; };
 		0CE71F998CBB4C7E2AAD89AD /* NewBookSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 760367436D0BAC32E6953603 /* NewBookSheet.swift */; };
@@ -31,14 +30,17 @@
 		3FDBF261E7995D85D6FFD309 /* LocationTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = A503935CB6B7E971DD0CC555 /* LocationTools.swift */; };
 		407B12A5EA3661DD80FF8491 /* BookStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F055F43DBF226549DC7ED1F /* BookStore.swift */; };
 		425693C078CDA3A4684D90A5 /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 127BEEAC3290CAE313C02992 /* LLMService.swift */; };
+		428287BF8F4504C8EB406009 /* GeminiModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41DFCB7228E477706F86EEAE /* GeminiModelCatalog.swift */; };
 		490E141800A6128DB17AB18C /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F860D1771A1ABCD6A9D33D2 /* KeychainService.swift */; };
 		4CBD5A4B1A090643B37DAB40 /* BookListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DB93480403BD46DD37FAE65 /* BookListView.swift */; };
 		52EC29F48AB39AA8729AEBF4 /* DropboxConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CDE95204BAE91293B5DDC2 /* DropboxConfig.swift */; };
 		59D5434391ABAB4590DCF953 /* LocationEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E2FB8950C10ECAA8C07858 /* LocationEditorView.swift */; };
+		5AECA8B0FC4601C7638342B3 /* SyncStatusButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 887423CFFC87EB8EEDE99D7F /* SyncStatusButton.swift */; };
 		5BC66282224FDDEFE9BE70EA /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4421611DA2FAA961E7AEF4D7 /* PromptBuilder.swift */; };
 		5C32DA6CE49755E084521714 /* Question.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05B2EA5705B2EA0893A32487 /* Question.swift */; };
 		622C9729730DB78EB2DFC417 /* SyncIndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DA712302D7C078681D5C92 /* SyncIndexStore.swift */; };
 		65C874198060899D0CA39EFE /* SyncStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7283FAC3B607C7A1E38783F7 /* SyncStatus.swift */; };
+		692D7AFE624EEE2C86DF9FC7 /* ChatHistorySyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F07E69E93805F5D4263627 /* ChatHistorySyncEngine.swift */; };
 		6EDB76C75FF848576FD386D0 /* GeminiLLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C94274446B2041513382520 /* GeminiLLMService.swift */; };
 		744668BD9902B5886385E12D /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20376ABB16AE2960D687D08 /* Theme.swift */; };
 		7607A49AC31C1DC67FB5D3ED /* LocationIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3187F1ED1CD49C44F1E1971E /* LocationIconRenderer.swift */; };
@@ -106,12 +108,14 @@
 		27DC17EC294B4F222DB96E5E /* TopicDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicDetailView.swift; sourceTree = "<group>"; };
 		3187F1ED1CD49C44F1E1971E /* LocationIconRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationIconRenderer.swift; sourceTree = "<group>"; };
 		31A5B67C9813A4905ADBCAB9 /* SpellCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpellCheck.swift; sourceTree = "<group>"; };
+		35F07E69E93805F5D4263627 /* ChatHistorySyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistorySyncEngine.swift; sourceTree = "<group>"; };
 		3AF5CB3324E02399285AC7EC /* CharacterDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterDetailView.swift; sourceTree = "<group>"; };
 		3B8BF8695C0C946A2C77B295 /* CharacterEditSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterEditSheet.swift; sourceTree = "<group>"; };
 		3C8ADACE3B86D4EDC457C94A /* CommentsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentsListView.swift; sourceTree = "<group>"; };
 		3E7BCEAA222704496B71069D /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		3FDD8E721ABD67F70170FF15 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
 		41035637E3BDED77E81C1F49 /* EditorTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypography.swift; sourceTree = "<group>"; };
+		41DFCB7228E477706F86EEAE /* GeminiModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiModelCatalog.swift; sourceTree = "<group>"; };
 		42D74A7418C192E1CD39F0BF /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		4421611DA2FAA961E7AEF4D7 /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
 		44CDE95204BAE91293B5DDC2 /* DropboxConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropboxConfig.swift; sourceTree = "<group>"; };
@@ -134,6 +138,7 @@
 		7E1A02394D4298D8025A3ECF /* PassagesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassagesSheet.swift; sourceTree = "<group>"; };
 		7F860D1771A1ABCD6A9D33D2 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		83393AD114FCA52DBBD01B28 /* ChapterEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChapterEditorView.swift; sourceTree = "<group>"; };
+		887423CFFC87EB8EEDE99D7F /* SyncStatusButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusButton.swift; sourceTree = "<group>"; };
 		91ADF54C30618CCDEB009184 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		933551EF3C1D8D34B97B75E4 /* DropboxClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropboxClient.swift; sourceTree = "<group>"; };
 		99D3C1AE79D20DE144F1B475 /* TimelineConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineConfigView.swift; sourceTree = "<group>"; };
@@ -144,7 +149,6 @@
 		A6DDB791AA8C2B3F0E4F74B9 /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		A7E2FB8950C10ECAA8C07858 /* LocationEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationEditorView.swift; sourceTree = "<group>"; };
 		AAD0B180B998933782C6FA3D /* BookTabContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookTabContainer.swift; sourceTree = "<group>"; };
-		400A902FEA8511F0B1FCBFA6 /* SyncStatusButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatusButton.swift; sourceTree = "<group>"; };
 		AE7AE24D367BBD11B03762CA /* DocxFileDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxFileDocument.swift; sourceTree = "<group>"; };
 		B12F48B6311AD41C7ACDA239 /* FormatToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatToolbar.swift; sourceTree = "<group>"; };
 		B47D9BAFE2E33A02D342A2F8 /* NotesTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesTabView.swift; sourceTree = "<group>"; };
@@ -217,6 +221,7 @@
 		3368BF2C1D350A949D0BE400 /* Sync */ = {
 			isa = PBXGroup;
 			children = (
+				35F07E69E93805F5D4263627 /* ChatHistorySyncEngine.swift */,
 				0D97C64BEEFF89A0B214075D /* DropboxAuthService.swift */,
 				933551EF3C1D8D34B97B75E4 /* DropboxClient.swift */,
 				44CDE95204BAE91293B5DDC2 /* DropboxConfig.swift */,
@@ -240,6 +245,7 @@
 			children = (
 				4C95FCF5CAF8DF651838C4C4 /* ChatMessage.swift */,
 				5C94274446B2041513382520 /* GeminiLLMService.swift */,
+				41DFCB7228E477706F86EEAE /* GeminiModelCatalog.swift */,
 				127BEEAC3290CAE313C02992 /* LLMService.swift */,
 				4421611DA2FAA961E7AEF4D7 /* PromptBuilder.swift */,
 			);
@@ -261,7 +267,7 @@
 				DC189C422A315BB7674BDD58 /* BookEditor.swift */,
 				AAD0B180B998933782C6FA3D /* BookTabContainer.swift */,
 				74A2B5A4862CD10B7A7AAA8D /* EmptyStateView.swift */,
-				400A902FEA8511F0B1FCBFA6 /* SyncStatusButton.swift */,
+				887423CFFC87EB8EEDE99D7F /* SyncStatusButton.swift */,
 				E20376ABB16AE2960D687D08 /* Theme.swift */,
 			);
 			path = Shared;
@@ -501,7 +507,6 @@
 				4CBD5A4B1A090643B37DAB40 /* BookListView.swift in Sources */,
 				407B12A5EA3661DD80FF8491 /* BookStore.swift in Sources */,
 				0D4F9C1FFB154ADDBDAE75A4 /* BookTabContainer.swift in Sources */,
-				90623E114AFA06537E9F1E74 /* SyncStatusButton.swift in Sources */,
 				DDFDB03617B95D8FD2FF8225 /* CSSColor.swift in Sources */,
 				36A78A7E87E4FEBB96DF3E01 /* CanvasView.swift in Sources */,
 				C6C381914F67D7E63D04AD81 /* Chapter.swift in Sources */,
@@ -514,6 +519,7 @@
 				9345FAB66275426A57138EEE /* CharactersListView.swift in Sources */,
 				85996AC3D879A3678EE14603 /* CharactersTabView.swift in Sources */,
 				2FAF6B52D4349241CCBBE8AC /* ChatBubbleView.swift in Sources */,
+				692D7AFE624EEE2C86DF9FC7 /* ChatHistorySyncEngine.swift in Sources */,
 				BE5A6B096DC9E23E261C7F8B /* ChatMessage.swift in Sources */,
 				D45D38F9A655B2C53331E7D6 /* CommentsListView.swift in Sources */,
 				085DAD8E0D09B2C343FB85B7 /* ContentScopePickerView.swift in Sources */,
@@ -531,6 +537,7 @@
 				AA347887558E28E238775BD1 /* FormatToolbar.swift in Sources */,
 				281996571C7199454AB14130 /* FullTextView.swift in Sources */,
 				6EDB76C75FF848576FD386D0 /* GeminiLLMService.swift in Sources */,
+				428287BF8F4504C8EB406009 /* GeminiModelCatalog.swift in Sources */,
 				23A441BD82CE851BBF77CDFA /* HTMLConversion.swift in Sources */,
 				D74726BC6455AF032863EF33 /* Identifiers.swift in Sources */,
 				3ACF3AB11650D56AB0C1FEDA /* Inflate.swift in Sources */,
@@ -559,6 +566,7 @@
 				8E001D9719C72F93733A1549 /* SpellCheck.swift in Sources */,
 				622C9729730DB78EB2DFC417 /* SyncIndexStore.swift in Sources */,
 				65C874198060899D0CA39EFE /* SyncStatus.swift in Sources */,
+				5AECA8B0FC4601C7638342B3 /* SyncStatusButton.swift in Sources */,
 				D2D6BE64B1419D31B80AC899 /* TagChipView.swift in Sources */,
 				744668BD9902B5886385E12D /* Theme.swift in Sources */,
 				1173CA23C3E297B7D513EA35 /* TimelineConfigView.swift in Sources */,

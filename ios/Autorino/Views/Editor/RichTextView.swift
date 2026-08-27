@@ -72,6 +72,22 @@ final class RichTextController: ObservableObject {
 
     @Published private(set) var format = FormatState()
 
+    /// Mirrors the editor's `UndoManager` so the toolbar can dim its
+    /// history buttons. Recomputed alongside `format` — every keystroke
+    /// moves the caret, so the selection callback is already a reliable
+    /// tick — plus the manager's own notifications, which is what catches
+    /// shake-to-undo and the hardware ⌘Z.
+    @Published private(set) var canUndo = false
+    @Published private(set) var canRedo = false
+
+    /// Presents the system find/replace bar (`UIFindInteraction`, iOS 16+)
+    /// over the editor — the native counterpart of Quill's absent search,
+    /// which app.js never had either. No hand-rolled search UI: the system
+    /// bar already does match highlighting, next/previous, and replace.
+    func presentFind() {
+        textView?.findInteraction?.presentFindNavigator(showingReplace: false)
+    }
+
     fileprivate weak var textView: UITextView?
     /// Kept in sync by `RichTextView` so heading point sizes land correctly
     /// relative to whatever zoom the on-screen (display-only, see
@@ -80,6 +96,60 @@ final class RichTextController: ObservableObject {
     /// `modelText(_:)` divides it back down.
     fileprivate var zoomScale: CGFloat = 1
     private var refreshScheduled = false
+    private var undoObservers: [NSObjectProtocol] = []
+
+    // MARK: - History
+
+    /// The editor's undo stack is `UITextView`'s own, so typing and
+    /// deletions are already recorded — including the case this exists for,
+    /// a paragraph selected and wiped. `UndoManager` keeps every step by
+    /// default (`levelsOfUndo == 0`), so how far back you can go is bounded
+    /// only by how long the chapter has been open.
+    func undo() {
+        guard let textView, let manager = textView.undoManager, manager.canUndo else { return }
+        manager.undo()
+        finishHistoryCommand(on: textView)
+    }
+
+    func redo() {
+        guard let textView, let manager = textView.undoManager, manager.canRedo else { return }
+        manager.redo()
+        finishHistoryCommand(on: textView)
+    }
+
+    private func finishHistoryCommand(on textView: UITextView) {
+        // UIKit's own text undo notifies the delegate, ours does too, but
+        // saying so once more here costs a string compare and guarantees the
+        // SwiftUI binding (and with it the autosave) sees the result.
+        textView.delegate?.textViewDidChange?(textView)
+        scheduleRefresh()
+    }
+
+    /// Attribute-only `textStorage` edits bypass `UITextView`'s undo
+    /// registration entirely, so without this a bold or heading tap would be
+    /// the one change undo couldn't take back. Snapshots are whole-document:
+    /// cheap at chapter length, and immune to the range drift a finer-grained
+    /// record would suffer once other edits land on top.
+    private func registerHistoryStep(on textView: UITextView, restoring snapshot: NSAttributedString, selection: NSRange) {
+        guard let manager = textView.undoManager else { return }
+        manager.registerUndo(withTarget: self) { controller in
+            MainActor.assumeIsolated {
+                guard let target = controller.textView else { return }
+                let inverse = NSAttributedString(attributedString: target.textStorage)
+                controller.registerHistoryStep(on: target, restoring: inverse, selection: target.selectedRange)
+                target.textStorage.setAttributedString(snapshot)
+                target.selectedRange = Self.clamped(selection, to: target.textStorage.length)
+                target.delegate?.textViewDidChange?(target)
+                controller.scheduleRefresh()
+            }
+        }
+        manager.setActionName(String(localized: "Formatting"))
+    }
+
+    private static func clamped(_ range: NSRange, to length: Int) -> NSRange {
+        let location = min(max(range.location, 0), length)
+        return NSRange(location: location, length: min(range.length, length - location))
+    }
 
     // MARK: - Commands
 
@@ -188,10 +258,12 @@ final class RichTextController: ObservableObject {
     private func edit(_ textView: UITextView, _ body: (NSTextStorage) -> Void) {
         let selection = textView.selectedRange
         let offset = textView.contentOffset
+        let snapshot = NSAttributedString(attributedString: textView.textStorage)
         textView.textStorage.beginEditing()
         body(textView.textStorage)
         textView.textStorage.endEditing()
         textView.selectedRange = selection
+        registerHistoryStep(on: textView, restoring: snapshot, selection: selection)
         if textView.contentOffset != offset {
             textView.setContentOffset(offset, animated: false)
         }
@@ -233,6 +305,42 @@ final class RichTextController: ObservableObject {
         next.underline = (attributes[.underlineStyle] as? Int ?? 0) != 0
         next.heading = HeadingLevel.matching(pointSize: font.pointSize / max(zoomScale, 0.01), bold: font.isBold)
         if next != format { format = next }
+
+        let manager = textView.undoManager
+        let undoable = manager?.canUndo ?? false
+        let redoable = manager?.canRedo ?? false
+        if canUndo != undoable { canUndo = undoable }
+        if canRedo != redoable { canRedo = redoable }
+    }
+
+    // MARK: - Attachment
+
+    /// Called on every `updateUIView`, so it has to be cheap and idempotent:
+    /// only a genuinely different text view re-subscribes.
+    fileprivate func attach(to textView: UITextView) {
+        guard self.textView !== textView else { return }
+        self.textView = textView
+        observeUndoManager(textView.undoManager)
+    }
+
+    private func observeUndoManager(_ manager: UndoManager?) {
+        undoObservers.forEach(NotificationCenter.default.removeObserver)
+        undoObservers = []
+        guard let manager else { return }
+        let names: [Notification.Name] = [
+            .NSUndoManagerDidCloseUndoGroup,
+            .NSUndoManagerDidUndoChange,
+            .NSUndoManagerDidRedoChange,
+        ]
+        undoObservers = names.map { name in
+            NotificationCenter.default.addObserver(forName: name, object: manager, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.scheduleRefresh() }
+            }
+        }
+    }
+
+    deinit {
+        undoObservers.forEach(NotificationCenter.default.removeObserver)
     }
 }
 
@@ -314,10 +422,14 @@ struct RichTextView: UIViewRepresentable {
         // pointed anywhere else, so `SpellCheckSession` does the checking
         // and `SpellUnderlineOverlay` draws it.
         textView.spellCheckingType = .no
+        // Enables the system find bar (`RichTextController.presentFind()`)
+        // and, as a side effect, the ⌘F keyboard shortcut on an external
+        // keyboard/Catalyst trackpad setup.
+        textView.isFindInteractionEnabled = true
         context.coordinator.textView = textView
         context.coordinator.lastAppliedZoom = zoomPercent
-        controller.textView = textView
         controller.zoomScale = CGFloat(zoomPercent) / 100
+        controller.attach(to: textView)
         controller.scheduleRefresh()
         context.coordinator.updateSpellLanguage(spellLanguage)
         return textView
@@ -328,8 +440,8 @@ struct RichTextView: UIViewRepresentable {
         // struct forever, so `modelText(_:)` would keep dividing by a stale
         // zoom after every change and bake the scale into saved content.
         context.coordinator.parent = self
-        controller.textView = uiView
         controller.zoomScale = CGFloat(zoomPercent) / 100
+        controller.attach(to: uiView)
 
         let previousZoom = context.coordinator.lastAppliedZoom
         let needsModelSync = uiView.attributedText.string != attributedText.string && !context.coordinator.isEditingInternally
@@ -343,6 +455,13 @@ struct RichTextView: UIViewRepresentable {
             // rounding residue accumulating in the saved HTML.
             let ratio = uiView.contentSize.height > 0 ? uiView.contentOffset.y / uiView.contentSize.height : 0
             uiView.attributedText = scaled(attributedText)
+            // Replacing the storage invalidates every recorded step: UIKit's
+            // own entries point at ranges in text that no longer exists, and
+            // a formatting snapshot taken at the previous zoom would be
+            // divided by the new one and bake the wrong point sizes into the
+            // saved HTML. Cheaper to start the history over than to restore
+            // something wrong.
+            uiView.undoManager?.removeAllActions()
             if selected.location <= uiView.textStorage.length {
                 uiView.selectedRange = NSRange(location: selected.location, length: min(selected.length, uiView.textStorage.length - selected.location))
             }

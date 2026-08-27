@@ -5,11 +5,14 @@ Serves static files and exposes two API endpoints:
   GET  /api/books      – return every book JSON stored in ./books/
   POST /api/books/save – persist a book JSON to ./books/<title>.json
 
-Also exposes Dropbox sync routes (see dropbox_sync.py):
-  GET  /api/dropbox/status     – {available, connected}
-  POST /api/dropbox/token      – {token} -> validate + store it
-  POST /api/dropbox/disconnect – forget the stored token
-  POST /api/dropbox/sync       – run a two-way sync pass now
+Also exposes Dropbox sync routes (see dropbox_sync.py). Auth is OAuth 2.0 +
+PKCE with a long-lived refresh token (mirrors the iOS app), done once:
+  GET  /api/dropbox/status      – {available, configured, connected}
+  POST /api/dropbox/app_key     – {appKey} -> store the Dropbox App Key
+  POST /api/dropbox/auth_url    – {} -> {url} to open in a browser
+  POST /api/dropbox/exchange    – {code} -> exchange for a refresh token
+  POST /api/dropbox/disconnect  – forget all stored Dropbox credentials
+  POST /api/dropbox/sync        – run a two-way sync pass now
 """
 
 import json
@@ -18,7 +21,7 @@ import glob
 import sys
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 # Load .env file into environment variables before anything else
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -31,26 +34,51 @@ if os.path.exists(_env_path):
                 os.environ.setdefault(_k.strip(), _v.strip())
 
 BOOKS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "books")
-CHAT_HISTORY_FILE = "/tmp/autorentool_chat_history.json"
+CHAT_HISTORY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history")
 
 
-def _read_chat_history():
+def _safe_filename(title):
+    """Sanitize a book title into the filename both books/ and chat_history/
+    use, so a chat transcript's filename always matches its book's, letting
+    Dropbox sync key the two off the same name. Single source of truth for
+    this rule — _save_book/_delete_book call this too rather than
+    reimplementing it, so the two can't silently drift apart."""
+    return "".join(c if c.isalnum() or c in (" ", "-", "_") else "_" for c in (title or "")).strip()
+
+
+def _chat_history_path(book_title):
+    return os.path.join(CHAT_HISTORY_DIR, f"{_safe_filename(book_title)}.json")
+
+
+def _read_chat_history(book_title):
     try:
-        with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as f:
+        with open(_chat_history_path(book_title), "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return []
 
 
-def _write_chat_history(history):
-    with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as f:
+def _write_chat_history(book_title, history):
+    os.makedirs(CHAT_HISTORY_DIR, exist_ok=True)
+    dest = _chat_history_path(book_title)
+    # Write-to-temp-then-replace so a concurrent reader (a chat POST landing
+    # while dropbox_sync's background pull is writing this same path, see
+    # dropbox_sync._pull_remote_changes) always sees either the old or the
+    # new complete file, never a partial one that _read_chat_history's
+    # broad except would otherwise silently treat as "empty" and overwrite.
+    tmp = dest + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False)
+    os.replace(tmp, dest)
+    if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
+        dropbox_sync.mark_chat_dirty(f"{_safe_filename(book_title)}.json")
 
 # ── LLM helpers (import once; failures are non-fatal) ──────────────────────────
 try:
     import sys as _sys
     _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from llm_utils import check_plausibility, custom_prompt_about_text, answer_to_prompt, start_ollama, chat_custom_prompt
+    from llm_utils import (check_plausibility, custom_prompt_about_text, answer_to_prompt, start_ollama,
+                           chat_custom_prompt, list_gemini_models, GEMINI_DEFAULT_MODEL, GEMINI_FALLBACK_MODELS)
     _LLM_AVAILABLE = True
 except Exception as _e:
     _LLM_AVAILABLE = False
@@ -63,6 +91,11 @@ try:
 except Exception as _e:
     _DROPBOX_AVAILABLE = False
     print(f"[Dropbox] dropbox_sync not available: {_e}")
+
+# In-flight PKCE code_verifier between /api/dropbox/auth_url and
+# /api/dropbox/exchange. Single global is fine: this is a local single-user
+# server and only one Dropbox connect flow is ever in progress at a time.
+_dropbox_pending_verifier = None
 
 
 def _get_ollama_models():
@@ -84,17 +117,28 @@ def _get_ollama_models():
         return []
 
 
+def _requested_fallbacks(data):
+    """Fallback models for one LLM call. The client may name its own chain
+    (`fallbacks`); otherwise the server's default alias chain is used. An
+    explicit empty list means "no fallback, fail on my pick"."""
+    fallbacks = data.get("fallbacks")
+    if isinstance(fallbacks, list):
+        return [m for m in fallbacks if isinstance(m, str) and m]
+    return list(GEMINI_FALLBACK_MODELS) if _LLM_AVAILABLE else []
+
+
 class BookHandler(SimpleHTTPRequestHandler):
     """Extend the simple static-file server with /api routes."""
 
     def do_GET(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path == "/api/books":
             self._send_books()
         elif path == "/api/llm/models":
             self._llm_models()
         elif path == "/api/llm/chat/history":
-            self._llm_chat_history()
+            self._llm_chat_history(parse_qs(parsed.query))
         elif path == "/api/dropbox/status":
             self._dropbox_status()
         else:
@@ -119,11 +163,17 @@ class BookHandler(SimpleHTTPRequestHandler):
         elif path == "/api/llm/chat":
             self._llm_chat()
         elif path == "/api/llm/chat/clear":
-            history = []
-            _write_chat_history(history)
-            self._json_response(200, {"status": "ok"})
-        elif path == "/api/dropbox/token":
-            self._dropbox_set_token()
+            self._llm_chat_clear()
+        elif path == "/api/llm/chat/set":
+            self._llm_chat_set()
+        elif path == "/api/llm/chat/rename":
+            self._llm_chat_rename()
+        elif path == "/api/dropbox/app_key":
+            self._dropbox_set_app_key()
+        elif path == "/api/dropbox/auth_url":
+            self._dropbox_auth_url()
+        elif path == "/api/dropbox/exchange":
+            self._dropbox_exchange()
         elif path == "/api/dropbox/disconnect":
             self._dropbox_disconnect()
         elif path == "/api/dropbox/sync":
@@ -169,9 +219,7 @@ class BookHandler(SimpleHTTPRequestHandler):
             return
         os.makedirs(BOOKS_DIR, exist_ok=True)
         title = data.get("title", "untitled")
-        safe = "".join(
-            c if c.isalnum() or c in (" ", "-", "_") else "_" for c in title
-        ).strip()
+        safe = _safe_filename(title)
         dest = os.path.join(BOOKS_DIR, f"{safe}.json")
         with open(dest, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=4, ensure_ascii=False)
@@ -193,12 +241,23 @@ class BookHandler(SimpleHTTPRequestHandler):
             self.send_error(400, "Invalid JSON")
             return
         title = data.get("title", "")
-        safe = "".join(
-            c if c.isalnum() or c in (" ", "-", "_") else "_" for c in title
-        ).strip()
+        safe = _safe_filename(title)
         dest = os.path.join(BOOKS_DIR, f"{safe}.json")
         if os.path.exists(dest):
             os.remove(dest)
+        # Also remove any chat transcript still sitting under this title.
+        # On a rename (save-under-new-title, then delete-old-title via this
+        # route) app.js already moved the chat file via /api/llm/chat/rename
+        # before calling this, so there's normally nothing left here to
+        # remove — this is what makes a genuine book deletion (not just a
+        # rename) clean up its chat history too, instead of leaving it
+        # orphaned in chat_history/ and in Dropbox forever. Deletion of the
+        # book file itself is picked up on the next sync pass by
+        # _push_local_changes() diffing local files against tracked entries
+        # — no explicit dropbox_sync call needed for that half.
+        chat_path = _chat_history_path(title)
+        if os.path.exists(chat_path):
+            os.remove(chat_path)
         body = json.dumps({"status": "ok"}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -207,10 +266,13 @@ class BookHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def _llm_models(self):
-        """Return available LLM model names: gemini + ollama."""
+        """Return available LLM model names: gemini (live from the Gemini
+        ListModels API, cached in llm_utils) + ollama. Deprecated generations
+        (2.5 and below) and non-chat families (image/TTS/robotics/…) are
+        filtered out in `list_gemini_models`."""
         models = ["gemini-flash-latest"]
         if _LLM_AVAILABLE:
-            models += _get_ollama_models()
+            models = list_gemini_models() + _get_ollama_models()
         body = json.dumps(models).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -232,22 +294,78 @@ class BookHandler(SimpleHTTPRequestHandler):
             return
         mode = data.get("mode", "custom")          # 'plausibility' | 'custom'
         text = data.get("text", "")
-        model = data.get("model", "gemini-flash-latest")
+        model = data.get("model", GEMINI_DEFAULT_MODEL)
+        fallbacks = _requested_fallbacks(data)
         custom_prompt_text = data.get("custom_prompt", "")
         try:
             if mode == "plausibility":
-                result = check_plausibility(text, model)
+                result, model_used = check_plausibility(text, model, fallbacks)
             else:
-                result = custom_prompt_about_text(text, custom_prompt_text, model)
-            self._json_response(200, {"result": result})
+                result, model_used = custom_prompt_about_text(text, custom_prompt_text, model, fallbacks=fallbacks)
+            self._json_response(200, {"result": result, "model_used": model_used})
         except Exception as e:
             self._json_response(500, {"error": str(e)})
 
-    def _llm_chat_history(self):
-        self._json_response(200, {"history": _read_chat_history()})
+    def _llm_chat_history(self, query):
+        book_title = (query.get("book") or [""])[0]
+        self._json_response(200, {"history": _read_chat_history(book_title)})
+
+    def _llm_chat_clear(self):
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw) if raw else {}
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+        book_title = data.get("book", "")
+        _write_chat_history(book_title, [])
+        self._json_response(200, {"status": "ok"})
+
+    def _llm_chat_set(self):
+        """Replace a book's live transcript wholesale. Body: {book, history}.
+        This is what "Load chat" posts after picking a saved snapshot: the
+        loaded turns have to become the on-disk history, or the next chat POST
+        would read the old conversation back out of the file and continue
+        that one instead."""
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw) if raw else {}
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+        history = data.get("history", [])
+        if not isinstance(history, list):
+            self._json_response(400, {"error": "history must be a list"})
+            return
+        _write_chat_history(data.get("book", ""), history)
+        self._json_response(200, {"status": "ok", "history": history})
+
+    def _llm_chat_rename(self):
+        """Move a chat transcript from one book title's file to another's,
+        called right after a book rename succeeds (see commitTitleEdit in
+        app.js) so chat history follows the book instead of being orphaned
+        under the old title. Body: {old_title, new_title}."""
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw) if raw else {}
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+        old_path = _chat_history_path(data.get("old_title", ""))
+        new_path = _chat_history_path(data.get("new_title", ""))
+        if os.path.exists(old_path) and old_path != new_path:
+            os.makedirs(CHAT_HISTORY_DIR, exist_ok=True)
+            os.replace(old_path, new_path)
+            if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
+                dropbox_sync.mark_chat_dirty(os.path.basename(new_path))
+        self._json_response(200, {"status": "ok"})
 
     def _llm_chat(self):
-        """Multi-turn chat endpoint. Body: {text, custom_prompt, model, characters}."""
+        """Multi-turn chat endpoint.
+        Body: {text, custom_prompt, model, characters, book, include_book_text}."""
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length)
         try:
@@ -261,10 +379,19 @@ class BookHandler(SimpleHTTPRequestHandler):
         try:
             text = data.get("text", "")
             user_prompt = data.get("custom_prompt", "")
-            model = data.get("model", "gemini-flash-latest")
+            model = data.get("model", GEMINI_DEFAULT_MODEL)
+            fallbacks = _requested_fallbacks(data)
             characters_raw = data.get("characters", [])
+            book_title = data.get("book", "")
             external_history = data.get("history", None)  # optional: caller manages history
             persist = data.get("persist", True)           # set False to skip disk read/write
+            # "Include book text" off: drop the chapter/passage prose from the
+            # prompt (characters still go through `characters`). Enforced here
+            # as well as client-side so the flag recorded on the reply can't
+            # disagree with what was actually sent.
+            include_book_text = data.get("include_book_text", True)
+            if not include_book_text:
+                text = ""
             if not user_prompt.strip():
                 self._json_response(400, {"error": "Empty prompt"})
                 return
@@ -273,22 +400,42 @@ class BookHandler(SimpleHTTPRequestHandler):
             if external_history is not None:
                 history = external_history
             elif persist:
-                history = _read_chat_history()
+                history = _read_chat_history(book_title)
             else:
                 history = []
-            answer = chat_custom_prompt(text, user_prompt, model, history, characters)
-            history = list(history) + [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": answer}]
+            answer, model_used = chat_custom_prompt(text, user_prompt, model, history, characters, fallbacks)
+            import datetime, uuid
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            assistant_msg = {"id": str(uuid.uuid4()), "role": "assistant", "content": answer, "date": now}
+            # Only stamped when the manuscript was left out — that's the case
+            # the UI tags, and omitting the key otherwise keeps transcripts
+            # written before this flag existed shaped exactly as they were.
+            if not include_book_text:
+                assistant_msg["used_book_text"] = False
+            history = list(history) + [
+                {"id": str(uuid.uuid4()), "role": "user", "content": user_prompt, "date": now},
+                assistant_msg,
+            ]
             if persist and external_history is None:
-                _write_chat_history(history)
-            self._json_response(200, {"result": answer, "history": history})
+                _write_chat_history(book_title, history)
+            # `model_used` is reported per response but deliberately not
+            # written into the transcript: chat_history/*.json is shared
+            # byte-for-byte with the iOS app, and a new message key there would
+            # have to be mirrored in Swift and app.js first.
+            self._json_response(200, {"result": answer, "history": history, "model_used": model_used})
         except Exception as e:
             self._json_response(500, {"error": str(e)})
 
     def _dropbox_status(self):
-        connected = _DROPBOX_AVAILABLE and dropbox_sync.is_configured()
-        self._json_response(200, {"available": _DROPBOX_AVAILABLE, "connected": connected})
+        configured = _DROPBOX_AVAILABLE and dropbox_sync.is_configured()
+        self._json_response(200, {
+            "available": _DROPBOX_AVAILABLE,
+            "configured": configured,
+            # kept for older frontend builds that only look at "connected"
+            "connected": configured,
+        })
 
-    def _dropbox_set_token(self):
+    def _dropbox_set_app_key(self):
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length)
         try:
@@ -299,13 +446,47 @@ class BookHandler(SimpleHTTPRequestHandler):
         if not _DROPBOX_AVAILABLE:
             self._json_response(500, {"error": "dropbox_sync not available on server"})
             return
-        token = data.get("token", "")
+        app_key = (data.get("appKey") or "").strip()
+        if not app_key:
+            self._json_response(400, {"error": "App Key is required."})
+            return
+        dropbox_sync.set_app_key(app_key)
+        self._json_response(200, {"status": "ok"})
+
+    def _dropbox_auth_url(self):
+        if not _DROPBOX_AVAILABLE:
+            self._json_response(500, {"error": "dropbox_sync not available on server"})
+            return
         try:
-            dropbox_sync.test_connection(token)
+            url, verifier = dropbox_sync.build_authorize_url()
+        except Exception as e:
+            self._json_response(400, {"error": str(e)})
+            return
+        global _dropbox_pending_verifier
+        _dropbox_pending_verifier = verifier
+        self._json_response(200, {"url": url})
+
+    def _dropbox_exchange(self):
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+        if not _DROPBOX_AVAILABLE:
+            self._json_response(500, {"error": "dropbox_sync not available on server"})
+            return
+        code = data.get("code", "")
+        verifier = _dropbox_pending_verifier
+        if not verifier:
+            self._json_response(400, {"error": "Start the connection again (Get authorization link) before pasting the code."})
+            return
+        try:
+            dropbox_sync.exchange_code_for_refresh_token(code, verifier)
         except Exception as e:
             self._json_response(400, {"error": f"Could not connect to Dropbox: {e}"})
             return
-        dropbox_sync.set_token(token)
         self._json_response(200, {"status": "ok"})
 
     def _dropbox_disconnect(self):

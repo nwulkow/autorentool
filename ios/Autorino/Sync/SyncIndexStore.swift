@@ -18,13 +18,20 @@ final class SyncIndexStore: ObservableObject {
     @Published var cursor: String?
 
     private let fileManager = FileManager.default
+    /// Distinguishes this index's file from another `SyncIndexStore`
+    /// instance's — `ChatHistorySyncEngine` keeps its own bookkeeping
+    /// separate from `DropboxSyncEngine`'s, since a chat-history filename
+    /// and a book filename are both derived from the same title and would
+    /// otherwise collide as the same key pointing at two different remote
+    /// paths.
+    private let indexFilename: String
 
     private var indexURL: URL {
         let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         if !fileManager.fileExists(atPath: support.path) {
             try? fileManager.createDirectory(at: support, withIntermediateDirectories: true)
         }
-        return support.appendingPathComponent("SyncIndex.json")
+        return support.appendingPathComponent(indexFilename)
     }
 
     private struct Snapshot: Codable {
@@ -32,7 +39,8 @@ final class SyncIndexStore: ObservableObject {
         var cursor: String?
     }
 
-    init() {
+    init(indexFilename: String = "SyncIndex.json") {
+        self.indexFilename = indexFilename
         load()
     }
 

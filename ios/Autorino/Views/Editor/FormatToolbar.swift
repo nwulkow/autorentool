@@ -15,21 +15,28 @@ struct FormatToolbar: View {
     @ObservedObject var controller: RichTextController
     @Binding var zoom: Int
 
+    /// Spacing is tight on purpose: with undo/redo added, the row has to
+    /// still fit across a 375pt phone without the zoom control being pushed
+    /// off the edge.
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 3) {
+            historyButton("arrow.uturn.backward", enabled: controller.canUndo, label: String(localized: "Undo")) { controller.undo() }
+            historyButton("arrow.uturn.forward", enabled: controller.canRedo, label: String(localized: "Redo")) { controller.redo() }
+
+            Divider().frame(height: 20).padding(.horizontal, 2)
+
             toggle("bold", isOn: controller.format.bold, label: String(localized: "Bold")) { controller.toggleBold() }
             toggle("italic", isOn: controller.format.italic, label: String(localized: "Italic")) { controller.toggleItalic() }
             toggle("underline", isOn: controller.format.underline, label: String(localized: "Underline")) { controller.toggleUnderline() }
 
-            Divider().frame(height: 20).padding(.horizontal, 2)
-
             styleMenu
+                .padding(.leading, 4)
 
             Spacer(minLength: 0)
 
             zoomControl
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(Theme.chrome)
         .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .bottom)
@@ -75,7 +82,7 @@ struct FormatToolbar: View {
             Text("\(zoom)%")
                 .font(.caption2.weight(.semibold).monospacedDigit())
                 .foregroundStyle(Theme.muted)
-                .frame(width: 40)
+                .frame(width: 36)
             stepButton("plus", enabled: zoom < (EditorZoom.steps.last ?? zoom)) {
                 zoom = EditorZoom.next(after: zoom)
             }
@@ -98,11 +105,27 @@ struct FormatToolbar: View {
         .disabled(!enabled)
     }
 
+    /// Dimmed rather than hidden when there is nothing to undo, so the pair
+    /// keeps a fixed place in the row — and so it's visible from the start
+    /// that the safety net is there.
+    private func historyButton(_ systemImage: String, enabled: Bool, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .medium))
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(enabled ? Theme.ink : Theme.muted.opacity(0.4))
+        .disabled(!enabled)
+        .accessibilityLabel(Text(label))
+    }
+
     private func toggle(_ systemImage: String, isOn: Bool, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 15, weight: .medium))
-                .frame(width: 34, height: 30)
+                .frame(width: 32, height: 30)
                 .foregroundStyle(isOn ? Color.white : Theme.ink)
                 .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .contentShape(Rectangle())

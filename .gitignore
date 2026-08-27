@@ -3,4 +3,9 @@ autorino_logos.png
 *.pyc
 .env
 .dropbox_token
+.dropbox_app_key
+.dropbox_refresh_token
+.dropbox_access_token
 .dropbox_sync_index.json
+.dropbox_chat_sync_index.json
+chat_history/

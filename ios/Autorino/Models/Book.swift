@@ -22,6 +22,11 @@ struct Book: Codable, Hashable {
     var eventOrders: [EventOrder]
     var locations: [Location]
     var topics: [Topic]
+    /// On-demand LLM chat snapshots. Kept on the book rather than in the
+    /// `ChatHistory` folder next to the live transcript so they inherit the
+    /// book's own sync, rename and delete handling for free — a saved chat is
+    /// a part of the book's working material, not a separate document.
+    var savedChats: [SavedChat]
 
     enum CodingKeys: String, CodingKey {
         case title, author, tags, chapters, passages, characters
@@ -30,6 +35,7 @@ struct Book: Codable, Hashable {
         case questions
         case eventOrders = "event_orders"
         case locations, topics
+        case savedChats = "saved_chats"
     }
 
     init(
@@ -44,7 +50,8 @@ struct Book: Codable, Hashable {
         questions: [Question] = [],
         eventOrders: [EventOrder] = [],
         locations: [Location] = [],
-        topics: [Topic] = []
+        topics: [Topic] = [],
+        savedChats: [SavedChat] = []
     ) {
         self.title = title
         self.author = author
@@ -58,6 +65,7 @@ struct Book: Codable, Hashable {
         self.eventOrders = eventOrders
         self.locations = locations
         self.topics = topics
+        self.savedChats = savedChats
     }
 
     /// Decodes leniently like `deserializeBook`: every collection defaults
@@ -77,6 +85,7 @@ struct Book: Codable, Hashable {
         eventOrders = try c.decodeIfPresent([EventOrder].self, forKey: .eventOrders) ?? []
         locations = try c.decodeIfPresent([Location].self, forKey: .locations) ?? []
         topics = try c.decodeIfPresent([Topic].self, forKey: .topics) ?? []
+        savedChats = try c.decodeIfPresent([SavedChat].self, forKey: .savedChats) ?? []
     }
 }
 

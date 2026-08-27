@@ -42,6 +42,7 @@ struct LLMAssistantHost<Content: View>: View {
     var persist = true
     var baseContext: String?
     var title: String = String(localized: "Assistant")
+    var contextChapterId: String?
     @ViewBuilder var content: () -> Content
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -53,7 +54,7 @@ struct LLMAssistantHost<Content: View>: View {
             } detail: {
                 if isPresented {
                     NavigationStack {
-                        LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title)
+                        LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId)
                     }
                 } else {
                     EmptyStateView(
@@ -67,7 +68,7 @@ struct LLMAssistantHost<Content: View>: View {
         } else {
             content()
                 .sheet(isPresented: $isPresented) {
-                    LLMAssistantSheet(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title)
+                    LLMAssistantSheet(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId)
                 }
         }
     }

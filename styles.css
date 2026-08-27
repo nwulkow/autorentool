@@ -1008,6 +1008,11 @@ textarea{min-height:80px;resize:vertical}
   background:var(--panel);color:var(--text);cursor:pointer;outline:none;
 }
 .llm-select:focus{border-color:var(--accent);}
+/* Shown only when the server fell back to a different model than the one
+   picked above, so the answer's origin is never a silent surprise. */
+.llm-model-note{
+  font-size:11px;color:var(--muted);margin-top:4px;font-style:italic;
+}
 .llm-model-list{
   display:flex;flex-direction:column;gap:3px;
   max-height:160px;overflow-y:auto;
@@ -1113,6 +1118,33 @@ textarea{min-height:80px;resize:vertical}
   transition:background .12s,color .12s,border-color .12s;
 }
 .llm-clear-btn:hover{background:#fdecea;color:#c62828;border-color:#e57373;}
+.llm-chat-actions{ display:flex;gap:5px;align-items:center; }
+.llm-chat-btn{
+  background:none;border:1px solid var(--line);border-radius:5px;
+  padding:2px 8px;font-size:11px;cursor:pointer;color:var(--muted);font-family:inherit;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.llm-chat-btn:hover:not(:disabled){background:rgba(74,128,218,0.08);color:var(--accent);border-color:var(--accent);}
+.llm-chat-btn:disabled{opacity:.45;cursor:default;}
+.llm-include-text{ margin:6px 0 2px; }
+/* Saved chats picker */
+.saved-chat-list{
+  display:flex;flex-direction:column;gap:4px;
+  max-height:340px;overflow-y:auto;margin:8px 0;
+}
+.saved-chat-row{
+  display:flex;align-items:center;gap:6px;
+  border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;
+}
+.saved-chat-row:hover{ background:#f8f9fa; }
+.saved-chat-main{ flex:1;cursor:pointer;min-width:0; }
+.saved-chat-name{ font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.saved-chat-meta{ font-size:11px;color:var(--muted);margin-top:1px; }
+.saved-chat-del{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:13px;padding:2px 5px;border-radius:4px;line-height:1;
+}
+.saved-chat-del:hover{ background:#fdecea;color:#c62828; }
 .llm-char-list{
   display:flex;flex-direction:column;gap:0;
   max-height:350px;overflow-y:auto;
@@ -1164,6 +1196,33 @@ textarea{min-height:80px;resize:vertical}
 .llm-msg-assistant .llm-chat-bubble{
   background:var(--line);color:var(--text);
   border-bottom-left-radius:3px;
+}
+/* Markdown-rendered assistant replies: the block elements carry their own
+   spacing, so `pre-wrap` (needed for plain-text user messages) would add a
+   blank line for every newline between tags. */
+.llm-chat-bubble-md{ white-space:normal; }
+.llm-chat-bubble-md > *:first-child{ margin-top:0; }
+.llm-chat-bubble-md > *:last-child{ margin-bottom:0; }
+.llm-chat-bubble-md p{ margin:0 0 7px;white-space:pre-wrap; }
+.llm-chat-bubble-md h4{ margin:9px 0 4px;font-size:13.5px;font-weight:600; }
+.llm-chat-bubble-md ul,.llm-chat-bubble-md ol{ margin:0 0 7px;padding-left:20px; }
+.llm-chat-bubble-md li{ margin:2px 0; }
+.llm-chat-bubble-md blockquote{
+  margin:0 0 7px;padding-left:8px;border-left:2px solid var(--muted);color:var(--muted);
+}
+.llm-chat-bubble-md code{
+  background:rgba(0,0,0,0.06);border-radius:3px;padding:1px 4px;font-size:12px;
+}
+.llm-chat-bubble-md pre{
+  margin:0 0 7px;padding:7px 9px;background:rgba(0,0,0,0.06);
+  border-radius:6px;overflow-x:auto;
+}
+.llm-chat-bubble-md pre code{ background:none;padding:0; }
+/* Marks a reply the model wrote without the manuscript in its prompt. */
+.llm-msg-tag{
+  font-size:10px;color:var(--muted);
+  border:1px solid var(--line);border-radius:9px;
+  padding:1px 7px;margin-bottom:3px;background:var(--panel);
 }
 /* typing indicator */
 .llm-chat-typing{ display:flex;gap:4px;align-items:center;padding:10px 14px; }

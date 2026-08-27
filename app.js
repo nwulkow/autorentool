@@ -33,6 +33,78 @@ const POST_IT_COLORS = [
    ═══════════════════════════════════════════════════════════════════ */
 function uid(){ return crypto.randomUUID(); }
 function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+/* ── LLM reply rendering ────────────────────────────────────────────
+   Gemini/Ollama answer in Markdown, and the chat bubble used to print it
+   verbatim — literal `**`, `#` and `-` characters in the writer's face.
+   This is a deliberately small block-level renderer (headings, lists,
+   quotes, fenced code, paragraphs + inline bold/italic/code), not a
+   Markdown library: the CDN list in index.html stays as it is, and the
+   output is built from escaped text so a reply can never inject markup.
+   Kept in step with iOS's `ChatMarkdown` (ChatBubbleView.swift). */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+/* Models sometimes wrap a phrase in LaTeX math delimiters even in plain
+   prose; nothing here renders LaTeX, so the writer just sees stray `$`
+   signs. Drop the delimiters, keep what's inside. */
+function stripMathDelimiters(s){
+  return String(s)
+    .replace(/\$\$([^\n]+?)\$\$/g,'$1')
+    .replace(/\$([^\n$]+?)\$/g,'$1')
+    .replace(/\\\(([^\n]+?)\\\)/g,'$1')
+    .replace(/\\\[([^\n]+?)\\\]/g,'$1');
+}
+function renderInlineMd(escaped){
+  return escaped
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g,'$1<em>$2</em>')
+    .replace(/(^|[\s(])_([^_\n]+)_/g,'$1<em>$2</em>');
+}
+function renderMarkdown(raw){
+  const lines=stripMathDelimiters(raw||'').split(/\r?\n/);
+  const out=[]; let para=[], list=null, code=null;
+  const flushPara=()=>{
+    if(!para.length) return;
+    out.push('<p>'+renderInlineMd(escapeHtml(para.join('\n')))+'</p>');
+    para=[];
+  };
+  const flushList=()=>{ if(list){ out.push(`</${list}>`); list=null; } };
+  for(const rawLine of lines){
+    const line=rawLine.trim();
+    if(line.startsWith('```')){
+      if(code!==null){ out.push('<pre><code>'+escapeHtml(code.join('\n'))+'</code></pre>'); code=null; }
+      else { flushPara(); flushList(); code=[]; }
+      continue;
+    }
+    if(code!==null){ code.push(rawLine); continue; }
+    if(!line){ flushPara(); flushList(); continue; }
+    const heading=line.match(/^(#{1,6})\s+(.*)$/);
+    if(heading){ flushPara(); flushList(); out.push('<h4>'+renderInlineMd(escapeHtml(heading[2]))+'</h4>'); continue; }
+    // `---`/`***` rules add nothing here — paragraph spacing already
+    // separates sections — so they're dropped rather than shown literally.
+    if(/^([-*_])\1{2,}$/.test(line)){ flushPara(); flushList(); continue; }
+    const bullet=line.match(/^[-*+•]\s+(.*)$/);
+    const numbered=line.match(/^(\d+)[.)]\s+(.*)$/);
+    if(bullet||numbered){
+      flushPara();
+      const want=bullet?'ul':'ol';
+      if(list!==want){ flushList(); out.push(`<${want}>`); list=want; }
+      out.push('<li>'+renderInlineMd(escapeHtml((bullet||numbered)[bullet?1:2]))+'</li>');
+      continue;
+    }
+    if(line.startsWith('>')){
+      flushPara(); flushList();
+      out.push('<blockquote>'+renderInlineMd(escapeHtml(line.slice(1).trim()))+'</blockquote>');
+      continue;
+    }
+    para.push(line);
+  }
+  if(code!==null&&code.length) out.push('<pre><code>'+escapeHtml(code.join('\n'))+'</code></pre>');
+  flushPara(); flushList();
+  return out.join('');
+}
 function niceInterval(range){
   if(range<=0) return 1;
   const rough=range/8, mag=Math.pow(10,Math.floor(Math.log10(rough))), r=rough/mag;
@@ -73,6 +145,16 @@ function serializeBook(state){
       notes:(t.notes||[]).map(n=>({id:n.id,text:n.text,color:n.color})),
       url_links:t.urlLinks||[]
     })),
+    // On-demand LLM chat snapshots. `messages` is stored in exactly the
+    // shape the /api/llm/chat history uses ({id,role,content,date,
+    // used_book_text}) — already snake_case, so it's copied through
+    // untouched rather than round-tripped field by field.
+    saved_chats:(b.savedChats||[]).map(s=>({
+      id:s.id,name:s.name,saved_at:s.savedAt,
+      chapter_number:s.chapterNumber===undefined?null:s.chapterNumber,
+      chapter_label:s.chapterLabel||'',
+      messages:JSON.parse(JSON.stringify(s.messages||[]))
+    })),
   };
 }
 
@@ -95,6 +177,12 @@ function deserializeBook(data){
       urlLinks:t.url_links||t.urlLinks||[],
     })),
     passages:(data.passages||[]).map(p=>({id:p.id||uid(),name:p.name||'Passage',chapterId:p.chapter_id||'',startText:p.start_text||'',endText:p.end_text||''})),
+    savedChats:(data.saved_chats||[]).map(s=>({
+      id:s.id||uid(),name:s.name||'',savedAt:s.saved_at||'',
+      chapterNumber:(s.chapter_number===null||s.chapter_number===undefined)?null:s.chapter_number,
+      chapterLabel:s.chapter_label||'',
+      messages:s.messages||[]
+    })),
   };
   const canvasNodes=(data.canvas_nodes||[]).map(n=>({characterId:n.character_id,x:n.x,y:n.y}));
   const eventOrders=(data.event_orders||[]).map(o=>{
@@ -271,6 +359,7 @@ const I18N={de:{
   'e.g. The Beginning':'z.B. Der Anfang',
   'Chapters':'Kapitel','No chapters yet.':'Noch keine Kapitel.',
   'Start writing…':'Schreibe los…','Full text appears here…':'Volltext erscheint hier…',
+  'Undo':'Rückgängig','Redo':'Wiederherstellen',
   'Select a chapter to start editing, or add a new chapter.':'Wähle ein Kapitel zum Bearbeiten oder füge ein neues hinzu.',
   'Comment':'Kommentar','Add Comment':'Kommentar hinzufügen','Enter comment:':'Kommentar eingeben:',
   'Comments':'Kommentare','Full Text':'Volltext','← Back to Chapters':'← Zurück zu Kapiteln',
@@ -282,24 +371,54 @@ const I18N={de:{
   'Spelling':'Rechtschreibung',
   '⚙ Settings':'⚙ Einstellungen','Settings':'Einstellungen',
   'Dropbox Sync':'Dropbox-Synchronisierung',
-  'Connect this Mac to the same Dropbox App folder your iPhone app uses, so books stay in sync on both.':
-    'Verbinde diesen Mac mit demselben Dropbox-App-Ordner, den auch deine iPhone-App nutzt, damit Bücher auf beiden Geräten synchron bleiben.',
-  'Access Token':'Zugriffstoken',
-  'Generate one in the Dropbox App Console → your app → Settings → OAuth 2 → Generate access token.':
-    'Erstelle eines in der Dropbox-App-Konsole → deine App → Settings → OAuth 2 → Generate access token.',
+  'Connect this Mac to the same Dropbox App folder your iPhone app uses, so books and LLM chat history stay in sync on both.':
+    'Verbinde diesen Mac mit demselben Dropbox-App-Ordner, den auch deine iPhone-App nutzt, damit Bücher und LLM-Chatverläufe auf beiden Geräten synchron bleiben.',
+  'Dropbox App Key':'Dropbox App-Schlüssel',
+  'Generate one in the Dropbox App Console → your app → Settings → App key. Needed once; a refresh token is stored after that, so you never have to paste a token again.':
+    'Erstelle einen in der Dropbox-App-Konsole → deine App → Settings → App key. Nur einmal nötig; danach wird ein Refresh-Token gespeichert, sodass du nie wieder ein Token einfügen musst.',
+  'Get authorization link':'Autorisierungslink anfordern',
+  'A Dropbox authorization page opened in a new tab. Approve access, then Dropbox will show you a code (or redirect to a URL containing one) — paste it below.':
+    'Eine Dropbox-Autorisierungsseite wurde in einem neuen Tab geöffnet. Bestätige den Zugriff — Dropbox zeigt dir dann einen Code (oder leitet zu einer URL mit einem Code weiter) — füge ihn unten ein.',
+  'Reopen the authorization page':'Autorisierungsseite erneut öffnen',
+  'Authorization code':'Autorisierungscode',
+  'Paste code or redirected URL here':'Code oder weitergeleitete URL hier einfügen',
   'Connect':'Verbinden','Connecting…':'Verbinde…','Disconnect':'Trennen',
   'Connected ✓':'Verbunden ✓','Not connected':'Nicht verbunden',
   'Sync now':'Jetzt synchronisieren','Syncing…':'Synchronisiere…',
   'Last synced:':'Zuletzt synchronisiert:','Never synced yet':'Noch nie synchronisiert',
   'Close':'Schließen',
-  'Connection failed. Check the token and try again.':'Verbindung fehlgeschlagen. Token prüfen und erneut versuchen.',
+  'Connection failed. Check the App Key and try again.':'Verbindung fehlgeschlagen. App-Schlüssel prüfen und erneut versuchen.',
+  'Connection failed. Check the code and try again.':'Verbindung fehlgeschlagen. Code prüfen und erneut versuchen.',
   'Dropbox connected ✓':'Dropbox verbunden ✓','Dropbox disconnected':'Dropbox getrennt',
   'Sync complete ✓':'Synchronisierung abgeschlossen ✓','Sync failed!':'Synchronisierung fehlgeschlagen!',
   'Some books had conflicting edits on both sides. The Dropbox version was kept as a separate file — check your book list.':
     'Einige Bücher wurden auf beiden Seiten bearbeitet. Die Dropbox-Version wurde als separate Datei behalten — prüfe deine Bücherliste.',
   "Dropbox sync isn't available on this server (missing dependency).":
     'Dropbox-Synchronisierung ist auf diesem Server nicht verfügbar (fehlende Abhängigkeit).',
+  'Book renamed, but chat history could not be moved — old copy kept as a separate book.':
+    'Buch umbenannt, aber der Chatverlauf konnte nicht verschoben werden — alte Kopie als separates Buch behalten.',
+  'Answered by':'Beantwortet von',
 }};
+
+/* ═══════════════════════════════════════════════════════════════════
+   Quill undo/redo
+   Shared by both editors (chapter + full text). Quill ships a history
+   module but no toolbar buttons for it, so the buttons are custom formats
+   with explicit handlers. `userOnly` keeps programmatic content loads out
+   of the stack; `maxStack` is deliberately deep — accidentally wiping a
+   paragraph and only noticing several edits later is the case this exists
+   for.
+   ═══════════════════════════════════════════════════════════════════ */
+const QUILL_HISTORY_OPTIONS={delay:400,maxStack:500,userOnly:true};
+const QUILL_HISTORY_HANDLERS={
+  undo(){this.quill.history.undo();},
+  redo(){this.quill.history.redo();},
+};
+function registerQuillHistoryIcons(){
+  const icons=Quill.import('ui/icons');
+  icons.undo='<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="6 10 4 12 2 10 6 10"></polygon><path class="ql-stroke" d="M8.09,13.91A4.6,4.6,0,0,0,9,14,5,5,0,1,0,4,9"></path></svg>';
+  icons.redo='<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="12 10 14 12 16 10 12 10"></polygon><path class="ql-stroke" d="M9.91,13.91A4.6,4.6,0,0,1,9,14a5,5,0,1,1,5-5"></path></svg>';
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    Vue App
@@ -331,6 +450,9 @@ createApp({
     // LLM tools
     llmModels:['gemini-flash-latest'],
     llmSelectedModel:'gemini-flash-latest',
+    // Set when the server had to fall back to another model for the last
+    // answer (empty otherwise) — see noteModelUsed.
+    llmModelUsed:'',
     llmPromptMode:'custom', // 'plausibility' | 'custom'
     llmCustomPrompt:'',
     llmResult:'',
@@ -344,6 +466,10 @@ createApp({
     llmChapterSelected:[],           // [{id,type:'chapter'|'passage'}] ordered list
     llmChapterSearch:'',
     llmChapterShowSuggestions:false,
+    // Off = send the next prompt without any chapter/passage prose, for
+    // follow-up questions that aren't about the text (characters still go).
+    llmIncludeBookText:true,
+    llmSavedChatsOpen:false,
     // passages
     newPassage:{open:false,name:'',startText:'',endText:'',error:'',verified:false},
     // characters
@@ -372,7 +498,8 @@ createApp({
     // Dropbox sync
     dropboxAvailable:false, dropboxConnected:false, dropboxSyncing:false,
     dropboxLastSyncedAt:null, dropboxError:'', dropboxConflicts:[],
-    showDropboxModal:false, dropboxTokenInput:'',
+    showDropboxModal:false, dropboxAppKeyInput:'', dropboxAuthUrl:'',
+    dropboxCodeInput:'', dropboxConnecting:false,
     // constants exposed to template
     ALL_ICONS,
   }},
@@ -460,7 +587,6 @@ createApp({
     window.addEventListener('keydown',this.onKey);
     await this.fetchBooks(); this.loading=false;
     this.fetchLlmModels();
-    this.loadChatHistory();
     this.fetchDropboxStatus();
     this._autosaveTimer=setInterval(()=>{this.autoSaveBook();},10000);
   },
@@ -484,20 +610,103 @@ createApp({
     t(key){ return this.locale==='en'?key:(I18N[this.locale]&&I18N[this.locale][key])||key; },
     /* ── LLM ─────────────────────────── */
     async fetchLlmModels(){
+      // The list comes live from the Gemini ListModels API (plus any local
+      // ollama models), so it changes without this file changing. The pick is
+      // remembered across reloads, but only honoured while it's still on the
+      // list — a retired model would otherwise stick around forever and 404.
       try{
         const r=await fetch('/api/llm/models');
         if(r.ok){ const data=await r.json(); if(data.length) this.llmModels=data; }
       }catch(e){ console.warn('LLM models fetch failed',e); }
+      const saved=localStorage.getItem('llmSelectedModel');
+      if(saved&&this.llmModels.includes(saved)) this.llmSelectedModel=saved;
+      else if(!this.llmModels.includes(this.llmSelectedModel)) this.llmSelectedModel=this.llmModels[0];
+    },
+    // The server silently retries the next model in its fallback chain when a
+    // pick is unavailable (busy, retired, out of quota). Recording which model
+    // actually answered is what turns that from "why does this sound
+    // different today" into a visible one-liner above the input.
+    noteModelUsed(used){
+      this.llmModelUsed=(used&&used!==this.llmSelectedModel)?used:'';
+    },
+    onLlmModelChange(){
+      localStorage.setItem('llmSelectedModel',this.llmSelectedModel);
+      this.llmModelUsed='';
     },
     async loadChatHistory(){
+      // Chat is scoped per book (mirrors the iOS ChatHistoryStore), keyed by
+      // the same sanitized title server.py uses for the book's own JSON file.
+      if(!this.book||!this.book.title){ this.llmChatHistory=[]; return; }
       try{
-        const r=await fetch('/api/llm/chat/history');
+        const r=await fetch('/api/llm/chat/history?book='+encodeURIComponent(this.book.title));
         if(r.ok){ const d=await r.json(); this.llmChatHistory=d.history||[]; }
       }catch(e){ console.warn('chat history load failed',e); }
     },
     async clearLlmChat(){
-      try{ await fetch('/api/llm/chat/clear',{method:'POST'}); }catch(e){}
+      if(!this.book||!this.book.title) return;
+      try{ await fetch('/api/llm/chat/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({book:this.book.title})}); }catch(e){}
       this.llmChatHistory=[];
+    },
+    /* ── LLM saved chats ─────────────── */
+    renderLlmMessage(content){ return renderMarkdown(content); },
+    /* Chapter number and label are resolved once, here, and stored as
+       literals on the snapshot: a saved chat records a discussion about the
+       chapter *as it stood then*, so later reordering or retitling must not
+       rewrite what it says it was about. */
+    llmDefaultChatName(){
+      const stamp=new Date().toLocaleString();
+      const ch=this.currentChapter&&this.currentChapter();
+      return ch?`${this.llmChapterDisplayName(ch.id)} · ${stamp}`:stamp;
+    },
+    saveLlmChat(){
+      if(!this.llmChatHistory.length) return;
+      const name=(window.prompt('Name for this chat:',this.llmDefaultChatName())||'').trim();
+      if(!name) return;                     // cancelled, or cleared to empty
+      const chapters=this.book.chapters||[];
+      const idx=chapters.findIndex(c=>c.id===this.currentChapterId);
+      const ch=idx>=0?chapters[idx]:null;
+      if(!this.book.savedChats) this.book.savedChats=[];
+      this.book.savedChats.push({
+        id:uid(), name, savedAt:new Date().toISOString(),
+        chapterNumber:ch?idx+1:null,
+        chapterLabel:ch?(ch.name||ch.label||''):'',
+        messages:JSON.parse(JSON.stringify(this.llmChatHistory)),
+      });
+      this.mark();
+      this.saveBook();
+    },
+    llmSortedSavedChats(){
+      return (this.book?.savedChats||[]).slice().sort((a,b)=>String(b.savedAt).localeCompare(String(a.savedAt)));
+    },
+    llmSavedChatSubtitle(chat){
+      const parts=[];
+      if(chat.chapterNumber!==null&&chat.chapterNumber!==undefined)
+        parts.push(chat.chapterLabel?`${chat.chapterNumber} – ${chat.chapterLabel}`:String(chat.chapterNumber));
+      else if(chat.chapterLabel) parts.push(chat.chapterLabel);
+      if(chat.savedAt) parts.push(new Date(chat.savedAt).toLocaleString());
+      parts.push(`${(chat.messages||[]).length} messages`);
+      return parts.join(' · ');
+    },
+    /* The loaded turns have to replace the server-side transcript too, or
+       the next chat POST reads the old conversation back off disk and
+       continues that one instead. */
+    async loadSavedChat(chat){
+      const messages=JSON.parse(JSON.stringify(chat.messages||[]));
+      this.llmChatHistory=messages;
+      this.llmSavedChatsOpen=false;
+      if(this.book&&this.book.title){
+        try{
+          await fetch('/api/llm/chat/set',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({book:this.book.title,history:messages})});
+        }catch(e){ console.warn('chat set failed',e); }
+      }
+      this._llmScrollToBottom();
+    },
+    deleteSavedChat(id){
+      if(!window.confirm('Delete this saved chat?')) return;
+      this.book.savedChats=(this.book.savedChats||[]).filter(c=>c.id!==id);
+      this.mark();
+      this.saveBook();
     },
     /* ── EventOrder LLM ──────────────── */
     buildEoPromptText(){
@@ -570,7 +779,7 @@ createApp({
         const body={text,custom_prompt:this.eoLlmCustomPrompt,model:this.llmSelectedModel,characters:[],history:this.eoLlmChatHistory,persist:false};
         const r=await fetch('/api/llm/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const data=await r.json();
-        if(r.ok){ this.eoLlmChatHistory=data.history||[]; this.eoLlmCustomPrompt=''; this._eoLlmScrollToBottom(); }
+        if(r.ok){ this.eoLlmChatHistory=data.history||[]; this.eoLlmCustomPrompt=''; this.noteModelUsed(data.model_used); this._eoLlmScrollToBottom(); }
         else this.eoLlmError=data.error||'LLM request failed';
       }catch(e){ this.eoLlmError=String(e); }
       finally{ this.eoLlmLoading=false; }
@@ -743,7 +952,12 @@ createApp({
     async runLlmPrompt(){
       if(!this.currentChapterId||!this.llmSelectedModel) return;
       let text='';
-      if(this.llmChapterScope){
+      // Chat mode honours the "Include book text" switch; plausibility mode
+      // is *about* the chapter text, so it always sends it.
+      const includeBookText=this.llmPromptMode!=='custom'||this.llmIncludeBookText;
+      if(!includeBookText){
+        text='';
+      } else if(this.llmChapterScope){
         const chapters=this.book.chapters||[];
         const parts=[];
         for(const item of this.llmChapterSelected){
@@ -772,10 +986,10 @@ createApp({
           const selectedChars = this.llmIncludeCharacters
             ? (this.book.characters||[]).filter(c=>this.llmSelectedCharIds.includes(c.id)).map(c=>({name:c.name,description:c.description||''}))
             : [];
-          const body={text,custom_prompt:this.llmCustomPrompt,model:this.llmSelectedModel,characters:selectedChars};
+          const body={text,custom_prompt:this.llmCustomPrompt,model:this.llmSelectedModel,characters:selectedChars,book:this.book.title,include_book_text:this.llmIncludeBookText};
           const r=await fetch('/api/llm/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
           const data=await r.json();
-          if(r.ok){ this.llmChatHistory=data.history||[]; this.llmCustomPrompt=''; this._llmScrollToBottom(); }
+          if(r.ok){ this.llmChatHistory=data.history||[]; this.llmCustomPrompt=''; this.noteModelUsed(data.model_used); this._llmScrollToBottom(); }
           else this.llmError=data.error||'LLM request failed';
         }catch(e){ this.llmError=String(e); }
         finally{ this.llmLoading=false; }
@@ -787,7 +1001,7 @@ createApp({
           const body={mode:'plausibility',text,model:this.llmSelectedModel,custom_prompt:''};
           const r=await fetch('/api/llm/prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
           const data=await r.json();
-          if(r.ok) this.llmResult=data.result||'';
+          if(r.ok){ this.llmResult=data.result||''; this.noteModelUsed(data.model_used); }
           else this.llmError=data.error||'LLM request failed';
         }catch(e){ this.llmError=String(e); }
         finally{ this.llmLoading=false; }
@@ -929,31 +1143,60 @@ createApp({
       }catch(e){console.error(e);}
     },
     openDropboxModal(){
-      this.dropboxTokenInput='';
+      this.dropboxAppKeyInput='';
+      this.dropboxAuthUrl='';
+      this.dropboxCodeInput='';
       this.dropboxError='';
       this.showDropboxModal=true;
     },
     closeDropboxModal(){
       this.showDropboxModal=false;
     },
-    async connectDropbox(){
-      if(!this.dropboxTokenInput.trim()) return;
-      this.dropboxSyncing=true;
+    async requestDropboxAuthUrl(){
+      if(!this.dropboxAppKeyInput.trim()) return;
+      this.dropboxConnecting=true;
       this.dropboxError='';
       try{
-        const r=await fetch('/api/dropbox/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:this.dropboxTokenInput.trim()})});
+        const keyResp=await fetch('/api/dropbox/app_key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({appKey:this.dropboxAppKeyInput.trim()})});
+        const keyData=await keyResp.json();
+        if(!keyResp.ok){
+          this.dropboxError=keyData.error||this.t('Connection failed. Check the App Key and try again.');
+          return;
+        }
+        const r=await fetch('/api/dropbox/auth_url',{method:'POST'});
         const d=await r.json();
         if(r.ok){
-          this.dropboxConnected=true;
-          this.dropboxTokenInput='';
-          this.showToast(this.t('Dropbox connected ✓'));
-          await this.syncDropbox();
+          this.dropboxAuthUrl=d.url;
+          window.open(d.url,'_blank');
         } else {
-          this.dropboxError=d.error||this.t('Connection failed. Check the token and try again.');
+          this.dropboxError=d.error||this.t('Connection failed. Check the App Key and try again.');
         }
       }catch(e){
         console.error(e);
-        this.dropboxError=this.t('Connection failed. Check the token and try again.');
+        this.dropboxError=this.t('Connection failed. Check the App Key and try again.');
+      }finally{
+        this.dropboxConnecting=false;
+      }
+    },
+    async connectDropbox(){
+      if(!this.dropboxCodeInput.trim()) return;
+      this.dropboxSyncing=true;
+      this.dropboxError='';
+      try{
+        const r=await fetch('/api/dropbox/exchange',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:this.dropboxCodeInput.trim()})});
+        const d=await r.json();
+        if(r.ok){
+          this.dropboxConnected=true;
+          this.dropboxAuthUrl='';
+          this.dropboxCodeInput='';
+          this.showToast(this.t('Dropbox connected ✓'));
+          await this.syncDropbox();
+        } else {
+          this.dropboxError=d.error||this.t('Connection failed. Check the code and try again.');
+        }
+      }catch(e){
+        console.error(e);
+        this.dropboxError=this.t('Connection failed. Check the code and try again.');
       }finally{
         this.dropboxSyncing=false;
       }
@@ -1010,8 +1253,24 @@ createApp({
         const r=await fetch('/api/books/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(serializeBook(this))});
         if(r.ok){
           this.dirty=false;
-          await fetch('/api/books/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:oldTitle})});
-          this.showToast(this.t('Book renamed ✓'));
+          // From here on the new-title book file is already persisted, so
+          // reverting this.book.title on a later failure would lie about
+          // server state. Only delete the old-title book file once the
+          // chat transcript has actually been moved — otherwise leave both
+          // book files in place (safe, just needs a retry) rather than
+          // risk deleting oldTitle's book while its chat is still parked
+          // under a name nothing points at anymore.
+          let chatRenamed=false;
+          try{
+            const rc=await fetch('/api/llm/chat/rename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_title:oldTitle,new_title:newTitle})});
+            chatRenamed=rc.ok;
+          }catch(e){ console.warn('chat rename failed',e); }
+          if(chatRenamed){
+            await fetch('/api/books/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:oldTitle})});
+            this.showToast(this.t('Book renamed ✓'));
+          } else {
+            this.showToast(this.t('Book renamed, but chat history could not be moved — old copy kept as a separate book.'));
+          }
         } else {
           this.book.title=oldTitle;
           this.showToast(this.t('Rename failed!'));
@@ -1036,6 +1295,7 @@ createApp({
       this.book={title:this.setup.title.trim(),author:this.setup.author.trim(),
         tags:[],chapters:[],characters:[],character_relations:[],questions:[],locations:[],topics:[],passages:[]};
       this.canvasNodes=[];this.eventOrders=[];this.tagInputs={};this.dirty=false;
+      this.llmChatHistory=[];this.loadChatHistory();
     },
     loadSavedBook(data){
       const {book,canvasNodes,eventOrders}=deserializeBook(data);
@@ -1043,9 +1303,11 @@ createApp({
       this.tagInputs={};
       this.currentOrderId=null;this.currentLocId=null;this.currentTopicId=null;
       this.activeTab='Characters';this.dirty=false;
+      this.llmChatHistory=[];this.loadChatHistory();
     },
     doBackToBooks(){
       this.book=null;this.canvasNodes=[];this.eventOrders=[];
+      this.llmChatHistory=[];
       this.currentOrderId=null;this.currentLocId=null;this.currentTopicId=null;
       this.setup={title:'',author:''};this.dirty=false;this.fetchBooks();
     },
@@ -1586,6 +1848,7 @@ createApp({
       const Size=Quill.import('formats/size');
       Size.whitelist=['8px','9px','10px','11px','12px','13px','14px'];
       Quill.register(Size,true);
+      registerQuillHistoryIcons();
       // Capture the chapter id so saves always target the right chapter
       const chId=this.currentChapterId;
       this._quillChapterId=chId;
@@ -1593,26 +1856,36 @@ createApp({
         theme:'snow',
         placeholder:this.t('Start writing…'),
         modules:{
-          toolbar:[
-            [{header:[1,2,3,false]}],
-            [{font:Font.whitelist}],
-            [{size:Size.whitelist}],
-            ['bold','italic','underline','strike'],
-            [{color:[]},{background:[]}],
-            [{list:'ordered'},{list:'bullet'}],
-            [{indent:'-1'},{indent:'+1'}],
-            [{align:[]}],
-            ['blockquote','code-block'],
-            ['link','image'],
-            ['clean'],
-          ],
-          history:{delay:500,maxStack:200,userOnly:true},
+          toolbar:{
+            container:[
+              ['undo','redo'],
+              [{header:[1,2,3,false]}],
+              [{font:Font.whitelist}],
+              [{size:Size.whitelist}],
+              ['bold','italic','underline','strike'],
+              [{color:[]},{background:[]}],
+              [{list:'ordered'},{list:'bullet'}],
+              [{indent:'-1'},{indent:'+1'}],
+              [{align:[]}],
+              ['blockquote','code-block'],
+              ['link','image'],
+              ['clean'],
+            ],
+            handlers:QUILL_HISTORY_HANDLERS,
+          },
+          history:QUILL_HISTORY_OPTIONS,
         },
       });
       const ch=this.book.chapters.find(c=>c.id===chId);
       if(ch&&ch.content){
         this.quillInstance.root.innerHTML=ch.content;
       }
+      // Opening a chapter is not an edit: flush the DOM mutation Quill has
+      // not seen yet, then drop it, so the first Ctrl+Z can never blank the
+      // whole chapter instead of undoing the last thing typed.
+      this.quillInstance.update('silent');
+      this.quillInstance.history.clear();
+      this.decorateHistoryButtons(this.quillInstance,container);
       // Prevent toolbar mousedown from stealing focus / clearing selection
       const toolbarEl=container.querySelector('.ql-toolbar');
       if(toolbarEl){
@@ -1630,6 +1903,29 @@ createApp({
           if(target) target.content=this.quillInstance.root.innerHTML;
         }
         this.mark();
+      });
+    },
+    // The toolbar Quill built for an editor, wherever it put it.
+    quillToolbarEl(quill,container){
+      const module=quill.getModule('toolbar');
+      if(module&&module.container) return module.container;
+      const parent=container.parentNode;
+      return (parent&&parent.querySelector('.ql-toolbar'))||container.querySelector('.ql-toolbar');
+    },
+    decorateHistoryButtons(quill,container){
+      const toolbar=this.quillToolbarEl(quill,container);
+      if(!toolbar) return;
+      // Quill binds these to the platform's own modifier, so name it that
+      // way rather than promising Ctrl on a Mac.
+      const mac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
+      const keys=mac?['⌘Z','⇧⌘Z']:['Ctrl+Z','Ctrl+Shift+Z'];
+      [['button.ql-undo','Undo',keys[0]],['button.ql-redo','Redo',keys[1]]].forEach(([sel,label,key])=>{
+        const btn=toolbar.querySelector(sel);
+        if(!btn) return;
+        btn.title=this.t(label)+' ('+key+')';
+        // Keep the caret where it is — clicking the button must not blur the
+        // editor, or the undo lands with no selection to restore.
+        btn.addEventListener('mousedown',e=>e.preventDefault());
       });
     },
     destroyQuill(){
@@ -1655,22 +1951,27 @@ createApp({
       }
       container.innerHTML='';
       container.className='te-quill-wrap te-quill-fulltext';
+      registerQuillHistoryIcons();
       this.fullTextQuill=new Quill(container,{
         theme:'snow',
         placeholder:this.t('Full text appears here…'),
         modules:{
-          toolbar:[
-            [{header:[1,2,3,false]}],
-            ['bold','italic','underline','strike'],
-            [{color:[]},{background:[]}],
-            [{list:'ordered'},{list:'bullet'}],
-            [{indent:'-1'},{indent:'+1'}],
-            [{align:[]}],
-            ['blockquote','code-block'],
-            ['link','image'],
-            ['clean'],
-          ],
-          history:{delay:500,maxStack:200,userOnly:true},
+          toolbar:{
+            container:[
+              ['undo','redo'],
+              [{header:[1,2,3,false]}],
+              ['bold','italic','underline','strike'],
+              [{color:[]},{background:[]}],
+              [{list:'ordered'},{list:'bullet'}],
+              [{indent:'-1'},{indent:'+1'}],
+              [{align:[]}],
+              ['blockquote','code-block'],
+              ['link','image'],
+              ['clean'],
+            ],
+            handlers:QUILL_HISTORY_HANDLERS,
+          },
+          history:QUILL_HISTORY_OPTIONS,
         },
       });
       // Concatenate all chapters with chapter headings
@@ -1680,6 +1981,9 @@ createApp({
         html+='<h2>'+title+'</h2>'+(ch.content||'<p><br></p>');
       });
       if(html) this.fullTextQuill.root.innerHTML=html;
+      this.fullTextQuill.update('silent');
+      this.fullTextQuill.history.clear();
+      this.decorateHistoryButtons(this.fullTextQuill,container);
       this.applySpellcheckSettings();
       this.fullTextQuill.on('text-change',()=>{this.mark();});
     },
@@ -2092,7 +2396,7 @@ createApp({
   <!-- ═══════════════ CHARACTERS ═══════════════ -->
   <section v-if="activeTab==='Characters'">
     <div class="tab-header"><h3>{{t('Characters')}}</h3>
-      <div class="tab-actions"><button @click="newChar.open=true">{{t('+ Add Character')}}</button><button @click="openImportModal('characters')">{{t('Import Characters')}}</button><button class="save-btn" @click="saveBook">{{t('💾 Save')}}</button></div>
+      <div class="tab-actions"><button @click="newChar.open=true">{{t('+ Add Character')}}</button><button @click="openImportModal('characters')">{{t('Import Characters')}}</button><button class="save-btn" @click="saveBook">{{t('💾 Save')}}</button><button v-if="dropboxConnected" class="sync-btn" :class="{syncing:dropboxSyncing,'has-error':dropboxError,'has-conflict':dropboxConflicts.length}" :disabled="dropboxSyncing" @click="syncDropbox" :title="syncButtonTitle">🔄</button></div>
     </div>
 
     <div v-if="newChar.open" class="form-card">
@@ -2190,7 +2494,7 @@ createApp({
   <!-- ═══════════════ EVENT ORDERS ═══════════════ -->
   <section v-if="activeTab==='Event orders'">
     <div class="tab-header"><h3>{{t('Event Orders')}}</h3>
-      <div class="tab-actions"><button class="save-btn" @click="saveBook">{{t('💾 Save')}}</button></div>
+      <div class="tab-actions"><button class="save-btn" @click="saveBook">{{t('💾 Save')}}</button><button v-if="dropboxConnected" class="sync-btn" :class="{syncing:dropboxSyncing,'has-error':dropboxError,'has-conflict':dropboxConflicts.length}" :disabled="dropboxSyncing" @click="syncDropbox" :title="syncButtonTitle">🔄</button></div>
     </div>
 
     <div class="eo-list">
@@ -2371,9 +2675,10 @@ createApp({
         <div class="llm-panel-title">🤖 LLM Tools</div>
         <!-- Model selector -->
         <div class="llm-section-label">Model</div>
-        <select class="llm-select" v-model="llmSelectedModel">
+        <select class="llm-select" v-model="llmSelectedModel" @change="onLlmModelChange">
           <option v-for="m in llmModels" :key="m" :value="m">{{m}}</option>
         </select>
+        <div v-if="llmModelUsed" class="llm-model-note">{{t('Answered by')}} {{llmModelUsed}}</div>
         <!-- Chapter include -->
         <div class="llm-scope-check" style="margin-top:10px"><input type="checkbox" v-model="eoLlmIncludeChapters">Include chapters</div>
         <template v-if="eoLlmIncludeChapters">
@@ -2406,7 +2711,8 @@ createApp({
           <div v-if="!eoLlmChatHistory.length&&!eoLlmLoading" class="llm-chat-empty">The event order is automatically included as context. Ask anything below.</div>
           <div v-for="(msg,i) in eoLlmChatHistory" :key="i"
                class="llm-chat-msg" :class="msg.role==='user'?'llm-msg-user':'llm-msg-assistant'">
-            <div class="llm-chat-bubble">{{msg.content}}</div>
+            <div v-if="msg.role==='user'" class="llm-chat-bubble">{{msg.content}}</div>
+            <div v-else class="llm-chat-bubble llm-chat-bubble-md" v-html="renderLlmMessage(msg.content)"></div>
           </div>
           <div v-if="eoLlmLoading" class="llm-chat-msg llm-msg-assistant">
             <div class="llm-chat-bubble llm-chat-typing"><span></span><span></span><span></span></div>
@@ -2429,7 +2735,7 @@ createApp({
   <!-- ═══════════════ QUESTIONS ═══════════════ -->
   <section v-if="activeTab==='Questions'">
     <div class="tab-header"><h3>{{t('Questions')}}</h3>
-      <div class="tab-actions"><button class="save-btn" @click="saveBook">💾 {{t('Save')}}</button></div>
+      <div class="tab-actions"><button class="save-btn" @click="saveBook">💾 {{t('Save')}}</button><button v-if="dropboxConnected" class="sync-btn" :class="{syncing:dropboxSyncing,'has-error':dropboxError,'has-conflict':dropboxConflicts.length}" :disabled="dropboxSyncing" @click="syncDropbox" :title="syncButtonTitle">🔄</button></div>
     </div>
     <div class="form-card" style="max-width:520px">
       <div class="form-row"><input v-model="newQText" :placeholder="t('Type a question…')" @keyup.enter="addQuestion"/>
@@ -2455,6 +2761,7 @@ createApp({
         <button @click="openImportModal('locations')">📥 {{t('Import Locations')}}</button>
         <button @click="newLoc.open=true">+ {{t('Add Location')}}</button>
         <button class="save-btn" @click="saveBook">💾 {{t('Save')}}</button>
+        <button v-if="dropboxConnected" class="sync-btn" :class="{syncing:dropboxSyncing,'has-error':dropboxError,'has-conflict':dropboxConflicts.length}" :disabled="dropboxSyncing" @click="syncDropbox" :title="syncButtonTitle">🔄</button>
       </div>
     </div>
 
@@ -2683,7 +2990,7 @@ createApp({
   <!-- ═══════════════ NOTES ═══════════════ -->
   <section v-if="activeTab==='Notes'">
     <div class="tab-header"><h3>{{t('Notes')}}</h3>
-      <div class="tab-actions"><button class="save-btn" @click="saveBook">💾 {{t('Save')}}</button></div>
+      <div class="tab-actions"><button class="save-btn" @click="saveBook">💾 {{t('Save')}}</button><button v-if="dropboxConnected" class="sync-btn" :class="{syncing:dropboxSyncing,'has-error':dropboxError,'has-conflict':dropboxConflicts.length}" :disabled="dropboxSyncing" @click="syncDropbox" :title="syncButtonTitle">🔄</button></div>
     </div>
 
     <div class="notes-layout">
@@ -2752,6 +3059,7 @@ createApp({
         <button v-if="editorMode==='chapters'" @click="openFullText">{{t('📖 Full Text')}}</button>
         <button v-if="editorMode==='chapters'" @click="exportFullTextDocx" :disabled="!book.chapters.length">{{t('💾 Export DOCX')}}</button>
         <button class="save-btn" @click="saveBook">{{t('💾 Save')}}</button>
+        <button v-if="dropboxConnected" class="sync-btn" :class="{syncing:dropboxSyncing,'has-error':dropboxError,'has-conflict':dropboxConflicts.length}" :disabled="dropboxSyncing" @click="syncDropbox" :title="syncButtonTitle">🔄</button>
       </div>
     </div>
     <input ref="fileImportInput" type="file" accept=".docx,.doc,.txt" style="display:none" @change="handleFileImport"/>
@@ -2878,9 +3186,10 @@ createApp({
                 </div>
                 <!-- Model selector -->
                 <div class="llm-section-label">Model</div>
-                <select class="llm-select" v-model="llmSelectedModel">
+                <select class="llm-select" v-model="llmSelectedModel" @change="onLlmModelChange">
                   <option v-for="m in llmModels" :key="m" :value="m">{{m}}</option>
                 </select>
+                <div v-if="llmModelUsed" class="llm-model-note">{{t('Answered by')}} {{llmModelUsed}}</div>
                 <!-- Mode -->
                 <div class="llm-section-label" style="margin-top:12px">Mode</div>
                 <select class="llm-select" v-model="llmPromptMode">
@@ -2927,13 +3236,20 @@ createApp({
                   </div>
                   <div class="llm-chat-header">
                     <span class="llm-section-label" style="margin-top:10px">Conversation</span>
-                    <button class="llm-clear-btn" @click="clearLlmChat">Clear chat</button>
+                    <div class="llm-chat-actions">
+                      <button class="llm-chat-btn" @click="saveLlmChat" :disabled="!llmChatHistory.length">Save chat</button>
+                      <button class="llm-chat-btn" @click="llmSavedChatsOpen=true">Load chat</button>
+                      <button class="llm-clear-btn" @click="clearLlmChat">Clear chat</button>
+                    </div>
                   </div>
+                  <div class="llm-scope-check llm-include-text"><input type="checkbox" v-model="llmIncludeBookText">Include book text</div>
                   <div class="llm-chat-window" ref="llmChatWindow">
                     <div v-if="!llmChatHistory.length&&!llmLoading" class="llm-chat-empty">Start the conversation below.</div>
                     <div v-for="(msg,i) in llmChatHistory" :key="i"
                          class="llm-chat-msg" :class="msg.role==='user'?'llm-msg-user':'llm-msg-assistant'">
-                      <div class="llm-chat-bubble">{{msg.content}}</div>
+                      <div v-if="msg.used_book_text===false" class="llm-msg-tag">Did not use book text</div>
+                      <div v-if="msg.role==='user'" class="llm-chat-bubble">{{msg.content}}</div>
+                      <div v-else class="llm-chat-bubble llm-chat-bubble-md" v-html="renderLlmMessage(msg.content)"></div>
                     </div>
                     <div v-if="llmLoading" class="llm-chat-msg llm-msg-assistant">
                       <div class="llm-chat-bubble llm-chat-typing"><span></span><span></span><span></span></div>
@@ -2989,18 +3305,30 @@ createApp({
 <div v-if="showDropboxModal" class="modal-overlay" @click.self="closeDropboxModal">
   <div class="modal-card">
     <h4>{{t('Dropbox Sync')}}</h4>
-    <p>{{t('Connect this Mac to the same Dropbox App folder your iPhone app uses, so books stay in sync on both.')}}</p>
+    <p>{{t('Connect this Mac to the same Dropbox App folder your iPhone app uses, so books and LLM chat history stay in sync on both.')}}</p>
 
     <div v-if="!dropboxAvailable" class="dropbox-error">{{t("Dropbox sync isn't available on this server (missing dependency).")}}</div>
 
     <template v-else>
-      <div v-if="!dropboxConnected" class="field">
-        <label>{{t('Access Token')}}</label>
-        <input v-model="dropboxTokenInput" type="password" :placeholder="t('Access Token')" @keyup.enter="connectDropbox"/>
-        <p class="dropbox-hint">{{t('Generate one in the Dropbox App Console → your app → Settings → OAuth 2 → Generate access token.')}}</p>
+      <div v-if="!dropboxConnected && !dropboxAuthUrl" class="field">
+        <label>{{t('Dropbox App Key')}}</label>
+        <input v-model="dropboxAppKeyInput" type="text" :placeholder="t('Dropbox App Key')" @keyup.enter="requestDropboxAuthUrl"/>
+        <p class="dropbox-hint">{{t('Generate one in the Dropbox App Console → your app → Settings → App key. Needed once; a refresh token is stored after that, so you never have to paste a token again.')}}</p>
         <div v-if="dropboxError" class="dropbox-error">{{dropboxError}}</div>
         <div class="modal-actions">
-          <button class="primary" :disabled="dropboxSyncing||!dropboxTokenInput.trim()" @click="connectDropbox">{{dropboxSyncing?t('Connecting…'):t('Connect')}}</button>
+          <button class="primary" :disabled="dropboxConnecting||!dropboxAppKeyInput.trim()" @click="requestDropboxAuthUrl">{{dropboxConnecting?t('Connecting…'):t('Get authorization link')}}</button>
+          <button @click="closeDropboxModal">{{t('Cancel')}}</button>
+        </div>
+      </div>
+
+      <div v-else-if="!dropboxConnected" class="field">
+        <p class="dropbox-hint">{{t('A Dropbox authorization page opened in a new tab. Approve access, then Dropbox will show you a code (or redirect to a URL containing one) — paste it below.')}}</p>
+        <p class="dropbox-hint"><a :href="dropboxAuthUrl" target="_blank" rel="noopener">{{t('Reopen the authorization page')}}</a></p>
+        <label>{{t('Authorization code')}}</label>
+        <input v-model="dropboxCodeInput" type="text" :placeholder="t('Paste code or redirected URL here')" @keyup.enter="connectDropbox"/>
+        <div v-if="dropboxError" class="dropbox-error">{{dropboxError}}</div>
+        <div class="modal-actions">
+          <button class="primary" :disabled="dropboxSyncing||!dropboxCodeInput.trim()" @click="connectDropbox">{{dropboxSyncing?t('Connecting…'):t('Connect')}}</button>
           <button @click="closeDropboxModal">{{t('Cancel')}}</button>
         </div>
       </div>
@@ -3031,6 +3359,24 @@ createApp({
       <input v-model="linkModal.type" :placeholder="t('e.g. friends, rivals')" @keyup.enter="confirmLink" ref="linkTypeInput"/>
     </div>
     <div class="modal-actions"><button class="primary" @click="confirmLink">{{t('Create Link')}}</button><button @click="cancelLinkModal">{{t('Cancel')}}</button></div>
+  </div>
+</div>
+
+<!-- Saved LLM chats -->
+<div v-if="llmSavedChatsOpen" class="modal-overlay" @click.self="llmSavedChatsOpen=false">
+  <div class="modal-card">
+    <h4>Saved chats</h4>
+    <div v-if="!llmSortedSavedChats().length" class="llm-ch-empty">No saved chats yet.</div>
+    <div v-else class="saved-chat-list">
+      <div v-for="chat in llmSortedSavedChats()" :key="chat.id" class="saved-chat-row">
+        <div class="saved-chat-main" @click="loadSavedChat(chat)">
+          <div class="saved-chat-name">{{chat.name}}</div>
+          <div class="saved-chat-meta">{{llmSavedChatSubtitle(chat)}}</div>
+        </div>
+        <button class="saved-chat-del" @click.stop="deleteSavedChat(chat.id)" title="Delete">✕</button>
+      </div>
+    </div>
+    <div class="modal-actions"><button @click="llmSavedChatsOpen=false">{{t('Cancel')}}</button></div>
   </div>
 </div>
 

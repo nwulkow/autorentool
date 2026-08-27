@@ -1144,6 +1144,17 @@
         }
       }
     },
+    "Formatting" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formatierung"
+          }
+        }
+      }
+    },
     "Full text" : {
       "localizations" : {
         "de" : {
@@ -1927,6 +1938,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rechteck"
+          }
+        }
+      }
+    },
+    "Redo" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiederherstellen"
           }
         }
       }

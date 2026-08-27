@@ -43,7 +43,8 @@ struct ChapterEditorView: View {
                     editor: editor,
                     isPresented: $showingLLM,
                     defaultScope: [ContentScopeItem(kind: .chapter, id: chapterId)],
-                    title: currentChapterTitle
+                    title: currentChapterTitle,
+                    contextChapterId: chapterId
                 ) {
                     editorBody
                 }
@@ -63,6 +64,12 @@ struct ChapterEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    richTextController.presentFind()
+                } label: {
+                    Label("Find", systemImage: "magnifyingglass")
+                }
+
                 Button {
                     showingAddComment = true
                 } label: {

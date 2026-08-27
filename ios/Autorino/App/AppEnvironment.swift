@@ -11,6 +11,7 @@ final class AppEnvironment: ObservableObject {
     let dropboxAuth: DropboxAuthService
     let syncStatus: SyncStatus
     let syncEngine: DropboxSyncEngine
+    let chatSyncEngine: ChatHistorySyncEngine
     let llmService: LLMService = GeminiLLMService()
 
     init() {
@@ -21,14 +22,17 @@ final class AppEnvironment: ObservableObject {
         self.dropboxAuth = auth
         self.syncStatus = status
         self.syncEngine = DropboxSyncEngine(auth: auth, bookStore: store, status: status)
+        self.chatSyncEngine = ChatHistorySyncEngine(auth: auth)
     }
 
     func bootstrap() async {
         guard dropboxAuth.isConnected else { return }
         await syncEngine.sync()
+        await chatSyncEngine.sync()
     }
 
     func syncNow() async {
         await syncEngine.sync()
+        await chatSyncEngine.sync()
     }
 }

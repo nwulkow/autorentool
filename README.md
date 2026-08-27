@@ -109,6 +109,29 @@ autorentool/
 └── favicon.ico     # Browser tab icon
 ```
 
+## Dropbox sync (optional)
+
+Syncs `books/` and LLM chat history with the same Dropbox App folder the iOS app uses.
+Auth is OAuth 2.0 with a long-lived refresh token — you authorize once and never have to
+paste a token again (it auto-refreshes on every sync).
+
+1. Go to https://www.dropbox.com/developers/apps → **Create app** → **Scoped access** →
+   **App folder** access, name it, and create it. (Skip this if you already created one for
+   the iOS app — reuse the same App key.)
+2. On the app's **Settings** tab, copy the **App key**.
+3. Under **OAuth 2** → **Redirect URIs**, add `http://localhost/dropbox_manual_redirect`
+   (this is fixed — see `REDIRECT_URI` in `dropbox_sync.py` — and only needs to be added once).
+4. In Autorino, open **⚙ Settings**, paste the App key, and click **Get authorization link**.
+   A Dropbox page opens in a new tab — approve access. Dropbox then shows a code (or redirects
+   to a URL containing `?code=...`, which won't load since nothing listens on that address —
+   just copy it from the address bar). Paste that code/URL back into Autorino and click **Connect**.
+5. From then on, click **Sync now** (🔄) any time, or just reconnect — no more copy-pasting tokens.
+
+## Related repos
+
+The [Autorino iOS app](ios/) mirrors this app's data model and syncs through the same
+Dropbox App folder, using the same OAuth flow.
+
 ---
 
 <div align="center">
