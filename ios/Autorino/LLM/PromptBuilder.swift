@@ -87,6 +87,75 @@ enum PromptBuilder {
         return parts.joined(separator: "\n\n")
     }
 
+    /// One chapter's digest, ready to be written into a prompt. Staleness is
+    /// resolved by the caller because it needs the store (and the main
+    /// actor); `PromptBuilder` stays pure.
+    struct DigestContextEntry {
+        let index: Int
+        let title: String
+        let digest: ChapterDigest
+        let isStale: Bool
+    }
+
+    /// The whole book as extracted notes — roughly 350 tokens a chapter
+    /// against the ~8k its prose would cost, which is the only reason
+    /// whole-book context is affordable on every turn.
+    ///
+    /// Field labels are English like the rest of the prompt scaffolding even
+    /// though the content is the book's own language; the model reads the
+    /// structure, and translating the labels would make the block disagree
+    /// with `characterSystemInstruction` right next to it.
+    /// `upToChapter` is 1-based and only affects the preamble — the caller
+    /// has already filtered `entries`. It is stated to the model rather than
+    /// applied silently: a model shown chapters 1-8 of 25 with no note will
+    /// reason as though the book ends at 8, which is exactly the wrong answer
+    /// to "how could this play out from here?".
+    static func digestContextText(_ entries: [DigestContextEntry], upToChapter: Int? = nil, totalChapters: Int = 0) -> String {
+        guard !entries.isEmpty else { return "" }
+        var blocks: [String] = []
+        for entry in entries {
+            let d = entry.digest
+            var header = "--- \(entry.index + 1) – \(entry.title)"
+            // Said plainly rather than silently dropped: a summary whose
+            // chapter has moved on is still the best available account of
+            // that chapter, but the model must not treat it as current.
+            if entry.isStale { header += " (summary predates the current chapter text)" }
+            header += " ---"
+
+            var lines: [String] = [header]
+            var scene: [String] = []
+            if !d.pov.isEmpty { scene.append("POV: \(d.pov)") }
+            if !d.place.isEmpty { scene.append("Place: \(d.place)") }
+            if !d.time.isEmpty { scene.append("Time: \(d.time)") }
+            if !scene.isEmpty { lines.append(scene.joined(separator: " · ")) }
+            if !d.present.isEmpty { lines.append("Present: \(d.present.joined(separator: ", "))") }
+            if !d.summary.isEmpty { lines.append(d.summary) }
+            for learn in d.learns where !learn.who.isEmpty || !learn.what.isEmpty {
+                var line = "Learns: \(learn.who) — \(learn.what) [\(learn.certainty.rawValue)"
+                if !learn.how.isEmpty { line += ", via \(learn.how)" }
+                lines.append(line + "]")
+            }
+            if !d.established.isEmpty { lines.append("Established: \(d.established.joined(separator: "; "))") }
+            if !d.devices.isEmpty { lines.append("Devices: \(d.devices.joined(separator: "; "))") }
+            if !d.openThreads.isEmpty { lines.append("Open: \(d.openThreads.joined(separator: "; "))") }
+            blocks.append(lines.joined(separator: "\n"))
+        }
+        var preamble = """
+        --- Chapter summaries (the whole book, compressed) ---
+        These are extracted notes, not the prose. "Learns" records who came to \
+        know what and how, and whether it is confirmed or only suspected — use \
+        it to work out who could plausibly know something at a given point. \
+        Where an answer depends on actual wording, say which chapter's text you \
+        would need.
+        """
+        if let upToChapter, totalChapters > upToChapter {
+            preamble += "\nYou are being shown chapters 1-\(upToChapter) of \(totalChapters). "
+                + "The later chapters exist and are deliberately withheld: answer as of chapter "
+                + "\(upToChapter), and do not assume the story ends there."
+        }
+        return ([preamble] + blocks).joined(separator: "\n\n")
+    }
+
     /// The characters picked in the scope picker, resolved against the
     /// book — mirrors `llmSelectedCharIds` filtered against `book.characters`
     /// (app.js:765-766).

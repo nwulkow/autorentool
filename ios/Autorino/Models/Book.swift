@@ -90,7 +90,13 @@ struct Book: Codable, Hashable {
 }
 
 extension Book: Identifiable {
-    var id: String { title }
+    /// The *filename*, not the title. Two titles that differ only in
+    /// characters `sanitizedFilename` replaces — "Jonas Mehrzad" and
+    /// "Jonas_Mehrzad", say — name the same file on disk and in Dropbox, so
+    /// they are the same book. Keying identity on the title showed them as
+    /// two library rows backed by one file: editing either appeared to
+    /// change "the other one" too.
+    var id: String { filename }
 }
 
 extension Book {

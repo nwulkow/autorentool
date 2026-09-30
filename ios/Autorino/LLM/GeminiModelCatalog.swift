@@ -9,6 +9,12 @@ import Foundation
 enum GeminiModelCatalog {
     static let defaultModel = "gemini-flash-latest"
 
+    /// Chapter digests are an extraction job, not a reasoning one, and a
+    /// whole-book rebuild is 25 of them in a row — so it runs on the cheapest
+    /// model in the catalogue rather than whatever the chat picker is set to.
+    /// The usual fallback chain still applies if it is unavailable.
+    static let digestModel = "gemini-flash-lite-latest"
+
     /// Tried in order when the picked model is unavailable. The moving
     /// aliases, not pinned versions — Google keeps them pointed at a live
     /// model, so this list can't itself go stale the way a pinned name would.

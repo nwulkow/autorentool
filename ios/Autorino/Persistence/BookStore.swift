@@ -33,9 +33,15 @@ final class BookStore: ObservableObject {
         let urls = (try? fileManager.contentsOfDirectory(at: booksDirectory, includingPropertiesForKeys: nil)) ?? []
         let decoder = JSONDecoder()
         var loaded: [Book] = []
+        var seen = Set<String>()
         for url in urls where url.pathExtension == "json" {
             guard let data = try? Data(contentsOf: url),
                   let book = try? decoder.decode(Book.self, from: data) else { continue }
+            // A book whose title no longer sanitizes to the file it was read
+            // from (hand-renamed file, or a title edited on the other app)
+            // would otherwise collide with the book that legitimately owns
+            // that filename and produce two rows sharing one identity.
+            guard seen.insert(book.filename).inserted else { continue }
             loaded.append(book)
         }
         books = loaded.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
@@ -52,7 +58,7 @@ final class BookStore: ObservableObject {
         } catch {
             return false
         }
-        if let idx = books.firstIndex(where: { $0.title == book.title }) {
+        if let idx = books.firstIndex(where: { $0.filename == book.filename }) {
             books[idx] = book
         } else {
             books.append(book)
@@ -78,7 +84,7 @@ final class BookStore: ObservableObject {
         if oldFilename != renamed.filename {
             try? fileManager.removeItem(at: oldURL)
             syncIndex.markDeleted(filename: oldFilename)
-            books.removeAll { $0.title == book.title }
+            books.removeAll { $0.filename == oldFilename }
         }
         save(renamed)
         return renamed
@@ -87,7 +93,7 @@ final class BookStore: ObservableObject {
     func delete(_ book: Book) {
         let url = booksDirectory.appendingPathComponent(book.filename)
         try? fileManager.removeItem(at: url)
-        books.removeAll { $0.title == book.title }
+        books.removeAll { $0.filename == book.filename }
         syncIndex.markDeleted(filename: book.filename)
     }
 

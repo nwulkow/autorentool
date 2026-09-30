@@ -4,6 +4,20 @@
     "·" : {
 
     },
+    "· %@ failed" : {
+
+    },
+    "· %lld failed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· %lld fehlgeschlagen"
+          }
+        }
+      }
+    },
     "“%@”" : {
       "localizations" : {
         "de" : {
@@ -38,8 +52,15 @@
     "%@" : {
 
     },
-    "%@ chapters" : {
-
+    "%@ chapters · %@ words" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ chapters · %2$@ words"
+          }
+        }
+      }
     },
     "%@ columns · %@ events" : {
       "localizations" : {
@@ -51,8 +72,34 @@
         }
       }
     },
+    "%@ findings" : {
+
+    },
+    "%@ messages" : {
+
+    },
+    "%@ of %@ chapters summarized" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ of %2$@ chapters summarized"
+          }
+        }
+      }
+    },
     "%@ words" : {
 
+    },
+    "%@/%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@/%2$@"
+          }
+        }
+      }
     },
     "%@%%" : {
 
@@ -70,13 +117,13 @@
     "%@px" : {
 
     },
-    "%lld chapters" : {
+    "%lld chapters · %@ words" : {
       "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld Kapitel"
+            "value" : "%lld Kapitel · %@ Wörter"
           }
         }
       }
@@ -99,6 +146,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld Spalten · %lld Ereignisse"
+          }
+        }
+      }
+    },
+    "%lld findings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Erkenntnis"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Erkenntnisse"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld finding"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld findings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld of %lld chapters summarized" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld von %lld Kapiteln zusammengefasst"
           }
         }
       }
@@ -373,6 +472,17 @@
         }
       }
     },
+    "All chapters" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Kapitel"
+          }
+        }
+      }
+    },
     "Answer…" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -383,6 +493,9 @@
           }
         }
       }
+    },
+    "Answered by %@" : {
+
     },
     "Appearance" : {
 
@@ -416,6 +529,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Autor"
+          }
+        }
+      }
+    },
+    "Auto" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto"
           }
         }
       }
@@ -470,6 +594,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fett"
+          }
+        }
+      }
+    },
+    "Book text" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buchtext"
           }
         }
       }
@@ -566,6 +701,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Burg"
+          }
+        }
+      }
+    },
+    "Certainty" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherheit"
+          }
+        }
+      }
+    },
+    "Chapter %lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapitel %lld"
+          }
+        }
+      }
+    },
+    "Chapter changed — show summary" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapitel geändert — Zusammenfassung anzeigen"
+          }
+        }
+      }
+    },
+    "Chapter changed since you edited this summary" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapitel geändert, seit du diese Zusammenfassung bearbeitet hast"
           }
         }
       }
@@ -707,6 +886,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kommentare"
+          }
+        }
+      }
+    },
+    "Confirmed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bestätigt"
           }
         }
       }
@@ -894,6 +1084,31 @@
         }
       }
     },
+    "Device" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mittel"
+          }
+        }
+      }
+    },
+    "Devices" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erzählmittel"
+          }
+        }
+      }
+    },
+    "Did not use book text" : {
+
+    },
     "Disconnect Dropbox" : {
       "localizations" : {
         "de" : {
@@ -991,6 +1206,26 @@
         }
       }
     },
+    "Each chapter is sent to the model once. You can keep working while it runs, and anything already finished is kept if you stop it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jedes Kapitel wird einmal an das Modell geschickt. Du kannst weiterarbeiten, während es läuft, und bereits Fertiges bleibt erhalten, wenn du abbrichst."
+          }
+        }
+      }
+    },
+    "Edited by you %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Von dir bearbeitet %@"
+          }
+        }
+      }
+    },
     "Editor" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1057,6 +1292,17 @@
         }
       }
     },
+    "Established facts" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etablierte Fakten"
+          }
+        }
+      }
+    },
     "Event order not found." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1101,6 +1347,17 @@
         }
       }
     },
+    "Fact" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fakt"
+          }
+        }
+      }
+    },
     "Fill" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1133,17 +1390,6 @@
         }
       }
     },
-    "fountain" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Brunnen"
-          }
-        }
-      }
-    },
     "Formatting" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1151,6 +1397,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Formatierung"
+          }
+        }
+      }
+    },
+    "fountain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Brunnen"
           }
         }
       }
@@ -1197,6 +1454,17 @@
         }
       }
     },
+    "Gemini returned no text." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini hat keinen Text zurückgegeben."
+          }
+        }
+      }
+    },
     "General" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1204,6 +1472,81 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Allgemein"
+          }
+        }
+      }
+    },
+    "Generate %lld summaries" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Zusammenfassungen erzeugen"
+          }
+        }
+      }
+    },
+    "Generate all summaries" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Zusammenfassungen erzeugen"
+          }
+        }
+      }
+    },
+    "Generate one from the manuscript list." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erzeuge eine über die Kapitelliste."
+          }
+        }
+      }
+    },
+    "Generate summaries for all chapters?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassungen für alle Kapitel erzeugen?"
+          }
+        }
+      }
+    },
+    "Generate summary" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassung erzeugen"
+          }
+        }
+      }
+    },
+    "Generated %@ · %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erzeugt %@ · %@"
+          }
+        }
+      }
+    },
+    "Generating…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird erzeugt…"
           }
         }
       }
@@ -1240,6 +1583,17 @@
         }
       }
     },
+    "High" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoch"
+          }
+        }
+      }
+    },
     "house" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1247,6 +1601,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Haus"
+          }
+        }
+      }
+    },
+    "How" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie"
           }
         }
       }
@@ -1337,6 +1702,17 @@
         }
       }
     },
+    "Is this chapter realistic?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ist dieses Kapitel realistisch?"
+          }
+        }
+      }
+    },
     "It may have been deleted." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1358,6 +1734,9 @@
           }
         }
       }
+    },
+    "Keeps a copy of this conversation with the book, tagged with the chapter it was about." : {
+
     },
     "Label" : {
       "extractionState" : "stale",
@@ -1475,6 +1854,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Orte"
+          }
+        }
+      }
+    },
+    "Low" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niedrig"
           }
         }
       }
@@ -1759,6 +2149,30 @@
         }
       }
     },
+    "No saved chats yet." : {
+
+    },
+    "No summary yet — tap to generate one." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Zusammenfassung — tippen, um eine zu erzeugen."
+          }
+        }
+      }
+    },
+    "No summary yet." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Zusammenfassung."
+          }
+        }
+      }
+    },
     "No topics yet." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1819,6 +2233,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
+          }
+        }
+      }
+    },
+    "Open threads" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offene Fäden"
           }
         }
       }
@@ -1898,6 +2323,28 @@
         }
       }
     },
+    "Place" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ort"
+          }
+        }
+      }
+    },
+    "Point of view" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erzählperspektive"
+          }
+        }
+      }
+    },
     "Post-it Notes" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1905,6 +2352,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notizzettel"
+          }
+        }
+      }
+    },
+    "Present" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anwesend"
           }
         }
       }
@@ -1949,6 +2407,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wiederherstellen"
+          }
+        }
+      }
+    },
+    "Regenerate" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neu erzeugen"
+          }
+        }
+      }
+    },
+    "Regenerate summary?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassung neu erzeugen?"
           }
         }
       }
@@ -2028,6 +2508,17 @@
         }
       }
     },
+    "Retry" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erneut versuchen"
+          }
+        }
+      }
+    },
     "road" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2046,6 +2537,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sand"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speichern"
           }
         }
       }
@@ -2078,6 +2580,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Maßstab"
+          }
+        }
+      }
+    },
+    "Scene" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Szene"
           }
         }
       }
@@ -2122,6 +2635,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Laden"
+          }
+        }
+      }
+    },
+    "Show summary" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassung anzeigen"
           }
         }
       }
@@ -2203,6 +2727,17 @@
         }
       }
     },
+    "Stop" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anhalten"
+          }
+        }
+      }
+    },
     "Stroke" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2236,6 +2771,48 @@
         }
       }
     },
+    "Summaries" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassungen"
+          }
+        }
+      }
+    },
+    "Summaries %@/%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Summaries %1$@/%2$@"
+          }
+        }
+      }
+    },
+    "Summaries %lld/%lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassungen %lld/%lld"
+          }
+        }
+      }
+    },
+    "Summaries are made from chapters — add one first." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassungen entstehen aus Kapiteln — füge zuerst eines hinzu."
+          }
+        }
+      }
+    },
     "Summarize what happens here." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2243,6 +2820,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fasse zusammen, was hier passiert."
+          }
+        }
+      }
+    },
+    "Summary" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassung"
+          }
+        }
+      }
+    },
+    "Summary edited by you — show" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Von dir bearbeitet — anzeigen"
+          }
+        }
+      }
+    },
+    "Suspected" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vermutet"
           }
         }
       }
@@ -2336,6 +2946,113 @@
         }
       }
     },
+    "Text · Summary" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text · Zusammenfassung"
+          }
+        }
+      }
+    },
+    "The chapter has changed since this was made." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Kapitel hat sich seitdem geändert."
+          }
+        }
+      }
+    },
+    "The digest came back unreadable." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Zusammenfassung kam unlesbar zurück."
+          }
+        }
+      }
+    },
+    "The model declined to answer about this passage." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Modell hat eine Antwort zu dieser Passage abgelehnt."
+          }
+        }
+      }
+    },
+    "The model stopped because its answer was reproducing existing text." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Modell hat abgebrochen, weil seine Antwort vorhandenen Text wiedergegeben hat."
+          }
+        }
+      }
+    },
+    "The model used its whole budget thinking and ran out before writing an answer. Try again, or send less text." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Modell hat sein gesamtes Budget zum Nachdenken verbraucht und keine Antwort mehr geschrieben. Versuche es erneut oder sende weniger Text."
+          }
+        }
+      }
+    },
+    "The model writes a new summary from the chapter as it stands now. This version is discarded." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Modell schreibt eine neue Zusammenfassung aus dem aktuellen Kapiteltext. Diese Version wird verworfen."
+          }
+        }
+      }
+    },
+    "Thinking: auto" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denktiefe: automatisch"
+          }
+        }
+      }
+    },
+    "Thinking: high" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denktiefe: hoch"
+          }
+        }
+      }
+    },
+    "Thinking: low" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Denktiefe: niedrig"
+          }
+        }
+      }
+    },
     "Thinking…" : {
       "localizations" : {
         "de" : {
@@ -2375,6 +3092,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dieses Thema existiert nicht mehr."
+          }
+        }
+      }
+    },
+    "Thread" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faden"
+          }
+        }
+      }
+    },
+    "Time" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeit"
           }
         }
       }
@@ -2510,6 +3249,39 @@
         }
       }
     },
+    "Unknown names" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unbekannte Namen"
+          }
+        }
+      }
+    },
+    "Up to %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bis %@"
+          }
+        }
+      }
+    },
+    "Up to this chapter" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bis zu diesem Kapitel"
+          }
+        }
+      }
+    },
     "Use this if sync reports success but files you expect are missing. It doesn't touch your books or your Dropbox connection — only this device's memory of what's already synced. Run Sync now again afterward." : {
 
     },
@@ -2544,6 +3316,17 @@
         }
       }
     },
+    "What" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was"
+          }
+        }
+      }
+    },
     "What's inconsistent or unclear?" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2551,6 +3334,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Was ist widersprüchlich oder unklar?"
+          }
+        }
+      }
+    },
+    "Who" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wer"
+          }
+        }
+      }
+    },
+    "Who learns what" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wer erfährt was"
           }
         }
       }

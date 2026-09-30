@@ -13,14 +13,44 @@ struct ChapterListView: View {
     @State private var exportFilename = "book.docx"
     @State private var showingImporter = false
     @State private var importErrorMessage: String?
+    @EnvironmentObject private var env: AppEnvironment
+    @State private var confirmingRebuildAll = false
+    /// The chapter whose summary is open for reading/editing. Regenerating a
+    /// single chapter happens in there, not from the row badge, so a stray
+    /// tap can't replace text the user wrote.
+    @State private var editingDigest: DigestTarget?
 
     var body: some View {
         VStack(spacing: 0) {
             header
+            if env.digestService.progress != nil {
+                DigestProgressBar(service: env.digestService)
+            }
             content
         }
         .background(Theme.paper)
         .navigationTitle("Text")
+        .confirmationDialog(
+            "Generate summaries for all chapters?",
+            isPresented: $confirmingRebuildAll,
+            titleVisibility: .visible
+        ) {
+            Button("Generate \(pendingDigestCount) summaries") {
+                env.digestService.generateAll(in: editor.book)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Each chapter is sent to the model once. You can keep working while it runs, and anything already finished is kept if you stop it.")
+        }
+        .sheet(item: $editingDigest) { target in
+            DigestEditorSheet(
+                store: env.digestService.store(for: editor.book.title),
+                service: env.digestService,
+                editor: editor,
+                index: target.index,
+                chapter: target.chapter
+            )
+        }
         .sheet(isPresented: $showingAdd) {
             AddChapterSheet(editor: editor)
         }
@@ -60,6 +90,11 @@ struct ChapterListView: View {
                 Button { showingImporter = true } label: { Label("Import File", systemImage: "square.and.arrow.down") }
                 Button { exportBookDocx() } label: { Label("Export DOCX", systemImage: "square.and.arrow.up") }
                     .disabled(editor.book.chapters.isEmpty)
+                Divider()
+                Button { confirmingRebuildAll = true } label: {
+                    Label("Generate all summaries", systemImage: "sparkles.rectangle.stack")
+                }
+                .disabled(pendingDigestCount == 0 || env.digestService.isRunning)
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.title3)
@@ -95,7 +130,28 @@ struct ChapterListView: View {
                                 Text("Full text")
                                     .font(Theme.rowTitle)
                                     .foregroundStyle(Theme.ink)
-                                Text("\(editor.book.chapters.count) chapters")
+                                // The whole-book total the web app shows under
+                                // the editor (app.js:3135).
+                                Text("\(editor.book.chapters.count) chapters · \(totalWordCount.formatted()) words")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.muted)
+                            }
+                        }
+                        .bookCard(padding: 14)
+                    }
+                    .bookCardRow()
+
+                    NavigationLink {
+                        DigestListView(editor: editor)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "list.bullet.rectangle")
+                                .foregroundStyle(Theme.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Summaries")
+                                    .font(Theme.rowTitle)
+                                    .foregroundStyle(Theme.ink)
+                                Text("\(digestedCount) of \(editor.book.chapters.count) chapters summarized")
                                     .font(.caption)
                                     .foregroundStyle(Theme.muted)
                             }
@@ -105,11 +161,31 @@ struct ChapterListView: View {
                     .bookCardRow()
 
                     ForEach(Array(editor.book.chapters.enumerated()), id: \.element.id) { index, chapter in
-                        NavigationLink {
-                            ChapterEditorView(editor: editor, chapterId: chapter.id)
-                        } label: {
-                            ChapterRow(index: index, chapter: chapter)
+                        // The digest button is a sibling of the
+                        // `NavigationLink`, not part of its label: a button
+                        // inside a link's label never receives its own taps.
+                        // That means the card treatment moves from the row
+                        // to this `HStack`, so the button still sits inside
+                        // the card rather than beside it.
+                        HStack(spacing: 8) {
+                            NavigationLink {
+                                ChapterEditorView(editor: editor, chapterId: chapter.id)
+                            } label: {
+                                ChapterRow(index: index, chapter: chapter)
+                            }
+                            ChapterDigestButton(
+                                store: env.digestService.store(for: editor.book.title),
+                                service: env.digestService,
+                                chapter: chapter
+                            ) { status in
+                                if status == .missing {
+                                    env.digestService.generate(chapter: chapter, index: index, in: editor.book)
+                                } else {
+                                    editingDigest = DigestTarget(index: index, chapter: chapter)
+                                }
+                            }
                         }
+                        .bookCard(padding: 14)
                         .bookCardRow()
                         .swipeActions(edge: .leading) {
                             Button {
@@ -134,6 +210,24 @@ struct ChapterListView: View {
                 }
             }
         }
+    }
+
+    /// Mirrors `totalWordCount` (app.js:2165-2167) — the web app's
+    /// whole-book figure, which the phone was missing.
+    private var totalWordCount: Int {
+        editor.book.chapters.reduce(0) { $0 + $1.wordCount }
+    }
+
+    private var digestedCount: Int {
+        let store = env.digestService.store(for: editor.book.title)
+        return editor.book.chapters.filter { store.digest(for: $0.id) != nil }.count
+    }
+
+    /// Chapters with no digest or an out-of-date one. Hand-edited digests are
+    /// excluded even when stale — a bulk run must never discard the user's
+    /// own writing without being asked.
+    private var pendingDigestCount: Int {
+        env.digestService.store(for: editor.book.title).needingGeneration(in: editor.book).count
     }
 
     private func exportChapterDocx(_ chapter: Chapter, index: Int) {
@@ -191,19 +285,22 @@ private struct ChapterRow: View {
                         Text(chapter.label)
                         Text("·")
                     }
-                    Text("\(wordCount) words")
+                    Text("\(chapter.wordCount) words")
                 }
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
             }
+            Spacer(minLength: 0)
         }
-        .bookCard(padding: 14)
+        .contentShape(Rectangle())
     }
+}
 
+extension Chapter {
     /// Mirrors `wordCount` (app.js:1744-1748) — strip tags, split on
     /// whitespace.
-    private var wordCount: Int {
-        PromptBuilder.chapterPlainText(chapter)
+    var wordCount: Int {
+        PromptBuilder.chapterPlainText(self)
             .split(whereSeparator: { $0.isWhitespace })
             .count
     }

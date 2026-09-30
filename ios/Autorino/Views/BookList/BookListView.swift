@@ -52,7 +52,7 @@ struct BookListView: View {
                     }
 
                     ForEach(env.bookStore.books) { book in
-                        NavigationLink(value: book.title) {
+                        NavigationLink(value: book.filename) {
                             BookRowView(book: book)
                         }
                         .bookCardRow()
@@ -72,20 +72,23 @@ struct BookListView: View {
         // only the + / gear buttons.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: String.self) { title in
-            if let book = env.bookStore.books.first(where: { $0.title == title }) {
+        .navigationDestination(for: String.self) { filename in
+            // Routed by filename, not title: two titles can sanitize to one
+            // filename, and a title lookup would then resolve ambiguously
+            // (see `Book.id`).
+            if let book = env.bookStore.books.first(where: { $0.filename == filename }) {
                 BookTabContainer(editor: BookEditor(book: book, bookStore: env.bookStore)) { newTitle in
                     // Keep the pushed path element in sync with a rename so
                     // it keeps resolving against `env.bookStore.books` (see
                     // the note on `path` above) instead of pointing at a
-                    // title that no longer exists.
+                    // filename that no longer exists.
                     if !path.isEmpty { path.removeLast() }
-                    path.append(newTitle)
+                    path.append(Book.sanitizedFilename(for: newTitle))
                 }
             } else {
-                // The pushed title no longer matches any book (renamed from
-                // elsewhere, deleted, or a stale path entry from before a
-                // sync reload) — pop back to the list instead of leaving a
+                // The pushed filename no longer matches any book (renamed
+                // from elsewhere, deleted, or a stale path entry from before
+                // a sync reload) — pop back to the list instead of leaving a
                 // dead screen the user can't navigate away from.
                 Color.clear.onAppear { if !path.isEmpty { path.removeLast() } }
             }

@@ -241,6 +241,16 @@ final class ChatHistoryStore: ObservableObject {
         persist()
     }
 
+    /// Drops a single message by id. Used to roll a user turn back off the
+    /// transcript when its request failed, so a retry doesn't stack a second
+    /// copy of the same prompt — and so the failed turn never reaches disk or
+    /// Dropbox as a question that was never answered.
+    func remove(id: String) {
+        guard let idx = messages.firstIndex(where: { $0.id == id }) else { return }
+        messages.remove(at: idx)
+        persist()
+    }
+
     private func persist() {
         guard let data = try? ChatMessage.encoder.encode(messages) else { return }
         try? data.write(to: fileURL, options: .atomic)

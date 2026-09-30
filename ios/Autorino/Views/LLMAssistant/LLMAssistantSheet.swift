@@ -62,6 +62,19 @@ struct LLMAssistantContent: View {
     /// app.js's single `llmSelectedModel`.
     @AppStorage("geminiSelectedModel") private var selectedModel: String = GeminiModelCatalog.defaultModel
     @State private var availableModels: [String] = GeminiModelCatalog.staticModels
+    /// Persisted and shared by every assistant pane, same as the model pick.
+    /// `.auto` sends no `thinkingConfig` at all, which is what every call did
+    /// before these controls existed.
+    @AppStorage("geminiThinkingLevel") private var thinkingSetting: ThinkingSetting = .auto
+    /// Gemini accepts 0...2, but the slider stops at 1.0 — its own default,
+    /// and the top of the range that stays coherent for this use. Low for
+    /// checking logic and facts, high for hunting ideas.
+    @AppStorage("geminiTemperature") private var temperature: Double = 1.0
+
+    /// A build before the slider was capped could have stored a value above
+    /// the current range; the `Slider` would render it pinned but `@AppStorage`
+    /// keeps — and would send — the old number.
+    private var clampedTemperature: Double { min(max(temperature, 0), 1) }
     /// Set only when the server — here, Gemini directly — substituted a
     /// different model than the one picked above (busy, retired, out of
     /// quota); cleared on every new pick.
@@ -72,9 +85,30 @@ struct LLMAssistantContent: View {
     /// token cost. Characters (and a pane's own `baseContext`, e.g. an event
     /// dump) are unaffected; only book prose is dropped.
     @State private var includeBookText = true
+    /// On by default, and the reason the digests exist: the whole book as
+    /// notes costs roughly a tenth of the prose it stands in for, so there is
+    /// no version of "ask about the book" that is better served by leaving it
+    /// out. Off is for the follow-up turns that aren't about the manuscript.
+    @State private var includeDigests = true
+    /// Summaries held out of this chat. Empty — every stored summary goes —
+    /// until the user unchecks one, which is the common case; the point of
+    /// unchecking is usually to keep later chapters out of an answer about
+    /// earlier ones, not to save tokens.
+    @State private var excludedDigests: Set<String> = []
+    /// Zero-based index of the last chapter whose summary goes out; `nil` is
+    /// the whole book. This is what stops the model answering a chapter-8
+    /// problem with something that only happens in chapter 19 — and the model
+    /// is told the cutoff exists, so it doesn't mistake it for the ending.
+    @State private var digestCutoff: Int?
     @State private var showingSavePrompt = false
     @State private var saveName = ""
     @State private var showingSavedChats = false
+    /// The last prompt that went out and didn't come back with an answer.
+    /// Held so "Retry" can re-send it verbatim — a failed turn used to lose
+    /// the typed text entirely (`send` clears the field before the call), and
+    /// with Gemini 3.x timing out on long chapters that happened often enough
+    /// to be the single most annoying thing about the assistant.
+    @State private var failedPrompt: String?
 
     init(editor: BookEditor, defaultScope: [ContentScopeItem] = [], persist: Bool = true, baseContext: String? = nil, title: String = String(localized: "Assistant"), contextChapterId: String? = nil) {
         self.editor = editor
@@ -84,7 +118,15 @@ struct LLMAssistantContent: View {
         self.title = title
         self.contextChapterId = contextChapterId
         _persistedHistory = StateObject(wrappedValue: ChatHistoryStore(bookTitle: editor.book.title))
-        _scope = State(initialValue: defaultScope)
+        // Every character is in scope unless the caller picked its own set.
+        // A cast of a dozen is a few hundred tokens, and without it the model
+        // meets every name cold — the one thing that reliably makes an answer
+        // useless is not knowing who it is talking about.
+        var initialScope = defaultScope
+        if !initialScope.contains(where: { $0.kind == .character }) {
+            initialScope += editor.book.characters.map { ContentScopeItem(kind: .character, id: $0.id) }
+        }
+        _scope = State(initialValue: initialScope)
     }
 
     private var messages: [ChatMessage] { persist ? persistedHistory.messages : localMessages }
@@ -93,7 +135,14 @@ struct LLMAssistantContent: View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
                 modelPickerRow
-                ContentScopePickerView(book: editor.book, selection: $scope)
+                generationSettingsRow
+                ContentScopePickerView(
+                    book: editor.book,
+                    selection: $scope,
+                    digestChapters: digestChapters,
+                    excludedDigests: $excludedDigests,
+                    digestCutoff: digestCutoff
+                )
                 includeBookTextRow
             }
             .background(Theme.chrome)
@@ -119,11 +168,27 @@ struct LLMAssistantContent: View {
                 .onChange(of: isLoading) { _, _ in scrollToEnd(proxy) }
             }
             if let error {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(Theme.danger)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 4)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Theme.danger)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    // Only offered when there's a prompt to re-send — an
+                    // error with nothing held (e.g. a failed model list)
+                    // shouldn't show a button that would do nothing.
+                    if failedPrompt != nil {
+                        Button(action: retry) {
+                            Label("Retry", systemImage: "arrow.clockwise")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.accent)
+                        .disabled(isLoading)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
             }
             inputBar
         }
@@ -231,25 +296,152 @@ struct LLMAssistantContent: View {
         .padding(.bottom, 4)
     }
 
+    /// How hard the model thinks, and how freely it samples — the two knobs
+    /// that decide both answer character and wall-clock time, so they sit
+    /// next to the model pick rather than behind a Settings screen. Thinking
+    /// is a `Menu` (three discrete choices, one of which means "send
+    /// nothing"); temperature is continuous, so it gets a slider.
+    private var generationSettingsRow: some View {
+        HStack(spacing: 10) {
+            Menu {
+                ForEach(ThinkingSetting.allCases, id: \.self) { setting in
+                    Button {
+                        thinkingSetting = setting
+                    } label: {
+                        if setting == thinkingSetting {
+                            Label(setting.label, systemImage: "checkmark")
+                        } else {
+                            Text(setting.label)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "brain")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(thinkingSetting.shortLabel)
+                        .font(.caption)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Theme.muted)
+                }
+                .foregroundStyle(Theme.ink)
+            }
+            .fixedSize()
+
+            Divider().frame(height: 14)
+
+            Image(systemName: "thermometer.medium")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Theme.muted)
+            Slider(value: $temperature, in: 0...1, step: 0.1)
+            Text(String(format: "%.1f", clampedTemperature))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(Theme.muted)
+                .frame(width: 22, alignment: .trailing)
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+        .accessibilityElement(children: .contain)
+    }
+
     /// Deliberately a plain checkbox row rather than a `Toggle` switch: it
     /// belongs to the same "what goes in the prompt" group as the scope
     /// picker's checkmarks directly above it, and reads as one list.
+    /// Both context switches share one line: the sheet opens at the `.medium`
+    /// detent, where every header row is taken off the transcript.
     private var includeBookTextRow: some View {
+        HStack(spacing: 16) {
+            contextToggle("Book text", isOn: $includeBookText, enabled: true)
+            contextToggle("Summaries", isOn: $includeDigests, enabled: digestCount > 0)
+            Spacer()
+            if includeDigests, digestCount > 0 {
+                digestRangeMenu
+            }
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+
+    private func contextToggle(_ label: LocalizedStringKey, isOn: Binding<Bool>, enabled: Bool) -> some View {
         Button {
-            includeBookText.toggle()
+            isOn.wrappedValue.toggle()
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: includeBookText ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(includeBookText ? Color.accentColor : .secondary)
-                Text("Include book text")
+            HStack(spacing: 6) {
+                Image(systemName: isOn.wrappedValue && enabled ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(isOn.wrappedValue && enabled ? Color.accentColor : .secondary)
+                Text(label)
                     .font(.footnote)
-                    .foregroundStyle(Theme.ink)
-                Spacer()
+                    .foregroundStyle(enabled ? Theme.ink : Theme.muted)
+                    .lineLimit(1)
             }
         }
         .buttonStyle(.plain)
-        .padding(.horizontal)
-        .padding(.bottom, 8)
+        .disabled(!enabled)
+    }
+
+    private var digestCount: Int {
+        env.digestService.store(for: editor.book.title).digests.count
+    }
+
+    /// Only chapters that have a summary — there is nothing to include or
+    /// exclude for the rest, and listing them would just be 19 dead rows.
+    private var digestChapters: [(id: String, label: String)] {
+        let store = env.digestService.store(for: editor.book.title)
+        return editor.book.chapters.compactMap { chapter in
+            guard store.digest(for: chapter.id) != nil else { return nil }
+            return (chapter.id, PromptBuilder.chapterDisplayName(chapter.id, in: editor.book.chapters))
+        }
+    }
+
+    private var includedDigestCount: Int {
+        digestEntries.count
+    }
+
+    /// The summaries this turn would actually carry: stored, not unchecked,
+    /// and at or before the cutoff.
+    private var digestEntries: [PromptBuilder.DigestContextEntry] {
+        env.digestService.store(for: editor.book.title)
+            .promptEntries(in: editor.book)
+            .filter { !excludedDigests.contains($0.digest.chapterId) }
+            .filter { entry in digestCutoff.map { entry.index <= $0 } ?? true }
+    }
+
+    @ViewBuilder
+    private func menuItem(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            if isOn {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
+    }
+
+    /// The count doubles as the control: tapping it sets how far through the
+    /// book the summaries reach. One tap instead of unchecking fifteen rows.
+    private var digestRangeMenu: some View {
+        Menu {
+            menuItem(String(localized: "All chapters"), isOn: digestCutoff == nil) { digestCutoff = nil }
+            if let contextChapterId,
+               let index = editor.book.chapters.firstIndex(where: { $0.id == contextChapterId }) {
+                menuItem(String(localized: "Up to this chapter"), isOn: digestCutoff == index) { digestCutoff = index }
+            }
+            Divider()
+            ForEach(Array(editor.book.chapters.enumerated()), id: \.element.id) { index, chapter in
+                menuItem(
+                    String(format: String(localized: "Up to %@"), PromptBuilder.chapterDisplayName(chapter.id, in: editor.book.chapters)),
+                    isOn: digestCutoff == index
+                ) { digestCutoff = index }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text("\(includedDigestCount)/\(editor.book.chapters.count)")
+                Image(systemName: "chevron.up.chevron.down")
+            }
+            .font(.caption2)
+            .foregroundStyle(digestCutoff == nil ? Theme.muted : Theme.accent)
+        }
     }
 
     private static let typingIndicatorID = "typing"
@@ -368,6 +560,14 @@ struct LLMAssistantContent: View {
         if persist { persistedHistory.append(message) } else { localMessages.append(message) }
     }
 
+    private func remove(_ message: ChatMessage) {
+        if persist {
+            persistedHistory.remove(id: message.id)
+        } else {
+            localMessages.removeAll { $0.id == message.id }
+        }
+    }
+
     // MARK: - Saved chats
 
     /// The chapter a saved chat gets stamped with: the pane's own chapter if
@@ -425,11 +625,34 @@ struct LLMAssistantContent: View {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         prompt = ""
+        submit(text)
+    }
+
+    /// Re-sends the prompt whose turn failed. The failed user bubble was
+    /// already rolled off the transcript, so this is an ordinary send of the
+    /// same text — the history it builds on is exactly what it was the first
+    /// time.
+    private func retry() {
+        guard let text = failedPrompt, !isLoading else { return }
+        submit(text)
+    }
+
+    private func submit(_ text: String) {
         error = nil
+        failedPrompt = nil
         let userMessage = ChatMessage(role: .user, content: text)
         append(userMessage)
         let scopeContext = includeBookText ? PromptBuilder.contentContextText(for: scope, book: editor.book) : ""
-        let context = [baseContext, scopeContext].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n\n")
+        // Broad context first, the chapter under discussion last: the thing
+        // the question is actually about sits nearest the question.
+        let digestContext = includeDigests
+            ? PromptBuilder.digestContextText(
+                digestEntries,
+                upToChapter: digestCutoff.map { $0 + 1 },
+                totalChapters: editor.book.chapters.count
+            )
+            : ""
+        let context = [baseContext, digestContext, scopeContext].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n\n")
         let historyForCall = Array(messages.dropLast())
 
         let selectedCharacters = PromptBuilder.selectedCharacters(for: scope, book: editor.book)
@@ -439,7 +662,14 @@ struct LLMAssistantContent: View {
         Task {
             defer { isLoading = false }
             do {
-                let (result, usedModel) = try await env.llmService.chat(text: context, userPrompt: text, history: historyForCall, characters: selectedCharacters, model: selectedModel)
+                let (result, usedModel) = try await env.llmService.chat(
+                    text: context,
+                    userPrompt: text,
+                    history: historyForCall,
+                    characters: selectedCharacters,
+                    model: selectedModel,
+                    settings: GenerationSettings(thinkingLevel: thinkingSetting.level, temperature: clampedTemperature)
+                )
                 var reply = result
                 // Only the "off" case is recorded — that's the one the bubble
                 // tags, and leaving the flag unset otherwise keeps ordinary
@@ -449,6 +679,12 @@ struct LLMAssistantContent: View {
                 modelUsed = usedModel == selectedModel ? nil : usedModel
             } catch {
                 self.error = error.localizedDescription
+                // Roll the user turn back off the transcript and hold its
+                // text, so "Retry" re-sends the same prompt against the same
+                // history instead of stacking a duplicate question above an
+                // answer that never came.
+                remove(userMessage)
+                failedPrompt = text
             }
         }
     }

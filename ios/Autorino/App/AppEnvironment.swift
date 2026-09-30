@@ -13,6 +13,11 @@ final class AppEnvironment: ObservableObject {
     let syncEngine: DropboxSyncEngine
     let chatSyncEngine: ChatHistorySyncEngine
     let llmService: LLMService = GeminiLLMService()
+    /// Owned here rather than by a view so a digest run survives navigation:
+    /// a `Task` tied to a view's lifecycle dies the moment that view goes
+    /// away, which would kill a whole-book rebuild the first time the user
+    /// tapped anything. See `DigestService` for the rest of the reasoning.
+    let digestService: DigestService
 
     init() {
         let store = BookStore()
@@ -23,6 +28,7 @@ final class AppEnvironment: ObservableObject {
         self.syncStatus = status
         self.syncEngine = DropboxSyncEngine(auth: auth, bookStore: store, status: status)
         self.chatSyncEngine = ChatHistorySyncEngine(auth: auth)
+        self.digestService = DigestService(llm: llmService)
     }
 
     func bootstrap() async {
