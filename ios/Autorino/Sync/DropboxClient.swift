@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Thin `URLSession` wrapper over the handful of Dropbox v2 REST endpoints
 /// this app needs. Deliberately not the official Dropbox SDK — a handful
@@ -82,11 +83,37 @@ actor DropboxClient {
         return (data, entry)
     }
 
-    func delete(path: String) async throws {
-        var request = try await authorizedRequest(url: URL(string: "https://api.dropboxapi.com/2/files/delete_v2")!)
+    /// Server-side move with autorename, so a same-named file already at
+    /// the destination is never overwritten. This is the only way the app
+    /// ever removes anything from Dropbox — there is deliberately no delete
+    /// call (CLAUDE.md, "Never lose a book"). A source that is already gone
+    /// is not an error.
+    func move(from: String, to: String) async throws {
+        var request = try await authorizedRequest(url: URL(string: "https://api.dropboxapi.com/2/files/move_v2")!)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["path": path])
-        _ = try await send(request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "from_path": from, "to_path": to, "autorename": true,
+        ])
+        do {
+            _ = try await send(request)
+        } catch DropboxAPIError.requestFailed(409, let body) where body.contains("not_found") {
+            return
+        }
+    }
+
+    /// Dropbox's `content_hash`: SHA-256 over the concatenated SHA-256
+    /// digests of each 4 MiB block. Lets sync tell whether a local file is
+    /// byte-identical to a Dropbox revision without downloading it.
+    nonisolated static func contentHash(_ data: Data) -> String {
+        let block = 4 * 1024 * 1024
+        var outer = SHA256()
+        var offset = 0
+        while offset < data.count {
+            let end = min(offset + block, data.count)
+            outer.update(data: Data(SHA256.hash(data: data.subdata(in: offset..<end))))
+            offset = end
+        }
+        return outer.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Plumbing
@@ -169,6 +196,13 @@ struct ListFolderResult: Codable {
     enum CodingKeys: String, CodingKey {
         case entries, cursor
         case hasMore = "has_more"
+    }
+}
+
+extension DropboxAPIError {
+    var isConflict: Bool {
+        if case .requestFailed(409, let body) = self { return body.contains("conflict") }
+        return false
     }
 }
 

@@ -11,6 +11,13 @@ struct SettingsView: View {
                 DropboxSettingsSection()
                 GeminiKeySection()
                 Section {
+                    NavigationLink {
+                        BackupsView()
+                    } label: {
+                        Label("Backups", systemImage: "clock.arrow.circlepath")
+                    }
+                }
+                Section {
                     Text("Autorino (iOS)").font(.footnote).foregroundStyle(.secondary)
                 }
             }
@@ -86,7 +93,7 @@ private struct DropboxSettingsSection: View {
                             .font(.footnote)
                             .foregroundStyle(.orange)
                     }
-                    Text("Both versions were kept — the Dropbox copy was saved alongside your local one. Merge manually, then delete the extra copy.")
+                    Text("Both versions were kept — the Dropbox version is now its own book, titled “… - Dropbox conflict <date>”. Merge manually, then delete the extra copy.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -97,7 +104,7 @@ private struct DropboxSettingsSection: View {
                     Label("Reset sync state", systemImage: "arrow.counterclockwise")
                 }
                 .disabled(isSyncing)
-                Text("Use this if sync reports success but files you expect are missing. It doesn't touch your books or your Dropbox connection — only this device's memory of what's already synced. Run Sync now again afterward.")
+                Text("Use this if sync reports success but files you expect are missing. It doesn't touch your books or your Dropbox connection — only this device's memory of what's already synced. Books that differ from Dropbox are kept in both versions, never overwritten. Run Sync now again afterward.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -137,7 +144,7 @@ private struct DropboxSettingsSection: View {
         } header: {
             Text("Dropbox Sync")
         } footer: {
-            Text("Books sync with the Dropbox App folder \"Autorino\". Point your Mac's books/ folder at ~/Dropbox/Apps/Autorino to keep both in sync.")
+            Text("Books, chat history and chapter summaries sync with the Dropbox App folder. On the Mac, open the web app's Settings → Dropbox Sync and connect with the same App Key. Deleted books are moved to the folder's Trash, never deleted.")
         }
     }
 }

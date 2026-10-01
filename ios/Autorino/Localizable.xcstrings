@@ -483,6 +483,16 @@
         }
       }
     },
+    "Already restored." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bereits wiederhergestellt."
+          }
+        }
+      }
+    },
     "Answer…" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -554,6 +564,26 @@
         }
       }
     },
+    "autosave" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "automatisch"
+          }
+        }
+      }
+    },
+    "Backups" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherungen"
+          }
+        }
+      }
+    },
     "bed" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -561,6 +591,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bett"
+          }
+        }
+      }
+    },
+    "before content removed" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor Entfernen von Inhalt"
+          }
+        }
+      }
+    },
+    "before merge" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor Zusammenführung"
+          }
+        }
+      }
+    },
+    "before prune" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor Bereinigung"
+          }
+        }
+      }
+    },
+    "before regenerate" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor Neuerstellung"
+          }
+        }
+      }
+    },
+    "before remove" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor Entfernen"
+          }
+        }
+      }
+    },
+    "before rename" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor Umbenennung"
+          }
+        }
+      }
+    },
+    "before replace" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor Ersetzen"
+          }
+        }
+      }
+    },
+    "before sync" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vor Synchronisierung"
           }
         }
       }
@@ -609,22 +719,22 @@
         }
       }
     },
-    "Books sync with the Dropbox App folder \"Autorino\". Point your Mac's books/ folder at ~/Dropbox/Apps/Autorino to keep both in sync." : {
+    "Books, chat history and chapter summaries sync with the Dropbox App folder. On the Mac, open the web app's Settings → Dropbox Sync and connect with the same App Key. Deleted books are moved to the folder's Trash, never deleted." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bücher werden mit dem Dropbox-App-Ordner „Autorino“ synchronisiert. Verknüpfe den books/-Ordner deines Macs mit ~/Dropbox/Apps/Autorino, damit beide synchron bleiben."
+            "value" : "Bücher, Chatverläufe und Kapitelzusammenfassungen werden mit dem Dropbox-App-Ordner synchronisiert. Öffne auf dem Mac in der Web-App Einstellungen → Dropbox-Synchronisierung und verbinde dich mit demselben App-Schlüssel. Gelöschte Bücher werden in den Papierkorb des Ordners verschoben, nie gelöscht."
           }
         }
       }
     },
-    "Both versions were kept — the Dropbox copy was saved alongside your local one. Merge manually, then delete the extra copy." : {
+    "Both versions were kept — the Dropbox version is now its own book, titled “… - Dropbox conflict <date>”. Merge manually, then delete the extra copy." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Beide Versionen wurden behalten — die Dropbox-Kopie wurde neben deiner lokalen gespeichert. Führe sie manuell zusammen und lösche danach die zusätzliche Kopie."
+            "value" : "Beide Versionen wurden behalten — die Dropbox-Version ist jetzt ein eigenes Buch mit dem Titel „… - Dropbox conflict <Datum>“. Führe sie manuell zusammen und lösche danach die zusätzliche Kopie."
           }
         }
       }
@@ -1062,6 +1172,26 @@
         }
       }
     },
+    "deleted" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gelöscht"
+          }
+        }
+      }
+    },
+    "deleted on other device" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "auf anderem Gerät gelöscht"
+          }
+        }
+      }
+    },
     "Describe event…" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1321,6 +1451,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ereignisfolgen"
+          }
+        }
+      }
+    },
+    "Every version that a save, sync, rename or delete would replace is kept here. Restoring creates a new book and never overwrites anything." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jede Version, die durch Speichern, Synchronisieren, Umbenennen oder Löschen ersetzt würde, wird hier aufbewahrt. Wiederherstellen erzeugt ein neues Buch und überschreibt nie etwas."
           }
         }
       }
@@ -2054,6 +2194,16 @@
         }
       }
     },
+    "No backups yet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Sicherungen."
+          }
+        }
+      }
+    },
     "No chapters yet." : {
       "localizations" : {
         "de" : {
@@ -2504,6 +2654,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buch umbenennen"
+          }
+        }
+      }
+    },
+    "renamed" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "umbenannt"
+          }
+        }
+      }
+    },
+    "Restore as copy" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als Kopie wiederherstellen"
+          }
+        }
+      }
+    },
+    "Restored as “%@”" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiederhergestellt als „%@“"
           }
         }
       }
@@ -3063,6 +3243,16 @@
         }
       }
     },
+    "This backup is not a readable book." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Sicherung ist kein lesbares Buch."
+          }
+        }
+      }
+    },
     "This chapter no longer exists." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3260,6 +3450,26 @@
         }
       }
     },
+    "unmergeable remote" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nicht zusammenführbare Dropbox-Version"
+          }
+        }
+      }
+    },
+    "unreadable" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unlesbar"
+          }
+        }
+      }
+    },
     "Up to %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3282,8 +3492,15 @@
         }
       }
     },
-    "Use this if sync reports success but files you expect are missing. It doesn't touch your books or your Dropbox connection — only this device's memory of what's already synced. Run Sync now again afterward." : {
-
+    "Use this if sync reports success but files you expect are missing. It doesn't touch your books or your Dropbox connection — only this device's memory of what's already synced. Books that differ from Dropbox are kept in both versions, never overwritten. Run Sync now again afterward." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verwende dies, wenn die Synchronisierung erfolgreich meldet, aber erwartete Dateien fehlen. Deine Bücher und deine Dropbox-Verbindung bleiben unberührt — nur das Gedächtnis dieses Geräts darüber, was bereits synchronisiert ist. Bücher, die von Dropbox abweichen, werden in beiden Versionen behalten, nie überschrieben. Führe danach erneut „Jetzt synchronisieren“ aus."
+          }
+        }
+      }
     },
     "Used for the LLM assistant. Stored in the Keychain, never leaves the device except to call the Gemini API directly." : {
       "localizations" : {

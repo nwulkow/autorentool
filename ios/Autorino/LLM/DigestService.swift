@@ -59,6 +59,12 @@ final class DigestService: ObservableObject {
         return created
     }
 
+    /// Re-reads every cached store from disk — after a digest sync pulled
+    /// changes from another device.
+    func reloadStores() {
+        stores.values.forEach { $0.reload() }
+    }
+
     // MARK: - Starting work
 
     /// One chapter, on demand. Used by the per-chapter button, including to

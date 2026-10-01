@@ -43,8 +43,8 @@
 		5C32DA6CE49755E084521714 /* Question.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05B2EA5705B2EA0893A32487 /* Question.swift */; };
 		622C9729730DB78EB2DFC417 /* SyncIndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DA712302D7C078681D5C92 /* SyncIndexStore.swift */; };
 		65C874198060899D0CA39EFE /* SyncStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7283FAC3B607C7A1E38783F7 /* SyncStatus.swift */; };
-		692D7AFE624EEE2C86DF9FC7 /* ChatHistorySyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F07E69E93805F5D4263627 /* ChatHistorySyncEngine.swift */; };
 		6EDB76C75FF848576FD386D0 /* GeminiLLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C94274446B2041513382520 /* GeminiLLMService.swift */; };
+		73FEF9B79B0F48A2FC746E69 /* FolderSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF09ADCDD76A32B6FC986E2E /* FolderSyncEngine.swift */; };
 		744668BD9902B5886385E12D /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20376ABB16AE2960D687D08 /* Theme.swift */; };
 		7607A49AC31C1DC67FB5D3ED /* LocationIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3187F1ED1CD49C44F1E1971E /* LocationIconRenderer.swift */; };
 		793AF4BC647C998B62E3FFFF /* Character.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DE02F0EA811928C5EDC394C /* Character.swift */; };
@@ -61,6 +61,7 @@
 		A4A6556F4CAC25B380913F07 /* ZipWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC7E3AB9B72596BD1F487CA /* ZipWriter.swift */; };
 		A7723425F4355036A84D0F7B /* CharacterPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B757A27DAA682ADF6C41E2A /* CharacterPalette.swift */; };
 		AA347887558E28E238775BD1 /* FormatToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B12F48B6311AD41C7ACDA239 /* FormatToolbar.swift */; };
+		AA5005C943AABA6C957152DE /* BackupsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC7AC74CF56ED712F227417 /* BackupsView.swift */; };
 		AE2D5805A59C10C216DE1046 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A487AEC0D2C510E286C98B5C /* TimelineView.swift */; };
 		AF1E807768284323D6EEDD77 /* ChapterDigestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FA1AAFB99A2BD8F7F4AA343 /* ChapterDigestStore.swift */; };
 		AFC03576E27081A2D9AA56A2 /* OOXMLDocumentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9636E74732AEED04B1490 /* OOXMLDocumentParser.swift */; };
@@ -85,8 +86,10 @@
 		F0D57B6B22839844FB2A5F33 /* AutorinoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12661140ADA599413123AE69 /* AutorinoApp.swift */; };
 		F2B03A708CE94CCD198884C6 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42D74A7418C192E1CD39F0BF /* RootView.swift */; };
 		F3FEA66A8C5425C8AEE7E91E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 63CA53FC3D7F22BB4BD119A4 /* Assets.xcassets */; };
+		F41FFCA4ABFDCC0D94A78DDB /* SidecarSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130E29B1428D516B7691CB12 /* SidecarSyncEngine.swift */; };
 		F4BDCACBA59B9F52D3DE705A /* EditorTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41035637E3BDED77E81C1F49 /* EditorTypography.swift */; };
 		F4F3903D5B1F290171D96BF7 /* LLMAssistantButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E839F9C4CAE88D2BFD5A9D3E /* LLMAssistantButton.swift */; };
+		F5B7DB6A5E9B3E723C370E1B /* BackupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3AA9665D850897E50790768 /* BackupStore.swift */; };
 		F6CEF5E0861E344CDB0C74F3 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E7BCEAA222704496B71069D /* AppEnvironment.swift */; };
 		F8BED0E79257B75CF3612277 /* LocationMapCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD1A9308BEBF65E3A55A4D06 /* LocationMapCanvas.swift */; };
 		F9294D60D48B173FBBCBE250 /* MoreTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF627644E6B3ADE1E5024847 /* MoreTabView.swift */; };
@@ -95,7 +98,7 @@
 /* Begin PBXFileReference section */
 		003F4194C9D6A48098048A53 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		038D8C969FE072F0F24282D8 /* DocxImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxImporter.swift; sourceTree = "<group>"; };
-		03B18217BD96D631BF08C38A /* Autorino.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Autorino.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		03B18217BD96D631BF08C38A /* Autorino.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Autorino.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		05B2EA5705B2EA0893A32487 /* Question.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Question.swift; sourceTree = "<group>"; };
 		069DA9E25826AC5648A1321C /* QuestionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionsListView.swift; sourceTree = "<group>"; };
 		0D97C64BEEFF89A0B214075D /* DropboxAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropboxAuthService.swift; sourceTree = "<group>"; };
@@ -104,6 +107,7 @@
 		12641D119E618B69B0EC42B3 /* LocationsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationsListView.swift; sourceTree = "<group>"; };
 		12661140ADA599413123AE69 /* AutorinoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutorinoApp.swift; sourceTree = "<group>"; };
 		127BEEAC3290CAE313C02992 /* LLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMService.swift; sourceTree = "<group>"; };
+		130E29B1428D516B7691CB12 /* SidecarSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarSyncEngine.swift; sourceTree = "<group>"; };
 		14FD5D14C0D26F283D6B990C /* Chapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chapter.swift; sourceTree = "<group>"; };
 		187810C4053BCCFAE9062C8F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		19B60EC67ABF5B7AACB12C5D /* DigestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigestService.swift; sourceTree = "<group>"; };
@@ -114,7 +118,6 @@
 		27DC17EC294B4F222DB96E5E /* TopicDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicDetailView.swift; sourceTree = "<group>"; };
 		3187F1ED1CD49C44F1E1971E /* LocationIconRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationIconRenderer.swift; sourceTree = "<group>"; };
 		31A5B67C9813A4905ADBCAB9 /* SpellCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpellCheck.swift; sourceTree = "<group>"; };
-		35F07E69E93805F5D4263627 /* ChatHistorySyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistorySyncEngine.swift; sourceTree = "<group>"; };
 		3AF5CB3324E02399285AC7EC /* CharacterDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterDetailView.swift; sourceTree = "<group>"; };
 		3B8BF8695C0C946A2C77B295 /* CharacterEditSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterEditSheet.swift; sourceTree = "<group>"; };
 		3C8ADACE3B86D4EDC457C94A /* CommentsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentsListView.swift; sourceTree = "<group>"; };
@@ -150,6 +153,7 @@
 		933551EF3C1D8D34B97B75E4 /* DropboxClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropboxClient.swift; sourceTree = "<group>"; };
 		99D3C1AE79D20DE144F1B475 /* TimelineConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineConfigView.swift; sourceTree = "<group>"; };
 		9E18A96CD2948C9E6DAD55EE /* CharactersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharactersListView.swift; sourceTree = "<group>"; };
+		9FC7AC74CF56ED712F227417 /* BackupsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupsView.swift; sourceTree = "<group>"; };
 		A2E4D164CCED2176FFC572FD /* Inflate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Inflate.swift; sourceTree = "<group>"; };
 		A487AEC0D2C510E286C98B5C /* TimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineView.swift; sourceTree = "<group>"; };
 		A503935CB6B7E971DD0CC555 /* LocationTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationTools.swift; sourceTree = "<group>"; };
@@ -170,6 +174,7 @@
 		CD1A9308BEBF65E3A55A4D06 /* LocationMapCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationMapCanvas.swift; sourceTree = "<group>"; };
 		D7E025C0C7C983409A3F2384 /* DocxExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxExporter.swift; sourceTree = "<group>"; };
 		DC189C422A315BB7674BDD58 /* BookEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookEditor.swift; sourceTree = "<group>"; };
+		DF09ADCDD76A32B6FC986E2E /* FolderSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderSyncEngine.swift; sourceTree = "<group>"; };
 		E20376ABB16AE2960D687D08 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		E440B07B6F21B22F88630D13 /* CharactersTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharactersTabView.swift; sourceTree = "<group>"; };
 		E523F31A5A37883CD5E32E47 /* FullTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullTextView.swift; sourceTree = "<group>"; };
@@ -178,6 +183,7 @@
 		E9EE916037AAF6658097FF84 /* CSSColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSSColor.swift; sourceTree = "<group>"; };
 		ED69C2661D784FF6C82DFCD8 /* DigestEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigestEditorSheet.swift; sourceTree = "<group>"; };
 		EEA7CE8E45269A22A15A02EF /* TimelineGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineGeometry.swift; sourceTree = "<group>"; };
+		F3AA9665D850897E50790768 /* BackupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -231,11 +237,12 @@
 		3368BF2C1D350A949D0BE400 /* Sync */ = {
 			isa = PBXGroup;
 			children = (
-				35F07E69E93805F5D4263627 /* ChatHistorySyncEngine.swift */,
 				0D97C64BEEFF89A0B214075D /* DropboxAuthService.swift */,
 				933551EF3C1D8D34B97B75E4 /* DropboxClient.swift */,
 				44CDE95204BAE91293B5DDC2 /* DropboxConfig.swift */,
 				60CD0216D641C9D8CF269460 /* DropboxSyncEngine.swift */,
+				DF09ADCDD76A32B6FC986E2E /* FolderSyncEngine.swift */,
+				130E29B1428D516B7691CB12 /* SidecarSyncEngine.swift */,
 				C4DA712302D7C078681D5C92 /* SyncIndexStore.swift */,
 				7283FAC3B607C7A1E38783F7 /* SyncStatus.swift */,
 			);
@@ -288,6 +295,7 @@
 		47152857C8EF39B97B3BBA22 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				9FC7AC74CF56ED712F227417 /* BackupsView.swift */,
 				003F4194C9D6A48098048A53 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -337,6 +345,7 @@
 		82D768DC7843D72ADAC8C2D2 /* Persistence */ = {
 			isa = PBXGroup;
 			children = (
+				F3AA9665D850897E50790768 /* BackupStore.swift */,
 				5F055F43DBF226549DC7ED1F /* BookStore.swift */,
 				3FA1AAFB99A2BD8F7F4AA343 /* ChapterDigestStore.swift */,
 			);
@@ -477,6 +486,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = EFD7DDEB625DB9EA78752995 /* Build configuration list for PBXProject "Autorino" */;
 			developmentRegion = en;
@@ -517,6 +528,8 @@
 			files = (
 				F6CEF5E0861E344CDB0C74F3 /* AppEnvironment.swift in Sources */,
 				F0D57B6B22839844FB2A5F33 /* AutorinoApp.swift in Sources */,
+				F5B7DB6A5E9B3E723C370E1B /* BackupStore.swift in Sources */,
+				AA5005C943AABA6C957152DE /* BackupsView.swift in Sources */,
 				3F3A2BF578BC0064F3D96DFD /* Book.swift in Sources */,
 				8B64F2ECF2C65A339E64F75D /* BookEditor.swift in Sources */,
 				4CBD5A4B1A090643B37DAB40 /* BookListView.swift in Sources */,
@@ -536,7 +549,6 @@
 				9345FAB66275426A57138EEE /* CharactersListView.swift in Sources */,
 				85996AC3D879A3678EE14603 /* CharactersTabView.swift in Sources */,
 				2FAF6B52D4349241CCBBE8AC /* ChatBubbleView.swift in Sources */,
-				692D7AFE624EEE2C86DF9FC7 /* ChatHistorySyncEngine.swift in Sources */,
 				BE5A6B096DC9E23E261C7F8B /* ChatMessage.swift in Sources */,
 				D45D38F9A655B2C53331E7D6 /* CommentsListView.swift in Sources */,
 				085DAD8E0D09B2C343FB85B7 /* ContentScopePickerView.swift in Sources */,
@@ -554,6 +566,7 @@
 				BFEE8B173B6989602C58CE09 /* EmptyStateView.swift in Sources */,
 				107EA7DC65F524AC22952681 /* EventOrder.swift in Sources */,
 				EF6D973405957A7C12497A1E /* EventOrdersListView.swift in Sources */,
+				73FEF9B79B0F48A2FC746E69 /* FolderSyncEngine.swift in Sources */,
 				AA347887558E28E238775BD1 /* FormatToolbar.swift in Sources */,
 				281996571C7199454AB14130 /* FullTextView.swift in Sources */,
 				6EDB76C75FF848576FD386D0 /* GeminiLLMService.swift in Sources */,
@@ -583,6 +596,7 @@
 				C34BE1CAC0DCF70CE9923A1F /* RichTextView.swift in Sources */,
 				F2B03A708CE94CCD198884C6 /* RootView.swift in Sources */,
 				2830740E9B129BFD93E9F59D /* SettingsView.swift in Sources */,
+				F41FFCA4ABFDCC0D94A78DDB /* SidecarSyncEngine.swift in Sources */,
 				8E001D9719C72F93733A1549 /* SpellCheck.swift in Sources */,
 				622C9729730DB78EB2DFC417 /* SyncIndexStore.swift in Sources */,
 				65C874198060899D0CA39EFE /* SyncStatus.swift in Sources */,
@@ -607,7 +621,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = YZJRJ48972;
 				INFOPLIST_FILE = Autorino/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -684,7 +697,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = YZJRJ48972;
 				INFOPLIST_FILE = Autorino/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

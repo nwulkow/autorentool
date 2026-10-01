@@ -105,6 +105,10 @@ final class ChapterDigestStore: ObservableObject {
     // MARK: - Mutation
 
     func upsert(_ digest: ChapterDigest) {
+        // Regenerating over a hand-edited digest replaces the user's writing.
+        if digests[digest.chapterId]?.isUserEdited == true {
+            try? BackupStore.snapshot(fileURL, kind: .digests, reason: "before regenerate")
+        }
         digests[digest.chapterId] = digest
         persist()
     }
@@ -120,6 +124,7 @@ final class ChapterDigestStore: ObservableObject {
     }
 
     func remove(chapterId: String) {
+        try? BackupStore.snapshot(fileURL, kind: .digests, reason: "before remove")
         digests.removeValue(forKey: chapterId)
         persist()
     }
@@ -130,6 +135,7 @@ final class ChapterDigestStore: ObservableObject {
         let live = Set(book.chapters.map(\.id))
         let orphans = digests.keys.filter { !live.contains($0) }
         guard !orphans.isEmpty else { return }
+        try? BackupStore.snapshot(fileURL, kind: .digests, reason: "before prune")
         orphans.forEach { digests.removeValue(forKey: $0) }
         persist()
     }

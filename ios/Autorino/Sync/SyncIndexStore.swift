@@ -19,7 +19,7 @@ final class SyncIndexStore: ObservableObject {
 
     private let fileManager = FileManager.default
     /// Distinguishes this index's file from another `SyncIndexStore`
-    /// instance's — `ChatHistorySyncEngine` keeps its own bookkeeping
+    /// instance's — `SidecarSyncEngine` keeps its own bookkeeping
     /// separate from `DropboxSyncEngine`'s, since a chat-history filename
     /// and a book filename are both derived from the same title and would
     /// otherwise collide as the same key pointing at two different remote
@@ -84,22 +84,21 @@ final class SyncIndexStore: ObservableObject {
         persist()
     }
 
+    func set(_ entry: SyncEntry, for filename: String) {
+        entries[filename] = entry
+        persist()
+    }
+
     func removeEntry(filename: String) {
         entries.removeValue(forKey: filename)
         persist()
     }
 
-    func isDirty(filename: String) -> Bool {
-        entries[filename]?.dirty ?? true // unknown file counts as needing upload
-    }
-
-    func dirtyFilenames() -> [String] {
-        entries.filter { $0.value.dirty }.map { $0.key }
-    }
-
     /// Wipes the cursor and all per-file bookkeeping so the next sync does a
     /// full fresh `list_folder` and re-evaluates every remote file from
-    /// scratch. Doesn't touch local books or the Dropbox connection — only
+    /// scratch. Safe with respect to data: sync judges changes by content
+    /// hash, so a file that differs from Dropbox becomes a kept-both
+    /// conflict, never an overwrite. Doesn't touch local books or the Dropbox connection — only
     /// this app's memory of what it already synced. Needed as a manual
     /// escape hatch because a cursor can end up pointing past files that
     /// were never actually downloaded (e.g. after a transient failure mid

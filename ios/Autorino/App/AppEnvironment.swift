@@ -11,7 +11,10 @@ final class AppEnvironment: ObservableObject {
     let dropboxAuth: DropboxAuthService
     let syncStatus: SyncStatus
     let syncEngine: DropboxSyncEngine
-    let chatSyncEngine: ChatHistorySyncEngine
+    let chatSyncEngine: SidecarSyncEngine
+    /// Chapter digests (`Documents/Digests`) ⟷ `/Digests`, so summaries
+    /// generated here also reach the web app and other devices.
+    let digestSyncEngine: SidecarSyncEngine
     let llmService: LLMService = GeminiLLMService()
     /// Owned here rather than by a view so a digest run survives navigation:
     /// a `Task` tied to a view's lifecycle dies the moment that view goes
@@ -27,18 +30,20 @@ final class AppEnvironment: ObservableObject {
         self.dropboxAuth = auth
         self.syncStatus = status
         self.syncEngine = DropboxSyncEngine(auth: auth, bookStore: store, status: status)
-        self.chatSyncEngine = ChatHistorySyncEngine(auth: auth)
+        self.chatSyncEngine = SidecarSyncEngine.chatHistory(auth: auth)
+        self.digestSyncEngine = SidecarSyncEngine.digests(auth: auth)
         self.digestService = DigestService(llm: llmService)
     }
 
     func bootstrap() async {
         guard dropboxAuth.isConnected else { return }
-        await syncEngine.sync()
-        await chatSyncEngine.sync()
+        await syncNow()
     }
 
     func syncNow() async {
         await syncEngine.sync()
         await chatSyncEngine.sync()
+        await digestSyncEngine.sync()
+        digestService.reloadStores()
     }
 }

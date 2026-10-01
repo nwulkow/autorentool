@@ -9,3 +9,7 @@ autorino_logos.png
 .dropbox_sync_index.json
 .dropbox_chat_sync_index.json
 chat_history/
+backups/
+digests/
+*.tmp
+.dropbox_digest_sync_index.json

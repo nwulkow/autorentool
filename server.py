@@ -35,6 +35,9 @@ if os.path.exists(_env_path):
 
 BOOKS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "books")
 CHAT_HISTORY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history")
+DIGESTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "digests")
+
+import backups  # noqa: E402 — the never-lose-data safety net, see backups.py
 
 
 def _safe_filename(title):
@@ -61,6 +64,10 @@ def _read_chat_history(book_title):
 def _write_chat_history(book_title, history):
     os.makedirs(CHAT_HISTORY_DIR, exist_ok=True)
     dest = _chat_history_path(book_title)
+    # Clearing or replacing a transcript drops turns: keep a copy first.
+    old, ok = backups.load_json(dest)
+    if not ok or (isinstance(old, list) and len(history) < len(old)):
+        backups.snapshot(dest, "chat_history", "before replace")
     # Write-to-temp-then-replace so a concurrent reader (a chat POST landing
     # while dropbox_sync's background pull is writing this same path, see
     # dropbox_sync._pull_remote_changes) always sees either the old or the
@@ -141,6 +148,10 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._llm_chat_history(parse_qs(parsed.query))
         elif path == "/api/dropbox/status":
             self._dropbox_status()
+        elif path == "/api/digests":
+            self._digests(parse_qs(parsed.query))
+        elif path == "/api/backups":
+            self._json_response(200, {"books": backups.list_book_backups()})
         else:
             super().do_GET()
 
@@ -178,6 +189,8 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._dropbox_disconnect()
         elif path == "/api/dropbox/sync":
             self._dropbox_sync()
+        elif path == "/api/backups/restore":
+            self._restore_backup()
         else:
             self.send_error(404)
 
@@ -200,8 +213,13 @@ class BookHandler(SimpleHTTPRequestHandler):
             try:
                 with open(fp, "r", encoding="utf-8") as fh:
                     books.append(json.load(fh))
-            except (json.JSONDecodeError, IOError):
-                pass
+            except (json.JSONDecodeError, UnicodeDecodeError, IOError):
+                # Not listed, but never lost: keep a copy where the restore
+                # UI can find it, in case anything later writes this path.
+                try:
+                    backups.snapshot(fp, "books", "unreadable")
+                except OSError:
+                    pass
         body = json.dumps(books).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -221,8 +239,28 @@ class BookHandler(SimpleHTTPRequestHandler):
         title = data.get("title", "untitled")
         safe = _safe_filename(title)
         dest = os.path.join(BOOKS_DIR, f"{safe}.json")
-        with open(dest, "w", encoding="utf-8") as fh:
+        # Snapshot the version about to be replaced. Always when the new one
+        # lost content (an accidental chapter delete looks exactly like this)
+        # or the old file doesn't parse; otherwise at most every 15 minutes.
+        old, readable = backups.load_json(dest)
+        try:
+            if not readable:
+                backups.snapshot(dest, "books", "unreadable")
+            elif old is not None and backups.book_shrank(old, data):
+                backups.snapshot(dest, "books", "before content removed")
+            else:
+                backups.snapshot(dest, "books", "autosave", routine=True)
+        except OSError as e:
+            if not readable or (old is not None and backups.book_shrank(old, data)):
+                self._json_response(500, {"error": f"Could not back up the previous version, not saving: {e}"})
+                return
+            print(f"[backups] routine snapshot failed: {e}")
+        # Temp-then-replace: a crash mid-write leaves the old file intact
+        # instead of a truncated one.
+        tmp = dest + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=4, ensure_ascii=False)
+        os.replace(tmp, dest)
         if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
             dropbox_sync.mark_dirty(f"{safe}.json")
         body = json.dumps({"status": "ok", "path": dest}).encode("utf-8")
@@ -243,8 +281,16 @@ class BookHandler(SimpleHTTPRequestHandler):
         title = data.get("title", "")
         safe = _safe_filename(title)
         dest = os.path.join(BOOKS_DIR, f"{safe}.json")
+        try:
+            backups.snapshot(dest, "books", "deleted")
+            backups.snapshot(_chat_history_path(title), "chat_history", "deleted")
+        except OSError as e:
+            self._json_response(500, {"error": f"Could not back up the book, not deleting: {e}"})
+            return
         if os.path.exists(dest):
             os.remove(dest)
+            if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
+                dropbox_sync.mark_deleted(f"{safe}.json")
         # Also remove any chat transcript still sitting under this title.
         # On a rename (save-under-new-title, then delete-old-title via this
         # route) app.js already moved the chat file via /api/llm/chat/rename
@@ -254,10 +300,12 @@ class BookHandler(SimpleHTTPRequestHandler):
         # orphaned in chat_history/ and in Dropbox forever. Deletion of the
         # book file itself is picked up on the next sync pass by
         # _push_local_changes() diffing local files against tracked entries
-        # — no explicit dropbox_sync call needed for that half.
+        # — mark_deleted above moves it to /Trash on Dropbox on the next sync.
         chat_path = _chat_history_path(title)
         if os.path.exists(chat_path):
             os.remove(chat_path)
+            if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
+                dropbox_sync.mark_chat_deleted(os.path.basename(chat_path))
         body = json.dumps({"status": "ok"}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -358,9 +406,21 @@ class BookHandler(SimpleHTTPRequestHandler):
         new_path = _chat_history_path(data.get("new_title", ""))
         if os.path.exists(old_path) and old_path != new_path:
             os.makedirs(CHAT_HISTORY_DIR, exist_ok=True)
+            backups.snapshot(new_path, "chat_history", "before rename")
             os.replace(old_path, new_path)
             if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
                 dropbox_sync.mark_chat_dirty(os.path.basename(new_path))
+        # The book's chapter digests follow it the same way. Copy, not move:
+        # the old sidecar stays (digests never propagate deletion) and the
+        # new one is picked up by the next sync as a new file.
+        old_digest = os.path.join(DIGESTS_DIR, f"{_safe_filename(data.get('old_title', ''))}.json")
+        new_digest = os.path.join(DIGESTS_DIR, f"{_safe_filename(data.get('new_title', ''))}.json")
+        if os.path.exists(old_digest) and old_digest != new_digest and not os.path.exists(new_digest):
+            with open(old_digest, "rb") as src:
+                payload = src.read()
+            with open(new_digest + ".tmp", "wb") as dst:
+                dst.write(payload)
+            os.replace(new_digest + ".tmp", new_digest)
         self._json_response(200, {"status": "ok"})
 
     def _llm_chat(self):
@@ -425,6 +485,43 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._json_response(200, {"result": answer, "history": history, "model_used": model_used})
         except Exception as e:
             self._json_response(500, {"error": str(e)})
+
+    def _digests(self, query):
+        """Chapter digests for one book ({chapterId: digest}), generated on
+        iOS and synced through /Digests. Read-only here."""
+        title = (query.get("book") or [""])[0]
+        path = os.path.join(DIGESTS_DIR, f"{_safe_filename(title)}.json")
+        data, ok = backups.load_json(path)
+        self._json_response(200, {"digests": data if ok and isinstance(data, dict) else {}})
+
+    def _restore_backup(self):
+        """Restores one book snapshot as a *new* book titled
+        "<title> (restored <stamp>)", so restoring can never overwrite
+        anything either. Body: {base, name}."""
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(length) or b"{}")
+            raw = backups.read_book_snapshot(data.get("base", ""), data.get("name", ""))
+        except (ValueError, OSError) as e:
+            self._json_response(400, {"error": str(e)})
+            return
+        try:
+            book = json.loads(raw)
+        except ValueError:
+            book = None
+        if not isinstance(book, dict):
+            self._json_response(400, {"error": "This snapshot is not a readable book. The file is in backups/books/ for manual repair."})
+            return
+        stamp = data.get("name", "")[:19].replace(".", "-")
+        book["title"] = f"{book.get('title') or data.get('base')} (restored {stamp})"
+        dest = os.path.join(BOOKS_DIR, f"{_safe_filename(book['title'])}.json")
+        if os.path.exists(dest):
+            self._json_response(409, {"error": "Already restored."})
+            return
+        with open(dest + ".tmp", "w", encoding="utf-8") as fh:
+            json.dump(book, fh, indent=4, ensure_ascii=False)
+        os.replace(dest + ".tmp", dest)
+        self._json_response(200, {"status": "ok", "title": book["title"]})
 
     def _dropbox_status(self):
         configured = _DROPBOX_AVAILABLE and dropbox_sync.is_configured()

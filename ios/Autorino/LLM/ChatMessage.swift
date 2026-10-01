@@ -5,7 +5,7 @@ import Foundation
 ///
 /// Coding is written out by hand rather than synthesized because a
 /// `ChatMessage` is now persisted through *two* different encoders: the chat
-/// transcript files (`ChatHistoryStore`/`ChatHistorySyncEngine`) and, since
+/// transcript files (`ChatHistoryStore`/`SidecarSyncEngine`) and, since
 /// saved chats, inside a book document via `BookStore`'s plain `JSONEncoder`.
 /// `date` therefore encodes as an explicit ISO-8601 **string** here instead of
 /// relying on the encoder's `dateEncodingStrategy` — that's the format
@@ -97,7 +97,7 @@ enum ISODate {
 
 extension ChatMessage {
     /// Shared coder pair for every place that reads/writes a chat transcript
-    /// file (`ChatHistoryStore` and `ChatHistorySyncEngine`). Plain coders:
+    /// file (`ChatHistoryStore` and `SidecarSyncEngine`). Plain coders:
     /// `date` is handled by `ChatMessage`'s own `encode(to:)`/`init(from:)`
     /// (see the type doc), so no `dateEncodingStrategy` is needed — and
     /// crucially, none is *required*, which is what lets a `ChatMessage` also
@@ -180,7 +180,7 @@ struct SavedChat: Codable, Identifiable, Hashable {
 ///
 /// Lives under `Documents/ChatHistory/`, a sibling of `BookStore`'s
 /// `Documents/Books/` — not `Application Support` — specifically so
-/// `ChatHistorySyncEngine` can push/pull it through the same Dropbox App
+/// `SidecarSyncEngine` can push/pull it through the same Dropbox App
 /// folder as books, just under its own subpath. Local-only storage
 /// (the previous behavior) didn't survive a reinstall or show up on a
 /// second device; Dropbox is this app's existing answer to both.
@@ -218,7 +218,7 @@ final class ChatHistoryStore: ObservableObject {
         messages = decoded
     }
 
-    /// Re-reads from disk — called after `ChatHistorySyncEngine` pulls a
+    /// Re-reads from disk — called after `SidecarSyncEngine` pulls a
     /// remote copy down, the same way `BookStore.reload()` picks up a
     /// synced book.
     func reload() { load() }
@@ -232,11 +232,13 @@ final class ChatHistoryStore: ObservableObject {
     /// conversation: the loaded turns become the live history, so the next
     /// prompt continues from them.
     func replace(with messages: [ChatMessage]) {
+        snapshotBeforeDroppingTurns()
         self.messages = messages
         persist()
     }
 
     func clear() {
+        snapshotBeforeDroppingTurns()
         messages = []
         persist()
     }
@@ -249,6 +251,12 @@ final class ChatHistoryStore: ObservableObject {
         guard let idx = messages.firstIndex(where: { $0.id == id }) else { return }
         messages.remove(at: idx)
         persist()
+    }
+
+    /// Clearing or replacing a transcript drops turns: keep a copy first
+    /// (CLAUDE.md, "Never lose a book").
+    private func snapshotBeforeDroppingTurns() {
+        try? BackupStore.snapshot(fileURL, kind: .chatHistory, reason: "before replace")
     }
 
     private func persist() {

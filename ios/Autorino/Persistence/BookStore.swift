@@ -36,7 +36,13 @@ final class BookStore: ObservableObject {
         var seen = Set<String>()
         for url in urls where url.pathExtension == "json" {
             guard let data = try? Data(contentsOf: url),
-                  let book = try? decoder.decode(Book.self, from: data) else { continue }
+                  let book = try? decoder.decode(Book.self, from: data) else {
+                // Not listed, but never lost: sync treats it as changed-here
+                // (content hash), and a copy goes where Settings → Backups
+                // can restore it.
+                try? BackupStore.snapshot(url, kind: .books, reason: "unreadable")
+                continue
+            }
             // A book whose title no longer sanitizes to the file it was read
             // from (hand-renamed file, or a title edited on the other app)
             // would otherwise collide with the book that legitimately owns
@@ -53,6 +59,29 @@ final class BookStore: ObservableObject {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(book) else { return false }
+        // Snapshot the version about to be replaced: always when the new one
+        // lost content (an accidental chapter delete looks exactly like this)
+        // or the old file doesn't decode; otherwise at most every 15 minutes.
+        if FileManager.default.fileExists(atPath: url.path) {
+            let previous = books.first(where: { $0.filename == book.filename }) ?? load(filename: book.filename)
+            if let previous {
+                if BackupStore.bookShrank(from: previous, to: book) {
+                    do {
+                        try BackupStore.snapshot(url, kind: .books, reason: "before content removed")
+                    } catch {
+                        return false // no safety copy, no destructive save
+                    }
+                } else {
+                    try? BackupStore.snapshot(url, kind: .books, reason: "autosave", routine: true)
+                }
+            } else {
+                do {
+                    try BackupStore.snapshot(url, kind: .books, reason: "unreadable")
+                } catch {
+                    return false
+                }
+            }
+        }
         do {
             try data.write(to: url, options: .atomic)
         } catch {
@@ -76,22 +105,47 @@ final class BookStore: ObservableObject {
         return book
     }
 
+    /// Saves under the new title first and only then retires the old file,
+    /// so a failure in between leaves two copies rather than none. The old
+    /// file is snapshotted and, on Dropbox, moved to /Trash (not deleted).
+    /// The book's chat transcript and digests are copied to the new name.
     func rename(_ book: Book, to newTitle: String) -> Book {
         let oldFilename = book.filename
         var renamed = book
         renamed.title = newTitle
+        guard oldFilename != renamed.filename else {
+            save(renamed)
+            return renamed
+        }
+        let newURL = booksDirectory.appendingPathComponent(renamed.filename)
+        // Renaming onto another existing book would overwrite it.
+        guard !fileManager.fileExists(atPath: newURL.path) else { return book }
+        guard save(renamed) else { return book }
         let oldURL = booksDirectory.appendingPathComponent(oldFilename)
-        if oldFilename != renamed.filename {
+        if (try? BackupStore.snapshot(oldURL, kind: .books, reason: "renamed")) != nil {
             try? fileManager.removeItem(at: oldURL)
             syncIndex.markDeleted(filename: oldFilename)
-            books.removeAll { $0.filename == oldFilename }
         }
-        save(renamed)
+        books.removeAll { $0.filename == oldFilename }
+        for dir in [ChatHistoryStore.directory, ChapterDigestStore.directory] {
+            let from = dir.appendingPathComponent(oldFilename)
+            let to = dir.appendingPathComponent(renamed.filename)
+            if fileManager.fileExists(atPath: from.path), !fileManager.fileExists(atPath: to.path) {
+                try? fileManager.copyItem(at: from, to: to)
+            }
+        }
         return renamed
     }
 
+    /// Snapshots the book first and refuses to delete if that fails. On
+    /// Dropbox the file is moved to /Trash by the next sync, never deleted.
     func delete(_ book: Book) {
         let url = booksDirectory.appendingPathComponent(book.filename)
+        do {
+            try BackupStore.snapshot(url, kind: .books, reason: "deleted")
+        } catch {
+            return
+        }
         try? fileManager.removeItem(at: url)
         books.removeAll { $0.filename == book.filename }
         syncIndex.markDeleted(filename: book.filename)

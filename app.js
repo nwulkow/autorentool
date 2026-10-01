@@ -377,8 +377,23 @@ const I18N={de:{
   'Generate one in the Dropbox App Console → your app → Settings → App key. Needed once; a refresh token is stored after that, so you never have to paste a token again.':
     'Erstelle einen in der Dropbox-App-Konsole → deine App → Settings → App key. Nur einmal nötig; danach wird ein Refresh-Token gespeichert, sodass du nie wieder ein Token einfügen musst.',
   'Get authorization link':'Autorisierungslink anfordern',
-  'A Dropbox authorization page opened in a new tab. Approve access, then Dropbox will show you a code (or redirect to a URL containing one) — paste it below.':
-    'Eine Dropbox-Autorisierungsseite wurde in einem neuen Tab geöffnet. Bestätige den Zugriff — Dropbox zeigt dir dann einen Code (oder leitet zu einer URL mit einem Code weiter) — füge ihn unten ein.',
+  'A Dropbox authorization page opened in a new tab. Click Allow — Dropbox then shows an access code. Copy it and paste it below.':
+    'Eine Dropbox-Autorisierungsseite wurde in einem neuen Tab geöffnet. Klicke auf „Zulassen“ — Dropbox zeigt dann einen Zugriffscode. Kopiere ihn und füge ihn unten ein.',
+  'Use the App Key of the same Dropbox app your iPhone uses, so both share one App folder.':
+    'Verwende den App-Schlüssel derselben Dropbox-App, die dein iPhone nutzt, damit beide denselben App-Ordner teilen.',
+  'Summary':'Zusammenfassung','Point of view':'Erzählperspektive','Place':'Ort','Time':'Zeit','Present':'Anwesend',
+  'Who learns what':'Wer erfährt was','Established':'Etabliert','Devices':'Mittel','Open threads':'Offene Fäden',
+  'Confirmed':'Bestätigt','Suspected':'Vermutet','generated':'erstellt','edited':'bearbeitet',
+  'Summaries are generated in the iPhone app and arrive here through Dropbox sync.':
+    'Zusammenfassungen werden in der iPhone-App erstellt und kommen per Dropbox-Synchronisierung hierher.',
+  'Has a summary':'Hat eine Zusammenfassung',
+  'Backups':'Sicherungen','Restore as copy':'Als Kopie wiederherstellen','No backups yet.':'Noch keine Sicherungen.',
+  'Every version that a save, sync, rename or delete would replace is kept here. Restoring creates a new book and never overwrites anything.':
+    'Jede Version, die durch Speichern, Synchronisieren, Umbenennen oder Löschen ersetzt würde, wird hier aufbewahrt. Wiederherstellen erzeugt ein neues Buch und überschreibt nie etwas.',
+  'Restored as':'Wiederhergestellt als','Restore failed':'Wiederherstellung fehlgeschlagen',
+  'deleted':'gelöscht','autosave':'automatisch','before content removed':'vor Entfernen von Inhalt',
+  'before sync':'vor Synchronisierung','deleted on other device':'auf anderem Gerät gelöscht','unreadable':'unlesbar',
+  'before merge':'vor Zusammenführung','before rename':'vor Umbenennung',
   'Reopen the authorization page':'Autorisierungsseite erneut öffnen',
   'Authorization code':'Autorisierungscode',
   'Paste code or redirected URL here':'Code oder weitergeleitete URL hier einfügen',
@@ -391,8 +406,8 @@ const I18N={de:{
   'Connection failed. Check the code and try again.':'Verbindung fehlgeschlagen. Code prüfen und erneut versuchen.',
   'Dropbox connected ✓':'Dropbox verbunden ✓','Dropbox disconnected':'Dropbox getrennt',
   'Sync complete ✓':'Synchronisierung abgeschlossen ✓','Sync failed!':'Synchronisierung fehlgeschlagen!',
-  'Some books had conflicting edits on both sides. The Dropbox version was kept as a separate file — check your book list.':
-    'Einige Bücher wurden auf beiden Seiten bearbeitet. Die Dropbox-Version wurde als separate Datei behalten — prüfe deine Bücherliste.',
+  'Some books had conflicting edits on both sides. Both versions were kept as separate books (“… conflict <date>”) — check your book list.':
+    'Einige Bücher wurden auf beiden Seiten bearbeitet. Beide Versionen wurden als separate Bücher behalten („… conflict <Datum>“) — prüfe deine Bücherliste.',
   "Dropbox sync isn't available on this server (missing dependency).":
     'Dropbox-Synchronisierung ist auf diesem Server nicht verfügbar (fehlende Abhängigkeit).',
   'Book renamed, but chat history could not be moved — old copy kept as a separate book.':
@@ -500,6 +515,10 @@ createApp({
     dropboxLastSyncedAt:null, dropboxError:'', dropboxConflicts:[],
     showDropboxModal:false, dropboxAppKeyInput:'', dropboxAuthUrl:'',
     dropboxCodeInput:'', dropboxConnecting:false,
+    // Chapter digests (generated on iOS, synced via /Digests) — read-only here
+    chapterDigests:{}, showDigest:true,
+    // Backups (backups.py): snapshots taken before anything is overwritten/removed
+    showBackupsModal:false, backupList:[], backupsLoading:false,
     // constants exposed to template
     ALL_ICONS,
   }},
@@ -507,7 +526,7 @@ createApp({
     syncButtonTitle(){
       if(this.dropboxSyncing) return this.t('Syncing…');
       if(this.dropboxError) return this.dropboxError;
-      if(this.dropboxConflicts.length) return this.t('Some books had conflicting edits on both sides. The Dropbox version was kept as a separate file — check your book list.');
+      if(this.dropboxConflicts.length) return this.t('Some books had conflicting edits on both sides. Both versions were kept as separate books (“… conflict <date>”) — check your book list.');
       if(this.dropboxLastSyncedAt) return this.t('Last synced:')+' '+this.dropboxLastSyncedAt.toLocaleString();
       return this.t('Sync now');
     },
@@ -1142,6 +1161,35 @@ createApp({
         this.dropboxConnected=!!d.connected;
       }catch(e){console.error(e);}
     },
+    /* ── Chapter digests ──────────────── */
+    async loadDigests(){
+      if(!this.book){this.chapterDigests={};return;}
+      try{
+        const r=await fetch('/api/digests?book='+encodeURIComponent(this.book.title));
+        const d=await r.json();
+        this.chapterDigests=d.digests||{};
+      }catch(e){console.error(e);this.chapterDigests={};}
+    },
+    currentDigest(){
+      return this.currentChapterId?(this.chapterDigests[this.currentChapterId]||null):null;
+    },
+    /* ── Backups ──────────────────────── */
+    async openBackups(){
+      this.showBackupsModal=true;this.backupsLoading=true;
+      try{
+        const r=await fetch('/api/backups');
+        this.backupList=(await r.json()).books||[];
+      }catch(e){console.error(e);this.backupList=[];}
+      finally{this.backupsLoading=false;}
+    },
+    async restoreBackup(base,name){
+      try{
+        const r=await fetch('/api/backups/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base,name})});
+        const d=await r.json();
+        if(r.ok){this.showToast(this.t('Restored as')+' „'+d.title+'“');await this.fetchBooks();}
+        else this.showToast(this.t('Restore failed')+': '+(d.error||r.status));
+      }catch(e){console.error(e);this.showToast(this.t('Restore failed'));}
+    },
     openDropboxModal(){
       this.dropboxAppKeyInput='';
       this.dropboxAuthUrl='';
@@ -1220,8 +1268,9 @@ createApp({
           this.dropboxLastSyncedAt=new Date();
           this.dropboxConflicts=d.conflicts||[];
           await this.fetchBooks();
+          await this.loadDigests();
           if(this.dropboxConflicts.length){
-            this.showToast(this.t('Some books had conflicting edits on both sides. The Dropbox version was kept as a separate file — check your book list.'));
+            this.showToast(this.t('Some books had conflicting edits on both sides. Both versions were kept as separate books (“… conflict <date>”) — check your book list.'));
           } else {
             this.showToast(this.t('Sync complete ✓'));
           }
@@ -1304,6 +1353,7 @@ createApp({
       this.currentOrderId=null;this.currentLocId=null;this.currentTopicId=null;
       this.activeTab='Characters';this.dirty=false;
       this.llmChatHistory=[];this.loadChatHistory();
+      this.loadDigests();
     },
     doBackToBooks(){
       this.book=null;this.canvasNodes=[];this.eventOrders=[];
@@ -3090,7 +3140,7 @@ createApp({
             <div class="te-ch-info">
               <div class="te-ch-label">{{ch.label}}</div>
               <div v-if="ch.name" class="te-ch-name">{{ch.name}}</div>
-              <div class="te-ch-words">{{chapterWordCount(ch)}} {{t('words')}}</div>
+              <div class="te-ch-words">{{chapterWordCount(ch)}} {{t('words')}}<span v-if="chapterDigests[ch.id]" :title="t('Has a summary')"> · 📝</span></div>
             </div>
             <div class="te-ch-actions">
               <button class="icon-btn sm" @click.stop="exportChapterDocx(ch,idx)" title="Export DOCX">📥</button>
@@ -3168,6 +3218,30 @@ createApp({
                   </div>
                 </div>
                 <!-- Comments panel -->
+                <div v-if="currentDigest()" class="te-comments te-digest">
+                  <h5 @click="showDigest=!showDigest" style="cursor:pointer">{{showDigest?'▾':'▸'}} 📝 {{t('Summary')}}
+                    <span class="te-digest-meta">· {{currentDigest().editedAt?t('edited'):t('generated')}} {{new Date(currentDigest().editedAt||currentDigest().generatedAt).toLocaleDateString()}}</span></h5>
+                  <template v-if="showDigest">
+                    <p v-if="currentDigest().summary" class="te-digest-summary">{{currentDigest().summary}}</p>
+                    <dl class="te-digest-facts">
+                      <template v-if="currentDigest().pov"><dt>{{t('Point of view')}}</dt><dd>{{currentDigest().pov}}</dd></template>
+                      <template v-if="currentDigest().place"><dt>{{t('Place')}}</dt><dd>{{currentDigest().place}}</dd></template>
+                      <template v-if="currentDigest().time"><dt>{{t('Time')}}</dt><dd>{{currentDigest().time}}</dd></template>
+                      <template v-if="(currentDigest().present||[]).length"><dt>{{t('Present')}}</dt><dd>{{currentDigest().present.join(', ')}}</dd></template>
+                    </dl>
+                    <template v-if="(currentDigest().learns||[]).length">
+                      <h6>{{t('Who learns what')}}</h6>
+                      <ul><li v-for="(l,i) in currentDigest().learns" :key="i"><b>{{l.who}}</b>: {{l.what}} <i>({{l.how}}; {{l.certainty==='confirmed'?t('Confirmed'):t('Suspected')}})</i></li></ul>
+                    </template>
+                    <template v-for="sec in [['established','Established'],['devices','Devices'],['open','Open threads']]" :key="sec[0]">
+                      <template v-if="(currentDigest()[sec[0]]||[]).length">
+                        <h6>{{t(sec[1])}}</h6>
+                        <ul><li v-for="(x,i) in currentDigest()[sec[0]]" :key="i">{{x}}</li></ul>
+                      </template>
+                    </template>
+                    <p class="dropbox-hint">{{t('Summaries are generated in the iPhone app and arrive here through Dropbox sync.')}}</p>
+                  </template>
+                </div>
                 <div v-if="currentChapter().comments&&currentChapter().comments.length" class="te-comments">
                   <h5>💬 {{t('Comments')}} ({{currentChapter().comments.length}})</h5>
                   <div v-for="cmt in currentChapter().comments" :key="cmt.id" class="te-comment" :class="{'te-cmt-active':highlightedCommentId===cmt.id}" @click="goToComment(cmt)" style="cursor:pointer">
@@ -3304,6 +3378,7 @@ createApp({
 <!-- MODALS -->
 <div v-if="showDropboxModal" class="modal-overlay" @click.self="closeDropboxModal">
   <div class="modal-card">
+    <div class="modal-actions" style="justify-content:flex-end;margin:0 0 4px"><button @click="openBackups">🗂 {{t('Backups')}}</button></div>
     <h4>{{t('Dropbox Sync')}}</h4>
     <p>{{t('Connect this Mac to the same Dropbox App folder your iPhone app uses, so books and LLM chat history stay in sync on both.')}}</p>
 
@@ -3314,6 +3389,7 @@ createApp({
         <label>{{t('Dropbox App Key')}}</label>
         <input v-model="dropboxAppKeyInput" type="text" :placeholder="t('Dropbox App Key')" @keyup.enter="requestDropboxAuthUrl"/>
         <p class="dropbox-hint">{{t('Generate one in the Dropbox App Console → your app → Settings → App key. Needed once; a refresh token is stored after that, so you never have to paste a token again.')}}</p>
+        <p class="dropbox-hint">{{t('Use the App Key of the same Dropbox app your iPhone uses, so both share one App folder.')}}</p>
         <div v-if="dropboxError" class="dropbox-error">{{dropboxError}}</div>
         <div class="modal-actions">
           <button class="primary" :disabled="dropboxConnecting||!dropboxAppKeyInput.trim()" @click="requestDropboxAuthUrl">{{dropboxConnecting?t('Connecting…'):t('Get authorization link')}}</button>
@@ -3322,10 +3398,10 @@ createApp({
       </div>
 
       <div v-else-if="!dropboxConnected" class="field">
-        <p class="dropbox-hint">{{t('A Dropbox authorization page opened in a new tab. Approve access, then Dropbox will show you a code (or redirect to a URL containing one) — paste it below.')}}</p>
+        <p class="dropbox-hint">{{t('A Dropbox authorization page opened in a new tab. Click Allow — Dropbox then shows an access code. Copy it and paste it below.')}}</p>
         <p class="dropbox-hint"><a :href="dropboxAuthUrl" target="_blank" rel="noopener">{{t('Reopen the authorization page')}}</a></p>
         <label>{{t('Authorization code')}}</label>
-        <input v-model="dropboxCodeInput" type="text" :placeholder="t('Paste code or redirected URL here')" @keyup.enter="connectDropbox"/>
+        <input v-model="dropboxCodeInput" type="text" :placeholder="t('Authorization code')" @keyup.enter="connectDropbox"/>
         <div v-if="dropboxError" class="dropbox-error">{{dropboxError}}</div>
         <div class="modal-actions">
           <button class="primary" :disabled="dropboxSyncing||!dropboxCodeInput.trim()" @click="connectDropbox">{{dropboxSyncing?t('Connecting…'):t('Connect')}}</button>
@@ -3344,6 +3420,25 @@ createApp({
         </div>
       </div>
     </template>
+  </div>
+</div>
+
+<div v-if="showBackupsModal" class="modal-overlay" @click.self="showBackupsModal=false">
+  <div class="modal-card backups-card">
+    <h4>🗂 {{t('Backups')}}</h4>
+    <p class="dropbox-hint">{{t('Every version that a save, sync, rename or delete would replace is kept here. Restoring creates a new book and never overwrites anything.')}}</p>
+    <p v-if="backupsLoading">{{t('Loading…')}}</p>
+    <p v-else-if="!backupList.length" class="dropbox-hint">{{t('No backups yet.')}}</p>
+    <div v-else class="backups-list">
+      <details v-for="b in backupList" :key="b.base">
+        <summary>{{b.base}} <span class="dropbox-hint">({{b.snapshots.length}})</span></summary>
+        <div v-for="sn in b.snapshots" :key="sn.name" class="backup-row">
+          <span>{{sn.stamp}} · {{t(sn.reason)}} · {{Math.round(sn.size/1024)}} KB</span>
+          <button class="te-btn-sm" @click="restoreBackup(b.base,sn.name)">{{t('Restore as copy')}}</button>
+        </div>
+      </details>
+    </div>
+    <div class="modal-actions"><button @click="showBackupsModal=false">{{t('Close')}}</button></div>
   </div>
 </div>
 

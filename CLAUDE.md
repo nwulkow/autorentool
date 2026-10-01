@@ -17,6 +17,49 @@ Both read and write the *same* `books/<sanitized-title>.json` schema and sync th
 Dropbox App folder. That byte-compatibility is the central constraint of this repo: a schema change
 on one side that isn't mirrored on the other corrupts or silently drops data on the other.
 
+## NEVER LOSE A BOOK — hard rule, overrides everything else
+
+The user's manuscripts are irreplaceable. **No code path may destroy a book, chapter, chat
+transcript or chapter digest without a recoverable copy** — not sync, not a delete or rename in the
+UI, not an unreadable/undecodable file, not an accidental delete by the user. Every change touching
+files, sync, save, delete or rename must keep all of these true:
+
+1. **Snapshot before overwrite or remove.** Every write that replaces or removes a user file first
+   calls the backup store — `backups.snapshot(...)` (web, `backups.py`) /
+   `BackupStore.snapshot(...)` (iOS, `Persistence/BackupStore.swift`). Destructive operations abort
+   if the snapshot fails. Saves snapshot at most every 15 min, but *always* when the new version
+   lost content (`book_shrank` / `bookShrank`: fewer chapters/characters/…, or much shorter text) or
+   the old file doesn't parse. Retention never drops the newest snapshot of any day.
+2. **Never delete on Dropbox.** There is no delete call in either client. A book deleted in the app
+   is *moved* to `/Trash/` in the App folder (`files/move_v2`). Sidecars (chat, digests) never
+   propagate deletion at all.
+3. **Detect changes by content, never by flags alone.** Sync compares the local file's Dropbox
+   `content_hash` with the hash recorded at the last sync. Anything that differs is "changed here"
+   and can only become a kept-both conflict (books) or a merge (sidecars) — never an overwrite.
+   A tracked file that vanished locally *without* an explicit `mark_deleted`/`markDeleted` is
+   restored from Dropbox, not trashed remotely.
+4. **Conflicts keep both.** The remote side becomes a separate book titled
+   `<title> - Dropbox conflict <stamp>` (title rewritten so both apps list it). Exception, on a
+   device's first sync of a file (no index record): the *newer* side keeps the main name and the
+   other becomes `<title> - local conflict <stamp>`. A merge that can't parse a side keeps local
+   and stores the remote bytes in backups.
+5. **Unreadable ≠ empty.** A file that fails to parse/decode is never treated as empty, never
+   overwritten, and gets an `unreadable` snapshot. Never `try?`/`except: []` your way into writing
+   over it.
+6. **Restore never overwrites.** Restoring a snapshot creates a new book
+   (`<title> (restored <stamp>)`): web Settings → 🗂 Backups, iOS Settings → Backups.
+
+The sync rules are implemented twice and must stay identical: `dropbox_sync.py` and
+`ios/Autorino/Sync/FolderSyncEngine.swift`. Before changing either, read the other. There is no
+test target, so verify sync changes by driving the engine against a fake Dropbox (an in-memory
+`list_folder`/`download`/`upload`/`move` stub). Cover at least: fresh index with differing sides,
+remote delete of an unchanged vs edited file, app delete → Trash, file vanished locally,
+unreadable local file, and a lost dirty flag. Assert that every text that existed before still
+exists somewhere (local, backups, Dropbox, Dropbox Trash).
+
+Local backup stores (gitignored): web `backups/<kind>/<base>/<stamp> <reason>.json`; iOS
+`Documents/Backups/` (same layout).
+
 ## Running / building
 
 ### Web app (repo root)
@@ -59,7 +102,7 @@ To confirm a change actually works rather than inferring it from source, use the
 `books/<sanitized-title>.json` is the contract between the two apps. Sanitization: keep
 alphanumerics, space, `-`, `_`; replace everything else with `_`; strip surrounding whitespace.
 It is implemented three times and **must stay identical** — `server.py:_safe_filename`,
-`dropbox_sync.py`, and `Book.sanitizedFilename` in `ios/Autorino/Models/Book.swift`. A drift here
+`dropbox_sync.py:_safe_filename`, and `Book.sanitizedFilename` in `ios/Autorino/Models/Book.swift`. A drift here
 makes Dropbox sync fail to line up local and remote copies of the same book.
 
 Adding a field to a book entity means touching **all** of:
@@ -103,8 +146,15 @@ Three layers, no glue beyond `fetch` and JSON:
 - **`llm_utils.py`** — Gemini (`google-genai`, needs `GEMINI_API_KEY`) or a local Ollama server
   (auto-started by `start_ollama()`), chosen by whether `"gemini"` appears in the model name.
 - **`dropbox_sync.py`** — OAuth 2.0 + PKCE with a long-lived refresh token, two-way sync of
-  `books/` and `chat_history/` against the Dropbox App folder the iOS app uses. Credentials and
-  sync cursors live in dotfiles at the repo root (`.dropbox_*`), all gitignored.
+  `books/` (App folder root), `chat_history/` (`/ChatHistory`) and `digests/` (`/Digests`) against
+  the Dropbox App folder the iOS app uses. Auth uses the *no-redirect* code flow (no
+  `redirect_uri`; Dropbox shows the code, the user pastes it) — a `redirect_uri` would have to be
+  registered by hand in the App Console and broke the connect flow before. Credentials and sync
+  cursors live in dotfiles at the repo root (`.dropbox_*`), all gitignored.
+- **`backups.py`** — the snapshot store behind the "never lose a book" rule (see above).
+- **Chapter digests** (LLM chapter summaries) are *generated* only on iOS. The web app syncs
+  `digests/<sanitized-title>.json` and shows them read-only in the chapter editor
+  (`GET /api/digests?book=`).
 
 **Adding an API route:** add a branch in `do_GET`/`do_POST` matching on `urlparse(self.path).path`,
 respond via `_json_response(code, payload)` (sets Content-Type + CORS). LLM routes must degrade
@@ -129,8 +179,9 @@ setup in `ios/README-iOS.md`.
 AutorinoApp → AppEnvironment (composition root, @StateObject)
                 ├─ BookStore              Documents/Books/*.json
                 ├─ DropboxAuthService     OAuth PKCE, ASWebAuthenticationSession
-                ├─ DropboxSyncEngine      books ⟷ Dropbox App folder
-                ├─ ChatHistorySyncEngine  Documents/ChatHistory/*.json ⟷ /ChatHistory
+                ├─ DropboxSyncEngine      books ⟷ Dropbox App folder   (both wrap FolderSyncEngine)
+                ├─ SidecarSyncEngine ×2   Documents/ChatHistory ⟷ /ChatHistory,
+                │                         Documents/Digests ⟷ /Digests (merge policy)
                 ├─ SyncStatus / SyncIndexStore
                 └─ LLMService = GeminiLLMService   (URLSession → Gemini REST)
 Views/ → BookEditor (ObservableObject wrapping one Codable Book, 1.5s debounced save)
@@ -151,9 +202,10 @@ Views/ → BookEditor (ObservableObject wrapping one Codable Book, 1.5s debounce
   `classes.py`'s `to_llm_prompt`), `CSSColor` (parses *and re-emits* the CSS color strings in book
   JSON — writing `#rrggbb` back over an `rgba()` area fill would flatten a translucent lake to
   opaque in the web app).
-- **Conflict policy differs by file type on purpose**: a conflicting book is preserved alongside as
-  `<title> (Dropbox <timestamp>).json` (either side may hold irreplaceable prose); conflicting chat
-  transcripts are *unioned* by message id (nothing is lost either way).
+- **Conflict policy differs by file type on purpose**: a conflicting book is preserved as a separate
+  book `<title> - Dropbox conflict <stamp>` (either side may hold irreplaceable prose); conflicting
+  chat transcripts are *unioned* by message id, digests merged per chapter (newer
+  `editedAt ?? generatedAt` wins). Nothing is lost either way.
 
 ### Two iOS gotchas that already cost real time
 
