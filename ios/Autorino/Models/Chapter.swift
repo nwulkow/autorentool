@@ -3,19 +3,58 @@ import Foundation
 /// Mirrors `serializeBook`'s `chapters` shape (app.js:49-52). `content`
 /// stays HTML on disk (same as today's Quill output) so files remain
 /// readable by the Mac app — no new storage format is introduced.
+///
+/// `content`/`comments` are always the **main version** (V1); alternatives
+/// live in `versions` (see `ChapterVersion`). Both version keys are left out
+/// of the JSON when empty, matching `serializeChapter` in app.js, so a book
+/// without versions stays byte-identical across the two apps.
 struct Chapter: Codable, Identifiable, Hashable {
     var id: String
     var label: String
     var name: String
     var content: String
     var comments: [Comment]
+    /// Optional name of the main version — swaps with `ChapterVersion.name`.
+    var versionName: String
+    var versions: [ChapterVersion]
 
-    init(id: String = IDGenerator.uid(), label: String = "", name: String = "", content: String = "", comments: [Comment] = []) {
+    enum CodingKeys: String, CodingKey {
+        case id, label, name, content, comments, versions
+        case versionName = "version_name"
+    }
+
+    init(id: String = IDGenerator.uid(), label: String = "", name: String = "", content: String = "", comments: [Comment] = [], versionName: String = "", versions: [ChapterVersion] = []) {
         self.id = id
         self.label = label
         self.name = name
         self.content = content
         self.comments = comments
+        self.versionName = versionName
+        self.versions = versions
+    }
+
+    /// Lenient for the reason `Comment` is: a chapter that fails to decode
+    /// hides its whole book from the library.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? IDGenerator.uid()
+        label = try c.decodeIfPresent(String.self, forKey: .label) ?? ""
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        content = try c.decodeIfPresent(String.self, forKey: .content) ?? ""
+        comments = try c.decodeIfPresent([Comment].self, forKey: .comments) ?? []
+        versionName = try c.decodeIfPresent(String.self, forKey: .versionName) ?? ""
+        versions = try c.decodeIfPresent([ChapterVersion].self, forKey: .versions) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(label, forKey: .label)
+        try c.encode(name, forKey: .name)
+        try c.encode(content, forKey: .content)
+        try c.encode(comments, forKey: .comments)
+        if !versionName.isEmpty { try c.encode(versionName, forKey: .versionName) }
+        if !versions.isEmpty { try c.encode(versions, forKey: .versions) }
     }
 }
 

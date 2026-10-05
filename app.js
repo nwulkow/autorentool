@@ -114,14 +114,28 @@ function niceInterval(range){
 /* ═══════════════════════════════════════════════════════════════════
    Serialization
    ═══════════════════════════════════════════════════════════════════ */
+function serializeComments(comments){
+  return (comments||[]).map(cm=>({id:cm.id,text:cm.text,selection:cm.selection||'',rangeIndex:cm.rangeIndex,rangeLength:cm.rangeLength,date:cm.date}));
+}
+// Alternative chapter versions (docs/chapter-versions-plan.md). Both keys are
+// left out when empty so a book without versions stays byte-identical to what
+// the iOS app writes for it.
+function serializeChapter(c){
+  const out={id:c.id, label:c.label, name:c.name, content:c.content||'', comments:serializeComments(c.comments)};
+  if(c.version_name) out.version_name=c.version_name;
+  if(c.versions&&c.versions.length){
+    out.versions=c.versions.map(v=>({
+      id:v.id, number:v.number, name:v.name||'', content:v.content||'',
+      comments:serializeComments(v.comments), created_at:v.created_at||''
+    }));
+  }
+  return out;
+}
 function serializeBook(state){
   const b=state.book;
   return {
     title:b.title, author:b.author, tags:b.tags||[],
-    chapters:(b.chapters||[]).map(c=>({
-      id:c.id, label:c.label, name:c.name, content:c.content||'',
-      comments:(c.comments||[]).map(cm=>({id:cm.id,text:cm.text,selection:cm.selection||'',rangeIndex:cm.rangeIndex,rangeLength:cm.rangeLength,date:cm.date}))
-    })),
+    chapters:(b.chapters||[]).map(serializeChapter),
     passages:(b.passages||[]).map(p=>({id:p.id,name:p.name,chapter_id:p.chapterId,start_text:p.startText,end_text:p.endText})),
     characters:b.characters.map(c=>({id:c.id,name:c.name,description:c.description,tags:c.tags||[]})),
     character_relations:b.character_relations.map(r=>({
@@ -160,7 +174,11 @@ function serializeBook(state){
 
 function deserializeBook(data){
   const book={
-    title:data.title, author:data.author, chapters:data.chapters||[],
+    title:data.title, author:data.author,
+    chapters:(data.chapters||[]).map(c=>({
+      ...c, comments:c.comments||[], version_name:c.version_name||'',
+      versions:(c.versions||[]).map(v=>({...v,id:v.id||uid(),name:v.name||'',content:v.content||'',comments:v.comments||[]}))
+    })),
     tags:data.tags||[],
     characters:(data.characters||[]).map(c=>({id:c.id||uid(),name:c.name,description:c.description,tags:c.tags||[]})),
     character_relations:(data.character_relations||[]).map(r=>({
@@ -387,6 +405,14 @@ const I18N={de:{
   'Summaries are generated in the iPhone app and arrive here through Dropbox sync.':
     'Zusammenfassungen werden in der iPhone-App erstellt und kommen per Dropbox-Synchronisierung hierher.',
   'Has a summary':'Hat eine Zusammenfassung',
+  'main':'Hauptversion','New version':'Neue Version','Start from':'Ausgehend von','Empty page':'Leere Seite',
+  'Name (optional)':'Name (optional)','Rename':'Umbenennen','Editing':'Bearbeitet wird','not counted':'nicht gezählt',
+  'Make main version':'Zur Hauptversion machen','Compare with main':'Mit Hauptversion vergleichen',
+  '{n} versions':'{n} Versionen','Swapped V1 ⇄ V{n}':'V1 ⇄ V{n} getauscht','Version name:':'Name der Version:',
+  'Delete version {v}?':'Version {v} löschen?','Passages refer to the main version.':'Passagen beziehen sich auf die Hauptversion.',
+  'alternative version':'alternative Version',
+  'Compare version 1 and version {n} of this chapter: differences in plot, tone, pacing and characterization, and the strengths and weaknesses of each.':
+    'Vergleiche Version 1 und Version {n} dieses Kapitels: Unterschiede in Handlung, Ton, Tempo und Figurenzeichnung sowie die Stärken und Schwächen beider Versionen.',
   'Backups':'Sicherungen','Restore as copy':'Als Kopie wiederherstellen','No backups yet.':'Noch keine Sicherungen.',
   'Every version that a save, sync, rename or delete would replace is kept here. Restoring creates a new book and never overwrites anything.':
     'Jede Version, die durch Speichern, Synchronisieren, Umbenennen oder Löschen ersetzt würde, wird hier aufbewahrt. Wiederherstellen erzeugt ein neues Buch und überschreibt nie etwas.',
@@ -452,6 +478,8 @@ createApp({
     // text editor
     editorMode:'chapters', // 'chapters' or 'fulltext'
     currentChapterId:null,
+    currentVersionId:null, // alternative chapter version open in the editor; null = main (V1)
+    newVersionForm:{open:false,source:'main',name:''},
     newChapter:{open:false,name:'',label:''},
     chapterDragIdx:null,
     quillInstance:null,
@@ -779,17 +807,8 @@ createApp({
       if(this.eoLlmIncludeChapters&&this.eoLlmChapterSelected.length){
         const parts=[text,'','--- Chapters / Passages ---'];
         for(const item of this.eoLlmChapterSelected){
-          if((item.type||'chapter')==='passage'){
-            const p=(this.book.passages||[]).find(x=>x.id===item.id);
-            if(!p) continue;
-            const pText=this._passagePlainText(p).trim();
-            if(pText) parts.push(`--- ${this.passageDisplayName(p)} ---\n${pText}`);
-          } else {
-            const ch=(this.book.chapters||[]).find(c=>c.id===item.id);
-            if(!ch) continue;
-            const chText=this._chapterPlainText(ch).trim();
-            if(chText) parts.push(`--- ${this.eoLlmChapterDisplayName(ch.id)} ---\n${chText}`);
-          }
+          const block=this._scopeItemBlock(item,id=>this.eoLlmChapterDisplayName(id));
+          if(block) parts.push(block);
         }
         text=parts.join('\n\n');
       }
@@ -810,8 +829,14 @@ createApp({
       });
     },
     _chapterPlainText(ch){
-      if(this.quillInstance&&this._quillChapterId===ch.id) return this.quillInstance.getText();
-      return ch.content?ch.content.replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim():'';
+      return this._slotPlainText(ch,null);
+    },
+    // Plain text of the main version (versionId null) or an alternative.
+    _slotPlainText(ch,versionId){
+      if(this.quillInstance&&this._quillChapterId===ch.id&&(this._quillVersionId||null)===(versionId||null)) return this.quillInstance.getText();
+      const slot=this.chapterSlot(ch,versionId);
+      const html=slot&&slot.content;
+      return html?html.replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim():'';
     },
     llmChapterDisplayName(id){
       const chapters=this.book.chapters||[];
@@ -909,11 +934,11 @@ createApp({
       const sel=new Set(this.llmChapterSelected.map(o=>`${o.type||'chapter'}:${o.id}`));
       const results=[];
       (this.book?.chapters||[]).forEach((ch,idx)=>{
-        if(sel.has(`chapter:${ch.id}`)) return;
         const num=String(idx+1);
         const lbl=(ch.name||ch.label||'').toLowerCase();
-        if(!q||num.startsWith(q)||lbl.includes(q))
+        if(!sel.has(`chapter:${ch.id}`)&&(!q||num.startsWith(q)||lbl.includes(q)))
           results.push({id:ch.id,type:'chapter',label:this.llmContentDisplayName({id:ch.id,type:'chapter'})});
+        results.push(...this._versionSuggestions(ch,q,sel));
       });
       (this.book?.passages||[]).forEach(p=>{
         if(sel.has(`passage:${p.id}`)) return;
@@ -929,7 +954,50 @@ createApp({
         const p=(this.book?.passages||[]).find(x=>x.id===item.id);
         return p?this.passageDisplayName(p):'(deleted passage)';
       }
-      return this.llmChapterDisplayName(item.id);
+      if(item.type==='version') return this.versionScopeDisplayName(item.id);
+      const ch=(this.book?.chapters||[]).find(c=>c.id===item.id);
+      return this.llmChapterDisplayName(item.id)+(ch?this._mainVersionSuffix(ch):'');
+    },
+    // " · V1" for a chapter that has alternatives, so the model and the user
+    // can tell main from the versions it is compared with.
+    _mainVersionSuffix(ch){
+      return (ch.versions||[]).length?' · '+this.versionLabel(ch,null):'';
+    },
+    _findChapterVersion(versionId){
+      for(const ch of this.book?.chapters||[]){
+        const v=(ch.versions||[]).find(x=>x.id===versionId);
+        if(v) return {ch,v};
+      }
+      return null;
+    },
+    versionScopeDisplayName(versionId){
+      const f=this._findChapterVersion(versionId);
+      return f?`${this.llmChapterDisplayName(f.ch.id)} · ${this.versionLabel(f.ch,versionId)}`:'(deleted version)';
+    },
+    // Prompt block for one selected chapter/passage/version, or '' if empty.
+    _scopeItemBlock(item,chapterLabel){
+      if((item.type||'chapter')==='passage'){
+        const p=(this.book.passages||[]).find(x=>x.id===item.id);
+        if(!p) return '';
+        const pText=this._passagePlainText(p).trim();
+        return pText?`--- ${this.passageDisplayName(p)} ---\n${pText}`:'';
+      }
+      if(item.type==='version'){
+        const f=this._findChapterVersion(item.id);
+        if(!f) return '';
+        const vText=this._slotPlainText(f.ch,item.id).trim();
+        return vText?`--- ${this.versionScopeDisplayName(item.id)} ---\n${vText}`:'';
+      }
+      const ch=(this.book.chapters||[]).find(c=>c.id===item.id);
+      if(!ch) return '';
+      const chText=this._chapterPlainText(ch).trim();
+      return chText?`--- ${chapterLabel(ch.id)}${this._mainVersionSuffix(ch)} ---\n${chText}`:'';
+    },
+    // Each chapter's alternative versions matching the search, listed after it.
+    _versionSuggestions(ch,q,sel){
+      const chLbl=(ch.name||ch.label||'').toLowerCase();
+      return (ch.versions||[]).filter(v=>!sel.has(`version:${v.id}`)&&(!q||chLbl.includes(q)||(v.name||'').toLowerCase().includes(q)||`v${v.number}`===q))
+        .map(v=>({id:v.id,type:'version',label:this.versionScopeDisplayName(v.id)}));
     },
     llmContentAdd(item){
       const key=`${item.type||'chapter'}:${item.id}`;
@@ -943,11 +1011,11 @@ createApp({
       const sel=new Set(this.eoLlmChapterSelected.map(o=>`${o.type||'chapter'}:${o.id}`));
       const results=[];
       (this.book?.chapters||[]).forEach((ch,idx)=>{
-        if(sel.has(`chapter:${ch.id}`)) return;
         const num=String(idx+1);
         const lbl=(ch.name||ch.label||'').toLowerCase();
-        if(!q||num.startsWith(q)||lbl.includes(q))
+        if(!sel.has(`chapter:${ch.id}`)&&(!q||num.startsWith(q)||lbl.includes(q)))
           results.push({id:ch.id,type:'chapter',label:this.llmContentDisplayName({id:ch.id,type:'chapter'})});
+        results.push(...this._versionSuggestions(ch,q,sel));
       });
       (this.book?.passages||[]).forEach(p=>{
         if(sel.has(`passage:${p.id}`)) return;
@@ -977,25 +1045,19 @@ createApp({
       if(!includeBookText){
         text='';
       } else if(this.llmChapterScope){
-        const chapters=this.book.chapters||[];
         const parts=[];
         for(const item of this.llmChapterSelected){
-          if((item.type||'chapter')==='passage'){
-            const p=(this.book.passages||[]).find(x=>x.id===item.id);
-            if(!p) continue;
-            const pText=this._passagePlainText(p).trim();
-            if(pText) parts.push(`--- ${this.passageDisplayName(p)} ---\n${pText}`);
-          } else {
-            const ch=chapters.find(c=>c.id===item.id);
-            if(!ch) continue;
-            const chText=this._chapterPlainText(ch).trim();
-            if(chText) parts.push(`--- ${this.llmChapterDisplayName(ch.id)} ---\n${chText}`);
-          }
+          const block=this._scopeItemBlock(item,id=>this.llmChapterDisplayName(id));
+          if(block) parts.push(block);
         }
         text=parts.join('\n\n');
       } else {
+        // The version open in the editor; labelled when it isn't main.
         const ch=this.currentChapter();
-        if(ch) text=this._chapterPlainText(ch);
+        if(ch&&this.currentVersionId&&this.currentSlot()){
+          const vText=this._slotPlainText(ch,this.currentVersionId);
+          text=`--- ${this.versionScopeDisplayName(this.currentVersionId)} (${this.t('alternative version')}) ---\n${vText}`;
+        } else if(ch) text=this._chapterPlainText(ch);
       }
       if(this.llmPromptMode==='custom'){
         // Chat mode
@@ -1844,7 +1906,7 @@ createApp({
     /* ── text editor / chapters ──────── */
     addChapter(){
       if(!this.book||!this.newChapter.label.trim()) return;
-      const ch={id:uid(),label:this.newChapter.label.trim(),name:this.newChapter.name.trim()||'',content:'',comments:[]};
+      const ch={id:uid(),label:this.newChapter.label.trim(),name:this.newChapter.name.trim()||'',content:'',comments:[],version_name:'',versions:[]};
       this.book.chapters.push(ch);
       this.newChapter={open:false,name:'',label:''};
       this.selectChapter(ch.id);
@@ -1855,33 +1917,134 @@ createApp({
       if(this.currentChapterId===id){
         if(this.quillInstance){this.quillInstance.off('text-change');this.quillInstance=null;}
         this._quillChapterId=null;
+        this._quillVersionId=null;
         this.currentChapterId=null;
+        this.currentVersionId=null;
       }
       this.book.chapters=this.book.chapters.filter(c=>c.id!==id);
       this.mark();
     },
     selectChapter(id){
       // save content for the chapter we are leaving, using _quillChapterId
-      if(this.quillInstance&&this._quillChapterId){
-        const old=this.book.chapters.find(c=>c.id===this._quillChapterId);
-        if(old) old.content=this.quillInstance.root.innerHTML;
-        this.quillInstance.off('text-change');
-        this.quillInstance=null;
-      }
-      this._quillChapterId=null;
+      this.destroyQuill();
       this.currentChapterId=id;
+      this.currentVersionId=null;
+      this.newVersionForm.open=false;
       this.editorMode='chapters';
       this.$nextTick(()=>this.initQuill());
     },
     saveCurrentChapterContent(){
       if(this.quillInstance&&this._quillChapterId){
         const ch=this.book.chapters.find(c=>c.id===this._quillChapterId);
-        if(ch) ch.content=this.quillInstance.root.innerHTML;
+        const slot=this.chapterSlot(ch,this._quillVersionId);
+        if(slot) slot.content=this.quillInstance.root.innerHTML;
       }
     },
     currentChapter(){
       if(!this.book||!this.currentChapterId) return null;
       return this.book.chapters.find(c=>c.id===this.currentChapterId)||null;
+    },
+    /* ── Chapter versions (docs/chapter-versions-plan.md) ── */
+    // What the editor reads and writes: the chapter itself (main, V1) or one
+    // of its alternative versions. Both carry `content` and `comments`.
+    // Same operations as `extension Chapter` in ChapterVersion.swift.
+    chapterSlot(ch,versionId){
+      if(!ch) return null;
+      if(!versionId) return ch;
+      return (ch.versions||[]).find(v=>v.id===versionId)||null;
+    },
+    currentSlot(){
+      return this.chapterSlot(this.currentChapter(),this.currentVersionId);
+    },
+    nextVersionNumber(ch){
+      return Math.max(1,...(ch.versions||[]).map(v=>v.number||0))+1;
+    },
+    // "V2" or "V2 · darker ending"
+    versionLabel(ch,versionId){
+      const v=versionId?this.chapterSlot(ch,versionId):null;
+      const num=v?v.number:1;
+      const name=versionId?(v&&v.name):ch.version_name;
+      return name?`V${num} · ${name}`:`V${num}`;
+    },
+    selectVersion(versionId){
+      if((versionId||null)===this.currentVersionId) return;
+      this.destroyQuill();
+      this.currentVersionId=versionId||null;
+      this.$nextTick(()=>this.initQuill());
+    },
+    openNewVersionForm(){
+      this.newVersionForm={open:!this.newVersionForm.open,source:'main',name:''};
+    },
+    createChapterVersion(){
+      const ch=this.currentChapter();
+      if(!ch) return;
+      this.saveCurrentChapterContent();
+      const src=this.newVersionForm.source;
+      let content='';
+      if(src==='main') content=ch.content||'';
+      else if(src!=='empty'){
+        const from=this.chapterSlot(ch,src);
+        content=from?from.content||'':'';
+      }
+      if(!ch.versions) ch.versions=[];
+      // Comments are not copied: their ranges belong to the source text.
+      const v={id:uid(),number:this.nextVersionNumber(ch),name:this.newVersionForm.name.trim(),
+               content,comments:[],created_at:new Date().toISOString()};
+      ch.versions.push(v);
+      this.newVersionForm={open:false,source:'main',name:''};
+      this.mark();
+      this.selectVersion(v.id);
+    },
+    // Exchanges text, comments and name between main and the open version;
+    // numbers stay in their slots, so the old main text becomes V<n>.
+    makeVersionMain(){
+      const ch=this.currentChapter();
+      const v=this.currentSlot();
+      if(!ch||!v||v===ch) return;
+      this.destroyQuill();
+      [ch.content,v.content]=[v.content||'',ch.content||''];
+      [ch.comments,v.comments]=[v.comments||[],ch.comments||[]];
+      [ch.version_name,v.name]=[v.name||'',ch.version_name||''];
+      this.currentVersionId=null;
+      this.mark();
+      this.showToast(this.t('Swapped V1 ⇄ V{n}').replace('{n}',v.number));
+      this.$nextTick(()=>this.initQuill());
+    },
+    // Puts main and the open version into the LLM chat's context with an
+    // editable comparison prompt; the user sends it.
+    compareVersionWithMain(){
+      const ch=this.currentChapter();
+      const v=this.currentSlot();
+      if(!ch||!v||v===ch) return;
+      this.saveCurrentChapterContent();
+      this.llmPromptMode='custom';
+      this.llmIncludeBookText=true;
+      this.llmChapterScope=true;
+      this.llmChapterSelected=[{id:ch.id,type:'chapter'},{id:v.id,type:'version'}];
+      this.llmCustomPrompt=this.t('Compare version 1 and version {n} of this chapter: differences in plot, tone, pacing and characterization, and the strengths and weaknesses of each.').replace('{n}',v.number);
+      this.$nextTick(()=>{ const el=this.$refs.llmPromptInput; if(el) el.focus(); });
+    },
+    renameChapterVersion(){
+      const ch=this.currentChapter();
+      if(!ch) return;
+      const v=this.currentSlot();
+      const old=this.currentVersionId?(v&&v.name)||'':ch.version_name||'';
+      const name=prompt(this.t('Version name:'),old);
+      if(name===null) return;
+      if(this.currentVersionId){ if(v) v.name=name.trim(); }
+      else ch.version_name=name.trim();
+      this.mark();
+    },
+    deleteChapterVersion(){
+      const ch=this.currentChapter();
+      const v=this.currentSlot();
+      if(!ch||!v||v===ch) return;
+      if(!confirm(this.t('Delete version {v}?').replace('{v}',this.versionLabel(ch,v.id)))) return;
+      this.destroyQuill();
+      ch.versions=ch.versions.filter(x=>x.id!==v.id);
+      this.currentVersionId=null;
+      this.mark();
+      this.$nextTick(()=>this.initQuill());
     },
     initQuill(){
       // Defensive: clean up leftover instance (should not happen with :key)
@@ -1899,10 +2062,17 @@ createApp({
       Size.whitelist=['8px','9px','10px','11px','12px','13px','14px'];
       Quill.register(Size,true);
       registerQuillHistoryIcons();
-      // Capture the chapter id so saves always target the right chapter
+      // Capture the chapter and version ids so saves always target the right
+      // slot, even for a text-change that fires after switching.
       const chId=this.currentChapterId;
+      const verId=this.currentVersionId;
       this._quillChapterId=chId;
-      this.quillInstance=new Quill(container,{
+      this._quillVersionId=verId;
+      // markRaw: as a `data` property the instance would otherwise be wrapped
+      // in Vue's deep reactive proxy, under which Quill never turns the
+      // innerHTML set below into blots — its model stayed empty, so getText()
+      // (LLM context, passage checks) saw nothing and the placeholder showed.
+      this.quillInstance=Vue.markRaw(new Quill(container,{
         theme:'snow',
         placeholder:this.t('Start writing…'),
         modules:{
@@ -1925,10 +2095,10 @@ createApp({
           },
           history:QUILL_HISTORY_OPTIONS,
         },
-      });
-      const ch=this.book.chapters.find(c=>c.id===chId);
-      if(ch&&ch.content){
-        this.quillInstance.root.innerHTML=ch.content;
+      }));
+      const slot=this.chapterSlot(this.book.chapters.find(c=>c.id===chId),verId);
+      if(slot&&slot.content){
+        this.quillInstance.root.innerHTML=slot.content;
       }
       // Opening a chapter is not an edit: flush the DOM mutation Quill has
       // not seen yet, then drop it, so the first Ctrl+Z can never blank the
@@ -1948,8 +2118,8 @@ createApp({
       this.applySpellcheckSettings();
       this.quillInstance.on('text-change',()=>{
         // Always save to the chapter this Quill was created for
-        if(this.quillInstance&&this._quillChapterId===chId){
-          const target=this.book.chapters.find(c=>c.id===chId);
+        if(this.quillInstance&&this._quillChapterId===chId&&this._quillVersionId===verId){
+          const target=this.chapterSlot(this.book.chapters.find(c=>c.id===chId),verId);
           if(target) target.content=this.quillInstance.root.innerHTML;
         }
         this.mark();
@@ -1985,6 +2155,7 @@ createApp({
         this.quillInstance=null;
       }
       this._quillChapterId=null;
+      this._quillVersionId=null;
     },
     openFullText(){
       this.saveCurrentChapterContent();
@@ -2002,7 +2173,7 @@ createApp({
       container.innerHTML='';
       container.className='te-quill-wrap te-quill-fulltext';
       registerQuillHistoryIcons();
-      this.fullTextQuill=new Quill(container,{
+      this.fullTextQuill=Vue.markRaw(new Quill(container,{
         theme:'snow',
         placeholder:this.t('Full text appears here…'),
         modules:{
@@ -2023,7 +2194,7 @@ createApp({
           },
           history:QUILL_HISTORY_OPTIONS,
         },
-      });
+      }));
       // Concatenate all chapters with chapter headings
       let html='';
       this.book.chapters.forEach((ch,i)=>{
@@ -2082,7 +2253,7 @@ createApp({
           existing.content=parsed.content;
           newChapters.push(existing);
         } else {
-          newChapters.push({id:uid(),label:parsed.heading||('Chapter '+(i+1)),name:'',content:parsed.content,comments:[]});
+          newChapters.push({id:uid(),label:parsed.heading||('Chapter '+(i+1)),name:'',content:parsed.content,comments:[],version_name:'',versions:[]});
         }
       });
       this.book.chapters=newChapters;
@@ -2119,7 +2290,7 @@ createApp({
     onChapterDragEnd(){this.chapterDragIdx=null;},
     /* add comment to current chapter */
     addChapterComment(){
-      const ch=this.currentChapter();
+      const ch=this.currentSlot(); // comments belong to the version they annotate
       if(!ch) return;
       // Save selection BEFORE prompt() steals focus
       let selectedText='',rangeIndex=null,rangeLength=null;
@@ -2240,17 +2411,21 @@ createApp({
       document.addEventListener('mouseup',onUp);
     },
     /* docx export */
-    async exportChapterDocx(ch,idx){
+    // versionId: export that alternative version instead of main.
+    async exportChapterDocx(ch,idx,versionId){
       if(typeof docx==='undefined'){this.showToast('docx library not loaded');return;}
+      this.saveCurrentChapterContent();
+      const slot=this.chapterSlot(ch,versionId)||ch;
       const title=ch.name?((idx+1)+'. '+ch.name):((idx+1)+'. '+ch.label);
       const doc=new docx.Document({
         sections:[{
           properties:{},
-          children:this.htmlToDocxParagraphs(title,ch.content||''),
+          children:this.htmlToDocxParagraphs(title,slot.content||''),
         }],
       });
       const blob=await docx.Packer.toBlob(doc);
-      this.downloadBlob(blob,(ch.label||'chapter')+'.docx');
+      const suffix=versionId&&slot!==ch?` (V${slot.number})`:'';
+      this.downloadBlob(blob,(ch.label||'chapter')+suffix+'.docx');
     },
     async exportFullTextDocx(){
       if(typeof docx==='undefined'){this.showToast('docx library not loaded');return;}
@@ -2347,7 +2522,7 @@ createApp({
         }
         // Create a new chapter from the imported file
         const label=file.name.replace(/\.(docx?|txt)$/i,'');
-        const ch={id:uid(),label,name:'',content:html,comments:[]};
+        const ch={id:uid(),label,name:'',content:html,comments:[],version_name:'',versions:[]};
         this.book.chapters.push(ch);
         this.selectChapter(ch.id);
         this.mark();
@@ -3140,7 +3315,7 @@ createApp({
             <div class="te-ch-info">
               <div class="te-ch-label">{{ch.label}}</div>
               <div v-if="ch.name" class="te-ch-name">{{ch.name}}</div>
-              <div class="te-ch-words">{{chapterWordCount(ch)}} {{t('words')}}<span v-if="chapterDigests[ch.id]" :title="t('Has a summary')"> · 📝</span></div>
+              <div class="te-ch-words">{{chapterWordCount(ch)}} {{t('words')}}<span v-if="(ch.versions||[]).length"> · {{t('{n} versions').replace('{n}',ch.versions.length+1)}}</span><span v-if="chapterDigests[ch.id]" :title="t('Has a summary')"> · 📝</span></div>
             </div>
             <div class="te-ch-actions">
               <button class="icon-btn sm" @click.stop="exportChapterDocx(ch,idx)" title="Export DOCX">📥</button>
@@ -3156,7 +3331,7 @@ createApp({
       <!-- Editor pane -->
       <div class="te-editor-pane">
         <template v-if="editorMode==='chapters'">
-          <div v-if="currentChapterId&&currentChapter()" class="te-editor-active" :key="currentChapterId">
+          <div v-if="currentChapterId&&currentChapter()" class="te-editor-active" :key="currentChapterId+':'+(currentVersionId||'')">
             <div class="te-editor-header">
               <span class="te-editor-title">{{(book.chapters.findIndex(c=>c.id===currentChapterId)+1)}}. {{currentChapter().name||currentChapter().label}}</span>
               <div class="te-editor-toolbar-extra">
@@ -3174,8 +3349,38 @@ createApp({
                   <button class="te-btn-sm" @click="teZoomIn" title="Zoom in">+</button>
                 </span>
                 <button class="te-btn-sm" @click="addChapterComment" :title="t('Add Comment')">💬 {{t('Comment')}}</button>
-                <button class="te-btn-sm" @click="exportChapterDocx(currentChapter(),book.chapters.findIndex(c=>c.id===currentChapterId))">📥 DOCX</button>
+                <button class="te-btn-sm" @click="exportChapterDocx(currentChapter(),book.chapters.findIndex(c=>c.id===currentChapterId),currentVersionId)">📥 DOCX</button>
               </div>
+            </div>
+            <!-- Chapter versions: V1 is main and the only one counted -->
+            <div class="te-version-bar">
+              <template v-if="(currentChapter().versions||[]).length">
+                <button class="te-version-pill" :class="{active:!currentVersionId}" @click="selectVersion(null)">{{versionLabel(currentChapter(),null)}} <span class="te-version-main">{{t('main')}}</span></button>
+                <button v-for="v in currentChapter().versions" :key="v.id" class="te-version-pill" :class="{active:currentVersionId===v.id}" @click="selectVersion(v.id)">{{versionLabel(currentChapter(),v.id)}}</button>
+              </template>
+              <button class="te-version-pill te-version-add" @click="openNewVersionForm" :title="t('New version')">＋ {{(currentChapter().versions||[]).length?'':t('New version')}}</button>
+              <span class="te-version-spacer"></span>
+              <button v-if="(currentChapter().versions||[]).length&&!currentVersionId" class="te-btn-sm" @click="renameChapterVersion">✎ {{t('Rename')}}</button>
+            </div>
+            <div v-if="newVersionForm.open" class="te-version-form">
+              <label>{{t('Start from')}}
+                <select class="te-select-sm" v-model="newVersionForm.source">
+                  <option value="main">{{versionLabel(currentChapter(),null)}}</option>
+                  <option v-for="v in (currentChapter().versions||[])" :key="v.id" :value="v.id">{{versionLabel(currentChapter(),v.id)}}</option>
+                  <option value="empty">{{t('Empty page')}}</option>
+                </select>
+              </label>
+              <input class="te-passage-input" v-model="newVersionForm.name" :placeholder="t('Name (optional)')" @keyup.enter="createChapterVersion"/>
+              <button class="te-btn-sm primary" @click="createChapterVersion">{{t('Create')}}</button>
+              <button class="te-btn-sm" @click="newVersionForm.open=false">{{t('Cancel')}}</button>
+            </div>
+            <div v-if="currentVersionId&&currentSlot()" class="te-version-banner">
+              <span>{{t('Editing')}} <b>{{versionLabel(currentChapter(),currentVersionId)}}</b> · {{wordCount(currentSlot().content)}} {{t('words')}} · {{t('not counted')}}</span>
+              <span class="te-version-spacer"></span>
+              <button class="te-btn-sm primary" @click="makeVersionMain">⇄ {{t('Make main version')}}</button>
+              <button class="te-btn-sm" @click="compareVersionWithMain">🔍 {{t('Compare with main')}}</button>
+              <button class="te-btn-sm" @click="renameChapterVersion">✎ {{t('Rename')}}</button>
+              <button class="te-btn-sm" @click="deleteChapterVersion">✕ {{t('Delete')}}</button>
             </div>
             <!-- editor + LLM panel side by side -->
             <div class="te-content-row">
@@ -3187,8 +3392,9 @@ createApp({
                 <div class="te-passages-panel">
                   <div class="te-passages-header">
                     <span class="te-passages-title">✂ Passages</span>
-                    <button class="te-btn-sm" @click="newPassage.open=!newPassage.open">{{newPassage.open?'Cancel':'+ Add'}}</button>
+                    <button v-if="!currentVersionId" class="te-btn-sm" @click="newPassage.open=!newPassage.open">{{newPassage.open?'Cancel':'+ Add'}}</button>
                   </div>
+                  <div v-if="currentVersionId" class="llm-ch-empty" style="font-size:11px;margin:2px 0">{{t('Passages refer to the main version.')}}</div>
                   <!-- existing passages for this chapter -->
                   <div v-for="p in (book.passages||[]).filter(p=>p.chapterId===currentChapterId)" :key="p.id" class="te-passage-row">
                     <span class="te-passage-name" :title="'Start: '+p.startText+'\\nEnd: '+p.endText">{{p.name}}</span>
@@ -3196,7 +3402,7 @@ createApp({
                   </div>
                   <div v-if="!(book.passages||[]).some(p=>p.chapterId===currentChapterId)&&!newPassage.open" class="llm-ch-empty" style="font-size:11px;margin:2px 0">No passages yet.</div>
                   <!-- add form -->
-                  <div v-if="newPassage.open" class="te-passage-form">
+                  <div v-if="newPassage.open&&!currentVersionId" class="te-passage-form">
                     <div class="te-passage-form-row">
                       <label>Name</label>
                       <input v-model="newPassage.name" placeholder="e.g. The Fight Scene" class="te-passage-input"/>
@@ -3242,10 +3448,10 @@ createApp({
                     <p class="dropbox-hint">{{t('Summaries are generated in the iPhone app and arrive here through Dropbox sync.')}}</p>
                   </template>
                 </div>
-                <div v-if="currentChapter().comments&&currentChapter().comments.length" class="te-comments">
-                  <h5>💬 {{t('Comments')}} ({{currentChapter().comments.length}})</h5>
-                  <div v-for="cmt in currentChapter().comments" :key="cmt.id" class="te-comment" :class="{'te-cmt-active':highlightedCommentId===cmt.id}" @click="goToComment(cmt)" style="cursor:pointer">
-                    <div class="te-cmt-header"><span class="te-cmt-date">{{cmt.date}}</span><button class="icon-btn sm" @click.stop="removeComment(currentChapter(),cmt.id)">✕</button></div>
+                <div v-if="currentSlot()&&currentSlot().comments&&currentSlot().comments.length" class="te-comments">
+                  <h5>💬 {{t('Comments')}} ({{currentSlot().comments.length}})</h5>
+                  <div v-for="cmt in currentSlot().comments" :key="cmt.id" class="te-comment" :class="{'te-cmt-active':highlightedCommentId===cmt.id}" @click="goToComment(cmt)" style="cursor:pointer">
+                    <div class="te-cmt-header"><span class="te-cmt-date">{{cmt.date}}</span><button class="icon-btn sm" @click.stop="removeComment(currentSlot(),cmt.id)">✕</button></div>
                     <div v-if="cmt.selection" class="te-cmt-selection">"{{cmt.selection}}"</div>
                     <div class="te-cmt-text">{{cmt.text}}</div>
                   </div>
@@ -3331,7 +3537,7 @@ createApp({
                   </div>
                   <div v-if="llmError" class="llm-error" style="margin:4px 0">{{llmError}}</div>
                   <div class="llm-chat-input-row">
-                    <textarea class="llm-chat-input" v-model="llmCustomPrompt"
+                    <textarea ref="llmPromptInput" class="llm-chat-input" v-model="llmCustomPrompt"
                       placeholder="Ask something about the text… (Enter to send)"
                       rows="2" :disabled="llmLoading"
                       @keydown.enter.exact.prevent="runLlmPrompt"></textarea>

@@ -24,6 +24,20 @@ struct ChapterEditorView: View {
     @State private var showingAddComment = false
     @State private var showingPassages = false
     @State private var showingLLM = false
+    /// The alternative version open in the editor; `nil` = main (V1). See
+    /// `ChapterVersion` and docs/chapter-versions-plan.md.
+    @State private var versionId: String?
+    /// The slot `loadContent()` read from — commits always go back there,
+    /// even if `versionId` has moved on (same job as app.js's
+    /// `_quillVersionId`).
+    @State private var loadedSlot: String?
+    @State private var showingNewVersion = false
+    @State private var showingRenameVersion = false
+    @State private var renameText = ""
+    @State private var showingDeleteVersion = false
+    /// Set by "Compare with main" for the next assistant session only.
+    @State private var compareScope: [ContentScopeItem]?
+    @State private var assistantPrompt = ""
     @State private var exportDocument: DocxFileDocument?
     @State private var showingExporter = false
     @AppStorage("editorZoom") private var editorZoom = EditorZoom.default
@@ -42,11 +56,15 @@ struct ChapterEditorView: View {
                 LLMAssistantHost(
                     editor: editor,
                     isPresented: $showingLLM,
-                    defaultScope: [ContentScopeItem(kind: .chapter, id: chapterId)],
+                    defaultScope: assistantScope,
                     title: currentChapterTitle,
-                    contextChapterId: chapterId
+                    contextChapterId: chapterId,
+                    initialPrompt: assistantPrompt
                 ) {
                     editorBody
+                }
+                .onChange(of: showingLLM) { _, open in
+                    if !open { compareScope = nil; assistantPrompt = "" }
                 }
             } else {
                 EmptyStateView(systemImage: "doc.text.badge.xmark", title: String(localized: "Chapter removed"), message: String(localized: "This chapter no longer exists."))
@@ -57,10 +75,11 @@ struct ChapterEditorView: View {
     private var editorBody: some View {
         VStack(spacing: 0) {
             FormatToolbar(controller: richTextController, zoom: $editorZoom)
+            if versionId != nil { versionBanner }
             page
         }
         .background(Theme.paper)
-        .navigationTitle(currentChapterTitle)
+        .navigationTitle(navigationTitleText)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -78,6 +97,7 @@ struct ChapterEditorView: View {
                 .disabled(selectedRange.length == 0)
 
                 Menu {
+                    versionsMenu
                     Button { showingComments = true } label: { Label("Comments", systemImage: "text.bubble") }
                     Button { showingPassages = true } label: { Label("Passages", systemImage: "scissors") }
                     spellCheckMenu
@@ -111,7 +131,24 @@ struct ChapterEditorView: View {
             )
         }
         .sheet(isPresented: $showingPassages) {
-            PassagesSheet(editor: editor, chapterId: chapterId)
+            PassagesSheet(editor: editor, chapterId: chapterId, fromAlternativeVersion: versionId != nil)
+        }
+        .sheet(isPresented: $showingNewVersion) {
+            if let chapter {
+                NewVersionSheet(chapter: chapter) { source, name in createVersion(from: source, name: name) }
+            }
+        }
+        .alert("Rename version", isPresented: $showingRenameVersion) {
+            TextField("Name (optional)", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Rename") { renameVersion() }
+        }
+        .confirmationDialog(
+            String(format: String(localized: "Delete version %@?"), chapter?.versionLabel(slot: versionId) ?? ""),
+            isPresented: $showingDeleteVersion,
+            titleVisibility: .visible
+        ) {
+            Button("Delete version", role: .destructive) { deleteVersion() }
         }
         .fileExporter(
             isPresented: $showingExporter,
@@ -157,6 +194,129 @@ struct ChapterEditorView: View {
         }
     }
 
+    private var chapter: Chapter? { chapterIndex.map { editor.book.chapters[$0] } }
+
+    private var navigationTitleText: String {
+        guard let chapter, versionId != nil else { return currentChapterTitle }
+        return "\(currentChapterTitle) · V\(chapter.versionNumber(slot: versionId))"
+    }
+
+    private var assistantScope: [ContentScopeItem] {
+        if let compareScope { return compareScope }
+        if let versionId { return [ContentScopeItem(kind: .version, id: versionId)] }
+        return [ContentScopeItem(kind: .chapter, id: chapterId)]
+    }
+
+    // MARK: - Versions
+
+    private var versionSelection: Binding<String?> {
+        Binding(get: { versionId }, set: { switchVersion(to: $0) })
+    }
+
+    @ViewBuilder
+    private var versionsMenu: some View {
+        if let chapter {
+            Menu {
+                if !chapter.versions.isEmpty {
+                    Picker("Version", selection: versionSelection) {
+                        Text(chapter.versionLabel(slot: nil) + " (" + String(localized: "main") + ")").tag(String?.none)
+                        ForEach(chapter.versions) { version in
+                            Text(chapter.versionLabel(slot: version.id)).tag(Optional(version.id))
+                        }
+                    }
+                }
+                Button { showingNewVersion = true } label: { Label("New version…", systemImage: "plus") }
+                if versionId != nil {
+                    Button { makeMain() } label: { Label("Make main version", systemImage: "arrow.left.arrow.right") }
+                    Button { compareWithMain() } label: { Label("Compare with main", systemImage: "sparkles") }
+                }
+                if versionId != nil || !chapter.versions.isEmpty {
+                    Button {
+                        renameText = chapter.versionName(slot: versionId)
+                        showingRenameVersion = true
+                    } label: { Label("Rename version…", systemImage: "pencil") }
+                }
+                if versionId != nil {
+                    Button(role: .destructive) { showingDeleteVersion = true } label: { Label("Delete version", systemImage: "trash") }
+                }
+            } label: {
+                Label("Versions", systemImage: "square.stack")
+            }
+        }
+    }
+
+    /// Body content rather than a toolbar item, so it is always visible
+    /// while an alternative is being edited.
+    private var versionBanner: some View {
+        HStack(spacing: 8) {
+            if let chapter {
+                Text("Editing \(chapter.versionLabel(slot: versionId)) · \(Self.wordCount(attributedText.string)) words · not counted")
+                    .font(.caption)
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+            Button("Make main") { makeMain() }
+                .font(.caption.weight(.semibold))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(Theme.accentSoft)
+    }
+
+    private static func wordCount(_ text: String) -> Int {
+        text.split(whereSeparator: { $0.isWhitespace }).count
+    }
+
+    private func switchVersion(to id: String?) {
+        guard id != versionId else { return }
+        save()
+        versionId = id
+        loadContent()
+    }
+
+    private func createVersion(from source: Chapter.VersionSource, name: String) {
+        guard let index = chapterIndex else { return }
+        save()
+        let id = editor.book.chapters[index].createVersion(from: source, name: name)
+        versionId = id
+        loadContent()
+    }
+
+    /// Swaps the open version into main; the user then sees it as V1.
+    private func makeMain() {
+        guard let index = chapterIndex, let id = versionId else { return }
+        save()
+        editor.book.chapters[index].swapWithMain(id)
+        versionId = nil
+        loadContent()
+    }
+
+    private func renameVersion() {
+        guard let index = chapterIndex else { return }
+        editor.book.chapters[index].renameVersion(slot: versionId, to: renameText.trimmingCharacters(in: .whitespaces))
+    }
+
+    /// The save that follows sees fewer versions, so `BookStore` snapshots
+    /// the book before writing (`BackupStore.bookShrank`).
+    private func deleteVersion() {
+        guard let index = chapterIndex, let id = versionId else { return }
+        save()
+        editor.book.chapters[index].deleteVersion(id)
+        versionId = nil
+        loadContent()
+    }
+
+    private func compareWithMain() {
+        guard let chapter, let id = versionId else { return }
+        save()
+        compareScope = [ContentScopeItem(kind: .chapter, id: chapterId), ContentScopeItem(kind: .version, id: id)]
+        assistantPrompt = String(format: String(localized: "Compare version 1 and version %lld of this chapter: differences in plot, tone, pacing and characterization, and the strengths and weaknesses of each."), chapter.versionNumber(slot: id))
+        showingLLM = true
+    }
+
     private var currentChapterTitle: String {
         guard let index = chapterIndex else { return "" }
         let chapter = editor.book.chapters[index]
@@ -165,8 +325,8 @@ struct ChapterEditorView: View {
 
     private var commentsBinding: Binding<[Comment]> {
         Binding(
-            get: { chapterIndex.map { editor.book.chapters[$0].comments } ?? [] },
-            set: { newValue in if let index = chapterIndex { editor.book.chapters[index].comments = newValue } }
+            get: { chapterIndex.map { editor.book.chapters[$0].comments(slot: versionId) } ?? [] },
+            set: { newValue in if let index = chapterIndex { editor.book.chapters[index].setComments(newValue, slot: versionId) } }
         )
     }
 
@@ -198,7 +358,10 @@ struct ChapterEditorView: View {
 
     private func loadContent() {
         guard let index = chapterIndex else { return }
-        let loaded = HTMLConversion.attributedString(fromHTML: editor.book.chapters[index].content)
+        // A version deleted elsewhere (sync) falls back to main.
+        if let id = versionId, editor.book.chapters[index].version(id) == nil { versionId = nil }
+        loadedSlot = versionId
+        let loaded = HTMLConversion.attributedString(fromHTML: editor.book.chapters[index].content(slot: versionId))
         loadedText = loaded
         hasEdits = false
         attributedText = loaded
@@ -235,19 +398,24 @@ struct ChapterEditorView: View {
     private func commit(_ attributed: NSAttributedString) {
         guard let index = chapterIndex else { return }
         let html = HTMLConversion.html(from: attributed)
-        guard editor.book.chapters[index].content != html else { return }
-        editor.book.chapters[index].content = html
+        guard editor.book.chapters[index].content(slot: loadedSlot) != html else { return }
+        editor.book.chapters[index].setContent(html, slot: loadedSlot)
     }
 
     private var exportFilename: String {
         guard let index = chapterIndex else { return "chapter.docx" }
-        return DocxExporter.filename(forChapter: editor.book.chapters[index])
+        let chapter = editor.book.chapters[index]
+        let name = DocxExporter.filename(forChapter: chapter)
+        guard versionId != nil else { return name }
+        return String(name.dropLast(".docx".count)) + " (V\(chapter.versionNumber(slot: versionId))).docx"
     }
 
     private func exportDocx() {
         guard let index = chapterIndex else { return }
         save()
-        let chapter = editor.book.chapters[index]
+        // The open version is what gets exported.
+        var chapter = editor.book.chapters[index]
+        chapter.content = chapter.content(slot: versionId)
         exportDocument = DocxFileDocument(data: DocxExporter.exportChapter(chapter, index: index))
         showingExporter = true
     }

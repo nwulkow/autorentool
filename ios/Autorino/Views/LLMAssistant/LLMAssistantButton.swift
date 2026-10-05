@@ -43,9 +43,16 @@ struct LLMAssistantHost<Content: View>: View {
     var baseContext: String?
     var title: String = String(localized: "Assistant")
     var contextChapterId: String?
+    /// Prefills the message field (e.g. "Compare with main"); never sent
+    /// on its own.
+    var initialPrompt: String = ""
     @ViewBuilder var content: () -> Content
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var seedKey: String {
+        defaultScope.map { "\($0.kind):\($0.id)" }.joined(separator: ",") + "|" + initialPrompt
+    }
 
     var body: some View {
         if horizontalSizeClass == .regular {
@@ -54,8 +61,12 @@ struct LLMAssistantHost<Content: View>: View {
             } detail: {
                 if isPresented {
                     NavigationStack {
-                        LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId)
+                        LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt)
                     }
+                    // Scope and prompt are seeded once per instance, so a new
+                    // seed (another version opened, Compare tapped) needs a
+                    // fresh one. History is per book and survives this.
+                    .id(seedKey)
                 } else {
                     EmptyStateView(
                         systemImage: "sparkles",
@@ -68,7 +79,7 @@ struct LLMAssistantHost<Content: View>: View {
         } else {
             content()
                 .sheet(isPresented: $isPresented) {
-                    LLMAssistantSheet(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId)
+                    LLMAssistantSheet(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt)
                 }
         }
     }

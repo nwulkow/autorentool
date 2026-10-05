@@ -166,19 +166,41 @@ def read_book_snapshot(base, name):
         return f.read()
 
 
+def _chapter_versions(chapter):
+    versions = (chapter or {}).get("versions") or []
+    return [v for v in versions if isinstance(v, dict)]
+
+
+def _version_count(book):
+    return sum(len(_chapter_versions(c)) for c in book.get("chapters") or [])
+
+
+def _text_length(book):
+    """Main text plus every alternative chapter version, so swapping a
+    version into main is not a shrink but deleting a long one is."""
+    total = 0
+    for c in book.get("chapters") or []:
+        total += len((c or {}).get("content") or "")
+        total += sum(len(v.get("content") or "") for v in _chapter_versions(c))
+    return total
+
+
 def book_shrank(old_book, new_book):
     """True when `new_book` lost content relative to `old_book`: a chapter,
-    character, location, note or event order gone, or the manuscript
-    meaningfully shorter. That is what an accidental delete looks like from
-    the save path, and it always earns a snapshot regardless of interval."""
+    chapter version, character, location, note or event order gone, or the
+    manuscript meaningfully shorter. That is what an accidental delete looks
+    like from the save path, and it always earns a snapshot regardless of
+    interval."""
     if not isinstance(old_book, dict) or not isinstance(new_book, dict):
         return True
     for key in ("chapters", "characters", "locations", "event_orders", "topics",
                 "questions", "passages", "saved_chats"):
         if len(new_book.get(key) or []) < len(old_book.get(key) or []):
             return True
-    old_len = sum(len((c or {}).get("content") or "") for c in old_book.get("chapters") or [])
-    new_len = sum(len((c or {}).get("content") or "") for c in new_book.get("chapters") or [])
+    if _version_count(new_book) < _version_count(old_book):
+        return True
+    old_len = _text_length(old_book)
+    new_len = _text_length(new_book)
     # Ordinary editing deletes text too; only a large drop is suspicious.
     return old_len > 2000 and new_len < old_len - max(2000, old_len // 20)
 

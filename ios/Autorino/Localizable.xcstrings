@@ -52,6 +52,16 @@
     "%@" : {
 
     },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%@ chapters · %@ words" : {
       "localizations" : {
         "en" : {
@@ -87,6 +97,9 @@
           }
         }
       }
+    },
+    "%@ versions" : {
+
     },
     "%@ words" : {
 
@@ -220,6 +233,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld Synchronisierungskonflikt(e) — in den Einstellungen prüfen"
+          }
+        }
+      }
+    },
+    "%lld versions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Versionen"
           }
         }
       }
@@ -484,6 +508,7 @@
       }
     },
     "Already restored." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -565,6 +590,7 @@
       }
     },
     "autosave" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -575,6 +601,7 @@
       }
     },
     "Backups" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -596,6 +623,7 @@
       }
     },
     "before content removed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -606,6 +634,7 @@
       }
     },
     "before merge" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -616,6 +645,7 @@
       }
     },
     "before prune" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -626,6 +656,7 @@
       }
     },
     "before regenerate" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -636,6 +667,7 @@
       }
     },
     "before remove" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -646,6 +678,7 @@
       }
     },
     "before rename" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -656,6 +689,7 @@
       }
     },
     "before replace" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -666,6 +700,7 @@
       }
     },
     "before sync" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1000,6 +1035,28 @@
         }
       }
     },
+    "Compare version 1 and version %lld of this chapter: differences in plot, tone, pacing and characterization, and the strengths and weaknesses of each." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vergleiche Version 1 und Version %lld dieses Kapitels: Unterschiede in Handlung, Ton, Tempo und Figurenzeichnung sowie die Stärken und Schwächen beider Versionen."
+          }
+        }
+      }
+    },
+    "Compare with main" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit Hauptversion vergleichen"
+          }
+        }
+      }
+    },
     "Confirmed" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1172,7 +1229,30 @@
         }
       }
     },
+    "Delete version" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version löschen"
+          }
+        }
+      }
+    },
+    "Delete version %@?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@ löschen?"
+          }
+        }
+      }
+    },
     "deleted" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1183,6 +1263,7 @@
       }
     },
     "deleted on other device" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1356,6 +1437,27 @@
         }
       }
     },
+    "Editing %@ · %@ words · not counted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Editing %1$@ · %2$@ words · not counted"
+          }
+        }
+      }
+    },
+    "Editing %@ · %lld words · not counted" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bearbeitet wird %@ · %lld Wörter · nicht gezählt"
+          }
+        }
+      }
+    },
     "Editor" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1374,6 +1476,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ellipse"
+          }
+        }
+      }
+    },
+    "Empty page" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leere Seite"
           }
         }
       }
@@ -2009,6 +2121,39 @@
         }
       }
     },
+    "main" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hauptversion"
+          }
+        }
+      }
+    },
+    "Make main" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zur Hauptversion"
+          }
+        }
+      }
+    },
+    "Make main version" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zur Hauptversion machen"
+          }
+        }
+      }
+    },
     "Manuscript" : {
       "localizations" : {
         "de" : {
@@ -2190,6 +2335,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Neues Thema…"
+          }
+        }
+      }
+    },
+    "New version V%lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Version V%lld"
+          }
+        }
+      }
+    },
+    "New version…" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Version …"
           }
         }
       }
@@ -2430,6 +2597,16 @@
         }
       }
     },
+    "Passages refer to the main version." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passagen beziehen sich auf die Hauptversion."
+          }
+        }
+      }
+    },
     "Peach" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2658,7 +2835,30 @@
         }
       }
     },
+    "Rename version" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version umbenennen"
+          }
+        }
+      }
+    },
+    "Rename version…" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version umbenennen …"
+          }
+        }
+      }
+    },
     "renamed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2669,6 +2869,7 @@
       }
     },
     "Restore as copy" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2679,6 +2880,7 @@
       }
     },
     "Restored as “%@”" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2870,6 +3072,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Startdatum (JJJJ-MM-TT)"
+          }
+        }
+      }
+    },
+    "Start from" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgehend von"
           }
         }
       }
@@ -3244,6 +3457,7 @@
       }
     },
     "This backup is not a readable book." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3451,6 +3665,7 @@
       }
     },
     "unmergeable remote" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3461,6 +3676,7 @@
       }
     },
     "unreadable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3519,6 +3735,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Prüfen"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
+    "Versions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versionen"
           }
         }
       }

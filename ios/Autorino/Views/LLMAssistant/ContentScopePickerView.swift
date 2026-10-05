@@ -42,6 +42,11 @@ struct ContentScopePickerView: View {
                         columnLegend
                         ForEach(Array(book.chapters.enumerated()), id: \.element.id) { index, chapter in
                             chapterRow(chapter, index: index)
+                            ForEach(chapter.versions) { version in
+                                scopeRow(kind: .version, id: version.id,
+                                         label: PromptBuilder.versionDisplayName(version.id, in: book.chapters),
+                                         leadingPad: true)
+                            }
                         }
                         ForEach(book.passages) { passage in
                             scopeRow(kind: .passage, id: passage.id,
@@ -121,7 +126,7 @@ struct ContentScopePickerView: View {
                 // no summary has nothing to switch off.
                 Color.clear.frame(width: Self.boxWidth, height: 1)
             }
-            Text(PromptBuilder.chapterDisplayName(chapter.id, in: book.chapters))
+            Text(PromptBuilder.chapterDisplayName(chapter.id, in: book.chapters) + PromptBuilder.mainVersionSuffix(chapter))
                 .font(.footnote)
                 .foregroundStyle(beyondCutoff && !textSelected ? Color.secondary : Color.primary)
             Spacer()

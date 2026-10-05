@@ -6,7 +6,8 @@ import Foundation
 /// `llmSelectedCharIds` gated by `llmIncludeCharacters` (app.js:341-342,
 /// 731-734, 765-766) — opt-in and per-character, not automatic.
 struct ContentScopeItem: Identifiable, Hashable {
-    enum Kind { case chapter, passage, character }
+    /// `.version` is an alternative chapter version (id = version id).
+    enum Kind { case chapter, passage, character, version }
     var kind: Kind
     var id: String
 }
@@ -51,6 +52,18 @@ enum PromptBuilder {
         return label.isEmpty ? String(idx + 1) : "\(idx + 1) – \(label)"
     }
 
+    /// " · V1" for a chapter that has alternatives, so the model can tell
+    /// main from the versions it is compared with (`_mainVersionSuffix`).
+    static func mainVersionSuffix(_ chapter: Chapter) -> String {
+        chapter.versions.isEmpty ? "" : " · " + chapter.versionLabel(slot: nil)
+    }
+
+    /// Mirrors `versionScopeDisplayName`: "3 – Title · V2 · darker ending".
+    static func versionDisplayName(_ versionId: String, in chapters: [Chapter]) -> String {
+        guard let chapter = chapters.first(where: { $0.version(versionId) != nil }) else { return "(deleted version)" }
+        return "\(chapterDisplayName(chapter.id, in: chapters)) · \(chapter.versionLabel(slot: versionId))"
+    }
+
     static func passageDisplayName(_ passage: Passage, in chapters: [Chapter]) -> String {
         guard let idx = chapters.firstIndex(where: { $0.id == passage.chapterId }) else { return "✂ \(passage.name) (?)" }
         let chapter = chapters[idx]
@@ -74,7 +87,12 @@ enum PromptBuilder {
                 guard let chapter = book.chapters.first(where: { $0.id == item.id }) else { continue }
                 let text = chapterPlainText(chapter)
                 guard !text.isEmpty else { continue }
-                parts.append("--- \(chapterDisplayName(chapter.id, in: book.chapters)) ---\n\(text)")
+                parts.append("--- \(chapterDisplayName(chapter.id, in: book.chapters))\(mainVersionSuffix(chapter)) ---\n\(text)")
+            case .version:
+                guard let chapter = book.chapters.first(where: { $0.version(item.id) != nil }) else { continue }
+                let text = htmlToPlainText(chapter.content(slot: item.id))
+                guard !text.isEmpty else { continue }
+                parts.append("--- \(versionDisplayName(item.id, in: book.chapters)) ---\n\(text)")
             case .passage:
                 guard let passage = book.passages.first(where: { $0.id == item.id }) else { continue }
                 let text = passagePlainText(passage, chapters: book.chapters).trimmingCharacters(in: .whitespacesAndNewlines)

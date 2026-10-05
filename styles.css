@@ -1333,3 +1333,29 @@ textarea{min-height:80px;resize:vertical}
 .backups-list{max-height:55vh;overflow:auto;margin:8px 0}
 .backups-list summary{cursor:pointer;padding:4px 0;font-weight:600}
 .backup-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0 3px 14px;font-size:12px}
+
+/* Chapter versions */
+.te-version-bar{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:6px 20px;border-bottom:1px solid var(--line);background:#faf8f5;flex-shrink:0;
+}
+.te-version-pill{
+  border:1px solid var(--line);background:var(--panel);color:var(--text);
+  border-radius:999px;padding:3px 10px;cursor:pointer;font-size:12px;
+}
+.te-version-pill:hover{border-color:#bbb5a6}
+.te-version-pill.active{background:var(--text);color:var(--panel);border-color:var(--text)}
+.te-version-pill.active .te-version-main{opacity:.75}
+.te-version-main{font-size:10px;color:var(--muted);margin-left:2px}
+.te-version-add{color:var(--muted)}
+.te-version-spacer{flex:1}
+.te-version-form{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 20px;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;font-size:12px;
+}
+.te-version-form label{display:flex;align-items:center;gap:6px}
+.te-version-form .te-passage-input{width:200px}
+.te-version-banner{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:6px 20px;border-bottom:1px solid var(--line);background:#fff6dc;flex-shrink:0;font-size:12px;
+}

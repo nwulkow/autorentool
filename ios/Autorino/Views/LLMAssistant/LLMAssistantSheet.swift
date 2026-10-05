@@ -24,10 +24,11 @@ struct LLMAssistantSheet: View {
     var baseContext: String?
     var title: String = String(localized: "Assistant")
     var contextChapterId: String?
+    var initialPrompt: String = ""
 
     var body: some View {
         NavigationStack {
-            LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId)
+            LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt)
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
@@ -110,7 +111,7 @@ struct LLMAssistantContent: View {
     /// to be the single most annoying thing about the assistant.
     @State private var failedPrompt: String?
 
-    init(editor: BookEditor, defaultScope: [ContentScopeItem] = [], persist: Bool = true, baseContext: String? = nil, title: String = String(localized: "Assistant"), contextChapterId: String? = nil) {
+    init(editor: BookEditor, defaultScope: [ContentScopeItem] = [], persist: Bool = true, baseContext: String? = nil, title: String = String(localized: "Assistant"), contextChapterId: String? = nil, initialPrompt: String = "") {
         self.editor = editor
         self.defaultScope = defaultScope
         self.persist = persist
@@ -127,6 +128,7 @@ struct LLMAssistantContent: View {
             initialScope += editor.book.characters.map { ContentScopeItem(kind: .character, id: $0.id) }
         }
         _scope = State(initialValue: initialScope)
+        _prompt = State(initialValue: initialPrompt)
     }
 
     private var messages: [ChatMessage] { persist ? persistedHistory.messages : localMessages }

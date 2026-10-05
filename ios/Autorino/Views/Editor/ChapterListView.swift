@@ -286,6 +286,10 @@ private struct ChapterRow: View {
                         Text("·")
                     }
                     Text("\(chapter.wordCount) words")
+                    if !chapter.versions.isEmpty {
+                        Text("·")
+                        Text("\(chapter.versions.count + 1) versions")
+                    }
                 }
                 .font(.caption)
                 .foregroundStyle(Theme.muted)

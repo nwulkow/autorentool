@@ -6,6 +6,9 @@ import SwiftUI
 struct PassagesSheet: View {
     @ObservedObject var editor: BookEditor
     let chapterId: String
+    /// Opened from an alternative chapter version: passages anchor in the
+    /// main text only, so adding one from here is not offered.
+    var fromAlternativeVersion = false
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
@@ -40,16 +43,22 @@ struct PassagesSheet: View {
                         }
                     }
                 }
-                Section("New passage") {
-                    TextField("Name (optional)", text: $name)
-                    TextField("Start text", text: $startText)
-                    TextField("End text", text: $endText)
-                    if !error.isEmpty {
-                        Text(error).font(.caption).foregroundStyle(.red)
+                if fromAlternativeVersion {
+                    Section {
+                        Text("Passages refer to the main version.").foregroundStyle(.secondary)
                     }
-                    Button("Verify") { verify() }
-                    Button("Add") { add() }
-                        .disabled(!verified)
+                } else {
+                    Section("New passage") {
+                        TextField("Name (optional)", text: $name)
+                        TextField("Start text", text: $startText)
+                        TextField("End text", text: $endText)
+                        if !error.isEmpty {
+                            Text(error).font(.caption).foregroundStyle(.red)
+                        }
+                        Button("Verify") { verify() }
+                        Button("Add") { add() }
+                            .disabled(!verified)
+                    }
                 }
             }
             .onChange(of: startText) { _, _ in verified = false }

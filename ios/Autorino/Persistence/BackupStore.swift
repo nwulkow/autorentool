@@ -143,9 +143,9 @@ enum BackupStore {
         }
     }
 
-    /// True when `new` lost content relative to `old`: a chapter, character,
-    /// location, note or event order gone, or the manuscript meaningfully
-    /// shorter. That is what an accidental delete looks like from the save
+    /// True when `new` lost content relative to `old`: a chapter, chapter
+    /// version, character, location, note or event order gone, or the
+    /// manuscript meaningfully shorter. That is what an accidental delete looks like from the save
     /// path, and it always earns a snapshot regardless of interval.
     /// Same thresholds as `backups.book_shrank`.
     static func bookShrank(from old: Book, to new: Book) -> Bool {
@@ -159,8 +159,21 @@ enum BackupStore {
             || new.savedChats.count < old.savedChats.count {
             return true
         }
-        let oldLen = old.chapters.reduce(0) { $0 + $1.content.count }
-        let newLen = new.chapters.reduce(0) { $0 + $1.content.count }
+        if versionCount(new) < versionCount(old) { return true }
+        let oldLen = textLength(old)
+        let newLen = textLength(new)
         return oldLen > 2000 && newLen < oldLen - max(2000, oldLen / 20)
+    }
+
+    private static func versionCount(_ book: Book) -> Int {
+        book.chapters.reduce(0) { $0 + $1.versions.count }
+    }
+
+    /// Main text plus every alternative chapter version, so swapping a
+    /// version into main is not a shrink but deleting a long one is.
+    private static func textLength(_ book: Book) -> Int {
+        book.chapters.reduce(0) { sum, chapter in
+            sum + chapter.content.count + chapter.versions.reduce(0) { $0 + $1.content.count }
+        }
     }
 }
