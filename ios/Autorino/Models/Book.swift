@@ -27,6 +27,14 @@ struct Book: Codable, Hashable {
     /// book's own sync, rename and delete handling for free — a saved chat is
     /// a part of the book's working material, not a separate document.
     var savedChats: [SavedChat]
+    /// The "Deleted chapters" bin — see `DeletedChapter`. Left out of the
+    /// JSON when empty, like `serializeBook` does, so a book that never
+    /// used it stays byte-identical across the two apps.
+    var deletedChapters: [DeletedChapter]
+    /// Set while the book sits in "Deleted books" (ISO 8601). The file stays
+    /// where it is and syncs as usual; both apps just list it there instead
+    /// of in the library. Left out of the JSON otherwise.
+    var deletedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case title, author, tags, chapters, passages, characters
@@ -36,6 +44,8 @@ struct Book: Codable, Hashable {
         case eventOrders = "event_orders"
         case locations, topics
         case savedChats = "saved_chats"
+        case deletedChapters = "deleted_chapters"
+        case deletedAt = "deleted_at"
     }
 
     init(
@@ -51,7 +61,8 @@ struct Book: Codable, Hashable {
         eventOrders: [EventOrder] = [],
         locations: [Location] = [],
         topics: [Topic] = [],
-        savedChats: [SavedChat] = []
+        savedChats: [SavedChat] = [],
+        deletedChapters: [DeletedChapter] = []
     ) {
         self.title = title
         self.author = author
@@ -66,6 +77,7 @@ struct Book: Codable, Hashable {
         self.locations = locations
         self.topics = topics
         self.savedChats = savedChats
+        self.deletedChapters = deletedChapters
     }
 
     /// Decodes leniently like `deserializeBook`: every collection defaults
@@ -86,6 +98,27 @@ struct Book: Codable, Hashable {
         locations = try c.decodeIfPresent([Location].self, forKey: .locations) ?? []
         topics = try c.decodeIfPresent([Topic].self, forKey: .topics) ?? []
         savedChats = try c.decodeIfPresent([SavedChat].self, forKey: .savedChats) ?? []
+        deletedChapters = try c.decodeIfPresent([DeletedChapter].self, forKey: .deletedChapters) ?? []
+        deletedAt = try c.decodeIfPresent(String.self, forKey: .deletedAt)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(title, forKey: .title)
+        try c.encode(author, forKey: .author)
+        try c.encode(tags, forKey: .tags)
+        try c.encode(chapters, forKey: .chapters)
+        try c.encode(passages, forKey: .passages)
+        try c.encode(characters, forKey: .characters)
+        try c.encode(characterRelations, forKey: .characterRelations)
+        try c.encode(canvasNodes, forKey: .canvasNodes)
+        try c.encode(questions, forKey: .questions)
+        try c.encode(eventOrders, forKey: .eventOrders)
+        try c.encode(locations, forKey: .locations)
+        try c.encode(topics, forKey: .topics)
+        try c.encode(savedChats, forKey: .savedChats)
+        if !deletedChapters.isEmpty { try c.encode(deletedChapters, forKey: .deletedChapters) }
+        try c.encodeIfPresent(deletedAt, forKey: .deletedAt)
     }
 }
 

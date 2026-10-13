@@ -194,7 +194,7 @@ def book_shrank(old_book, new_book):
     if not isinstance(old_book, dict) or not isinstance(new_book, dict):
         return True
     for key in ("chapters", "characters", "locations", "event_orders", "topics",
-                "questions", "passages", "saved_chats"):
+                "questions", "passages", "saved_chats", "deleted_chapters"):
         if len(new_book.get(key) or []) < len(old_book.get(key) or []):
             return True
     if _version_count(new_book) < _version_count(old_book):
@@ -203,6 +203,59 @@ def book_shrank(old_book, new_book):
     new_len = _text_length(new_book)
     # Ordinary editing deletes text too; only a large drop is suspicious.
     return old_len > 2000 and new_len < old_len - max(2000, old_len // 20)
+
+
+def recoverable_chapters(base, present_ids=()):
+    """Chapters in this book's snapshots that are in neither `present_ids`
+    (the book's chapters and bin), newest copy per id first, each with where
+    it stood: [{...chapter, deleted_after_id, deleted_position, snapshot}].
+    Same rules as BackupStore.recoverableChapters (Swift)."""
+    present = set(present_ids)
+    directory = _dir_for("books", base)
+    found = []
+    seen = set()
+    for name in reversed(_snapshots(directory)):
+        old, ok = load_json(os.path.join(directory, name))
+        if not ok or not isinstance(old, dict):
+            continue
+        chapters = [c for c in old.get("chapters") or [] if isinstance(c, dict)]
+        entries = [(c, chapters[i - 1].get("id") if i > 0 else None, i) for i, c in enumerate(chapters)]
+        entries += [(d, d.get("deleted_after_id"), d.get("deleted_position") or 0)
+                    for d in old.get("deleted_chapters") or [] if isinstance(d, dict)]
+        for c, after, position in entries:
+            cid = c.get("id")
+            if not cid or cid in present or cid in seen:
+                continue
+            seen.add(cid)
+            item = {k: v for k, v in c.items() if k not in ("deleted_at",)}
+            item.update(deleted_after_id=after, deleted_position=position, snapshot=name[:_STAMP_LEN])
+            found.append(item)
+    return found
+
+
+def recoverable_books(existing, skip=lambda name: False):
+    """Books with snapshots but no file any more: [{base, name, title,
+    snapshot, chapters}] from each one's newest readable snapshot, newest
+    first. `existing`
+    is every filename in books/; `skip(filename)` drops conflict copies.
+    Titles renamed away are left out. Same rules as
+    BackupStore.recoverableBooks (Swift)."""
+    found = []
+    for group in list_book_backups():
+        name = group["base"] + ".json"
+        snaps = group["snapshots"]
+        if name in existing or skip(name) or not snaps or snaps[0]["reason"] == "renamed":
+            continue
+        for sn in snaps:
+            book, ok = load_json(os.path.join(_dir_for("books", group["base"]), sn["name"]))
+            if not ok or not isinstance(book, dict):
+                continue
+            title = book.get("title") or group["base"]
+            found.append({"base": group["base"], "name": sn["name"], "title": title, "snapshot": sn["stamp"],
+                          "chapters": len(book.get("chapters") or [])})
+            break
+    found.sort(key=lambda f: f["snapshot"], reverse=True)
+    return found
 
 
 def load_json(path):

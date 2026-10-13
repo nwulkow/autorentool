@@ -25,6 +25,7 @@ struct DigestListView: View {
             if env.digestService.progress != nil {
                 DigestProgressBar(service: env.digestService)
             }
+            DigestFailuresBanner(service: env.digestService, chapters: editor.book.chapters)
             content
         }
         .background(Theme.paper)

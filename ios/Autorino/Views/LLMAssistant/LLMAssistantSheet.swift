@@ -110,6 +110,14 @@ struct LLMAssistantContent: View {
     /// with Gemini 3.x timing out on long chapters that happened often enough
     /// to be the single most annoying thing about the assistant.
     @State private var failedPrompt: String?
+    /// The answer so far while a reply streams in, shown as a growing bubble.
+    @State private var streamingText = ""
+    /// Id of the reply being (or last) streamed — the bubble's id while it
+    /// grows and the stored message's id once it lands.
+    @State private var streamingReplyId: String?
+    /// A failed turn that left a partial answer in the transcript, so Retry
+    /// can take both out again before re-asking.
+    @State private var interruptedTurn: (userId: String, replyId: String)?
 
     init(editor: BookEditor, defaultScope: [ContentScopeItem] = [], persist: Bool = true, baseContext: String? = nil, title: String = String(localized: "Assistant"), contextChapterId: String? = nil, initialPrompt: String = "") {
         self.editor = editor
@@ -143,14 +151,18 @@ struct LLMAssistantContent: View {
                     selection: $scope,
                     digestChapters: digestChapters,
                     excludedDigests: $excludedDigests,
-                    digestCutoff: digestCutoff
+                    digestCutoff: digestCutoff,
+                    textIncluded: includeBookText,
+                    summaryCount: includeDigests ? includedDigestCount : 0
                 )
                 includeBookTextRow
             }
             .background(Theme.chrome)
             .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .bottom)
             ScrollViewReader { proxy in
-                ScrollView {
+                // Only the shared per-book transcript is worth returning to;
+                // an ephemeral pane's messages are gone once it closes.
+                RememberedScrollView(memoryKey: persist ? Book.sanitizedFilename(for: editor.book.title) : nil) {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         if messages.isEmpty {
                             emptyState
@@ -159,15 +171,36 @@ struct LLMAssistantContent: View {
                             ChatBubbleView(message: message).id(message.id)
                         }
                         if isLoading {
-                            ChatTypingIndicator().id(Self.typingIndicatorID)
+                            if let replyId = streamingReplyId, !streamingText.isEmpty {
+                                // Same id the finished reply is stored under,
+                                // so the bubble stays put when it lands.
+                                ChatBubbleView(message: ChatMessage(id: replyId, role: .assistant, content: streamingText))
+                                    .id(replyId)
+                            } else {
+                                ChatTypingIndicator().id(Self.typingIndicatorID)
+                            }
                         }
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                 }
                 .scrollDismissesKeyboard(.interactively)
-                .onChange(of: messages.count) { _, _ in scrollToEnd(proxy) }
-                .onChange(of: isLoading) { _, _ in scrollToEnd(proxy) }
+                // A streamed reply is already on screen when it lands, and
+                // the reader may be halfway up it — jumping to its end then
+                // would lose their place.
+                .onChange(of: messages.last?.id) { _, id in
+                    if id == nil || id != streamingReplyId { scrollToEnd(proxy) }
+                }
+                .onChange(of: isLoading) { _, loading in
+                    if loading { scrollToEnd(proxy) }
+                }
+                // Once, when the answer starts: its top, so it reads from
+                // the beginning. Not on every chunk — following the growing
+                // end would scroll the text away from whoever is reading it.
+                .onChange(of: streamingText.isEmpty) { _, empty in
+                    guard !empty, let replyId = streamingReplyId else { return }
+                    withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(replyId, anchor: .top) }
+                }
             }
             if let error {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -354,7 +387,7 @@ struct LLMAssistantContent: View {
     /// detent, where every header row is taken off the transcript.
     private var includeBookTextRow: some View {
         HStack(spacing: 16) {
-            contextToggle("Book text", isOn: $includeBookText, enabled: true)
+            contextToggle("Full text", isOn: $includeBookText, enabled: true)
             contextToggle("Summaries", isOn: $includeDigests, enabled: digestCount > 0)
             Spacer()
             if includeDigests, digestCount > 0 {
@@ -562,11 +595,11 @@ struct LLMAssistantContent: View {
         if persist { persistedHistory.append(message) } else { localMessages.append(message) }
     }
 
-    private func remove(_ message: ChatMessage) {
+    private func remove(id: String) {
         if persist {
-            persistedHistory.remove(id: message.id)
+            persistedHistory.remove(id: id)
         } else {
-            localMessages.removeAll { $0.id == message.id }
+            localMessages.removeAll { $0.id == id }
         }
     }
 
@@ -636,12 +669,17 @@ struct LLMAssistantContent: View {
     /// time.
     private func retry() {
         guard let text = failedPrompt, !isLoading else { return }
+        if let turn = interruptedTurn {
+            remove(id: turn.replyId)
+            remove(id: turn.userId)
+        }
         submit(text)
     }
 
     private func submit(_ text: String) {
         error = nil
         failedPrompt = nil
+        interruptedTurn = nil
         let userMessage = ChatMessage(role: .user, content: text)
         append(userMessage)
         let scopeContext = includeBookText ? PromptBuilder.contentContextText(for: scope, book: editor.book) : ""
@@ -660,9 +698,17 @@ struct LLMAssistantContent: View {
         let selectedCharacters = PromptBuilder.selectedCharacters(for: scope, book: editor.book)
         let usedBookText = includeBookText
 
+        let replyId = IDGenerator.uid()
+        streamingReplyId = replyId
+        streamingText = ""
         isLoading = true
-        Task {
-            defer { isLoading = false }
+        let grace = BackgroundGrace(name: "assistant-reply")
+        let work = Task {
+            defer {
+                isLoading = false
+                streamingText = ""
+                grace.end()
+            }
             do {
                 let (result, usedModel) = try await env.llmService.chat(
                     text: context,
@@ -671,8 +717,11 @@ struct LLMAssistantContent: View {
                     characters: selectedCharacters,
                     model: selectedModel,
                     settings: GenerationSettings(thinkingLevel: thinkingSetting.level, temperature: clampedTemperature)
-                )
+                ) { partial in
+                    streamingText = partial
+                }
                 var reply = result
+                reply.id = replyId
                 // Only the "off" case is recorded — that's the one the bubble
                 // tags, and leaving the flag unset otherwise keeps ordinary
                 // transcripts byte-identical to what they were before.
@@ -680,15 +729,82 @@ struct LLMAssistantContent: View {
                 append(reply)
                 modelUsed = usedModel == selectedModel ? nil : usedModel
             } catch {
-                self.error = error.localizedDescription
-                // Roll the user turn back off the transcript and hold its
-                // text, so "Retry" re-sends the same prompt against the same
-                // history instead of stacking a duplicate question above an
-                // answer that never came.
-                remove(userMessage)
+                self.error = grace.expired
+                    ? String(localized: "The answer stopped because the app was in the background too long.")
+                    : error.localizedDescription
                 failedPrompt = text
+                if streamingText.isEmpty {
+                    // Roll the user turn back off the transcript and hold its
+                    // text, so "Retry" re-sends the same prompt against the
+                    // same history instead of stacking a duplicate question
+                    // above an answer that never came.
+                    remove(id: userMessage.id)
+                } else {
+                    // Half an answer can be most of one — keep it, marked,
+                    // rather than throw away minutes of generation.
+                    var partial = ChatMessage(
+                        id: replyId,
+                        role: .assistant,
+                        content: streamingText + "\n\n" + String(localized: "[Answer interrupted]")
+                    )
+                    if !usedBookText { partial.usedBookText = false }
+                    append(partial)
+                    interruptedTurn = (userMessage.id, replyId)
+                }
             }
         }
+        grace.onExpire = { work.cancel() }
+    }
+}
+
+/// A `ScrollView` that reopens where it was left. The offset is kept in
+/// memory only, so it lasts while the app runs and starts from the top
+/// again after a relaunch. Needs iOS 18's `ScrollPosition`; earlier systems
+/// get a plain `ScrollView`.
+private struct RememberedScrollView<Content: View>: View {
+    let memoryKey: String?
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        if #available(iOS 18, *), let memoryKey {
+            OffsetRestoringScrollView(memoryKey: memoryKey, content: content)
+        } else {
+            ScrollView { content() }
+        }
+    }
+}
+
+@MainActor
+private enum ChatScrollMemory {
+    static var offsets: [String: CGFloat] = [:]
+}
+
+@available(iOS 18, *)
+private struct OffsetRestoringScrollView<Content: View>: View {
+    let memoryKey: String
+    let content: () -> Content
+    @State private var position = ScrollPosition()
+    /// Off until the saved offset has been applied: the scroll view reports
+    /// offset 0 as it first lays out, which would overwrite the memory.
+    @State private var restored = false
+
+    var body: some View {
+        ScrollView { content() }
+            .scrollPosition($position)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                if restored { ChatScrollMemory.offsets[memoryKey] = offset }
+            }
+            .task {
+                if let saved = ChatScrollMemory.offsets[memoryKey] {
+                    position.scrollTo(y: saved)
+                    // Let the lazy stack lay out at the new offset before
+                    // offsets start being recorded again.
+                    try? await Task.sleep(for: .milliseconds(150))
+                }
+                restored = true
+            }
     }
 }
 
@@ -747,5 +863,33 @@ struct SavedChatsListView: View {
                 Button("Done") { dismiss() }
             }
         }
+    }
+}
+
+/// The ~30s iOS grants an app after it is backgrounded, held for one
+/// assistant reply. Past that the app is suspended and the connection dies
+/// with it; `onExpire` cancels the request first, so the text that already
+/// arrived is kept as a partial answer instead of vanishing with the socket.
+@MainActor
+private final class BackgroundGrace {
+    var onExpire: () -> Void = {}
+    private(set) var expired = false
+    private var id = UIBackgroundTaskIdentifier.invalid
+
+    init(name: String) {
+        id = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.expired = true
+                self.onExpire()
+                self.end()
+            }
+        }
+    }
+
+    func end() {
+        guard id != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(id)
+        id = .invalid
     }
 }

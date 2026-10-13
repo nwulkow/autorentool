@@ -15,6 +15,12 @@ enum GeminiModelCatalog {
     /// The usual fallback chain still applies if it is unavailable.
     static let digestModel = "gemini-flash-lite-latest"
 
+    /// Second try for a chapter the lite model could not digest. At
+    /// temperature 0 a failure (a repetition loop that runs out of tokens,
+    /// malformed JSON) repeats identically on every run, so the same
+    /// chapters failed forever; a stronger model breaks that.
+    static let digestRetryModel = "gemini-flash-latest"
+
     /// Tried in order when the picked model is unavailable. The moving
     /// aliases, not pinned versions — Google keeps them pointed at a live
     /// model, so this list can't itself go stale the way a pinned name would.

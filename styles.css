@@ -99,6 +99,11 @@ textarea{min-height:80px;resize:vertical}
 .book-card h4{font-size:16px;margin-bottom:4px}
 .bc-author{color:var(--muted);font-size:14px;margin:0 0 10px}
 .bc-meta{font-size:12px;color:var(--muted);margin:0}
+.bc-conflict{
+  margin-top:10px;padding:4px 10px;font-size:12px;font-weight:600;
+  color:#9a5b00;background:#fff4e0;border:1px solid #f0d199;border-radius:999px;
+}
+.bc-conflict:hover{background:#ffe9c2;border-color:#e0b25e}
 
 .create-section h2{font-size:20px;margin-bottom:20px}
 .setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -1332,7 +1337,41 @@ textarea{min-height:80px;resize:vertical}
 .backups-card{max-width:640px;width:90vw}
 .backups-list{max-height:55vh;overflow:auto;margin:8px 0}
 .backups-list summary{cursor:pointer;padding:4px 0;font-weight:600}
+.te-bin-btn{margin:4px 8px 10px;padding:6px 10px;border:none;background:none;color:var(--muted);font-size:12px;text-align:left;cursor:pointer;border-radius:var(--radius-sm)}
+.te-bin-btn:hover{background:rgba(0,0,0,.04);color:inherit}
+.books-bin-btn{display:block;margin:18px auto 0}
+.book-card{position:relative}
+.bc-delete{position:absolute;top:8px;right:8px;border:none;background:none;color:var(--muted);cursor:pointer;opacity:0;font-size:13px;padding:2px 6px;border-radius:var(--radius-sm)}
+.book-card:hover .bc-delete{opacity:1}
+.bc-delete:hover{background:rgba(0,0,0,.06);color:inherit}
+.bin-actions{display:flex;gap:6px;flex-shrink:0}
+.bin-subhead{margin:16px 0 4px}
 .backup-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0 3px 14px;font-size:12px}
+
+/* Conflict copies modal */
+.conflicts-card{max-width:760px;width:92vw;max-height:88vh;overflow:auto}
+.conflict-copy{border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin:12px 0}
+.conflict-copy h5{font-size:14px;margin:0 0 8px}
+.conflict-ch{border-top:1px solid var(--line);padding:6px 0}
+.conflict-ch-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.conflict-ch-name{font-weight:600;flex:1 1 180px}
+.conflict-ch-status{font-size:11px;padding:1px 8px;border-radius:999px;background:#eef2ff;color:#3355bb}
+.conflict-ch-status.cs-only-copy{background:#e8f7ee;color:#1e7a43}
+.conflict-ch-status.cs-only-main{background:#f2f0ed;color:var(--muted)}
+.conflict-ch-actions{display:flex;gap:6px}
+.conflict-diff{margin:8px 0 4px;max-height:40vh;overflow:auto;font-size:12px;line-height:1.5;
+  border:1px solid var(--line);border-radius:6px;padding:8px;background:#fcfbf9}
+.conflict-diff .cd-del,.conflict-diff .cd-add{padding:3px 6px;border-radius:4px;margin:2px 0;white-space:pre-wrap}
+.cd-del{background:#fdecec;color:#8a2a2a}
+.cd-add{background:#e8f7ee;color:#1e5c36}
+.cd-same{color:var(--muted);font-style:italic;padding:2px 6px}
+.cd-mod{padding:3px 6px;margin:2px 0;white-space:pre-wrap;border-left:3px solid #f0d199}
+.cd-w-del{background:#fdecec;color:#8a2a2a;text-decoration:line-through}
+.cd-w-add{background:#e8f7ee;color:#1e5c36}
+.cd-legend{display:flex;gap:6px;margin-bottom:6px;font-size:11px}
+.cd-legend span{padding:1px 8px;border-radius:999px}
+.conflict-other{font-size:12px;margin:8px 0 0}
+.conflict-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 
 /* Chapter versions */
 .te-version-bar{

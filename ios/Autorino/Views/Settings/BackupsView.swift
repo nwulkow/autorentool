@@ -51,6 +51,7 @@ struct BackupsView: View {
         }
         let stamp = snapshot.date.formatted(.iso8601.year().month().day().dateSeparator(.dash).time(includingFractionalSeconds: false).timeSeparator(.omitted))
         book.title = "\(book.title) (restored \(stamp))"
+        book.deletedAt = nil // a restored book is never in the bin
         guard env.bookStore.load(filename: book.filename) == nil else {
             message = String(localized: "Already restored.")
             return

@@ -143,6 +143,75 @@ enum BackupStore {
         }
     }
 
+    /// A book with snapshots but no file any more (deleted for good, or
+    /// before "Deleted books" existed): its newest readable snapshot.
+    struct RecoverableBook: Identifiable {
+        let book: Book
+        let snapshotDate: Date
+        var id: String { book.filename }
+    }
+
+    /// `existing`: every filename in the Books folder. Skips conflict copies
+    /// (set aside on purpose) and titles that were renamed away. Reads
+    /// snapshots, so call it off the main thread. Same rules as
+    /// `backups.recoverable_books`.
+    static func recoverableBooks(existing: Set<String>) -> [RecoverableBook] {
+        let decoder = JSONDecoder()
+        var found: [RecoverableBook] = []
+        for group in bookBackups() {
+            let name = group.base + ".json"
+            guard !existing.contains(name), !BookConflicts.looksLikeCopy(name),
+                  group.snapshots.first?.reason != "renamed" else { continue }
+            for snapshot in group.snapshots {
+                guard let data = try? Data(contentsOf: snapshot.url),
+                      let book = try? decoder.decode(Book.self, from: data) else { continue }
+                if !existing.contains(book.filename) {
+                    found.append(RecoverableBook(book: book, snapshotDate: snapshot.date))
+                }
+                break
+            }
+        }
+        return found.sorted { $0.snapshotDate > $1.snapshotDate }
+    }
+
+    /// A chapter that is in neither the book nor its bin but still in one of
+    /// its snapshots (deleted for good, or deleted before the bin existed).
+    struct RecoverableChapter: Identifiable {
+        let chapter: Chapter
+        let afterChapterId: String?
+        let position: Int
+        let snapshotDate: Date
+        var id: String { chapter.id }
+    }
+
+    /// Scans every snapshot of `book`, newest first; per chapter id the
+    /// newest copy wins. Reads every snapshot, so call it off the main
+    /// thread. Same rules as `backups.recoverable_chapters`.
+    static func recoverableChapters(for book: Book) -> [RecoverableChapter] {
+        let present = Set(book.chapters.map(\.id) + book.deletedChapters.map(\.id))
+        let base = String(book.filename.dropLast(5))
+        guard let group = bookBackups().first(where: { $0.base == base }) else { return [] }
+        let decoder = JSONDecoder()
+        var found: [String: RecoverableChapter] = [:]
+        var order: [String] = []
+        func add(_ chapter: Chapter, after: String?, position: Int, date: Date) {
+            guard !present.contains(chapter.id), found[chapter.id] == nil else { return }
+            found[chapter.id] = RecoverableChapter(chapter: chapter, afterChapterId: after, position: position, snapshotDate: date)
+            order.append(chapter.id)
+        }
+        for snapshot in group.snapshots {
+            guard let data = try? Data(contentsOf: snapshot.url),
+                  let old = try? decoder.decode(Book.self, from: data) else { continue }
+            for (i, chapter) in old.chapters.enumerated() {
+                add(chapter, after: i > 0 ? old.chapters[i - 1].id : nil, position: i, date: snapshot.date)
+            }
+            for entry in old.deletedChapters {
+                add(entry.chapter, after: entry.afterChapterId, position: entry.position, date: snapshot.date)
+            }
+        }
+        return order.compactMap { found[$0] }
+    }
+
     /// True when `new` lost content relative to `old`: a chapter, chapter
     /// version, character, location, note or event order gone, or the
     /// manuscript meaningfully shorter. That is what an accidental delete looks like from the save
@@ -156,7 +225,8 @@ enum BackupStore {
             || new.topics.count < old.topics.count
             || new.questions.count < old.questions.count
             || new.passages.count < old.passages.count
-            || new.savedChats.count < old.savedChats.count {
+            || new.savedChats.count < old.savedChats.count
+            || new.deletedChapters.count < old.deletedChapters.count {
             return true
         }
         if versionCount(new) < versionCount(old) { return true }

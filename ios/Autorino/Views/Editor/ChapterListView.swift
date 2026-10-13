@@ -19,6 +19,7 @@ struct ChapterListView: View {
     /// single chapter happens in there, not from the row badge, so a stray
     /// tap can't replace text the user wrote.
     @State private var editingDigest: DigestTarget?
+    @State private var showingBin = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,6 +27,7 @@ struct ChapterListView: View {
             if env.digestService.progress != nil {
                 DigestProgressBar(service: env.digestService)
             }
+            DigestFailuresBanner(service: env.digestService, chapters: editor.book.chapters)
             content
         }
         .background(Theme.paper)
@@ -50,6 +52,9 @@ struct ChapterListView: View {
                 index: target.index,
                 chapter: target.chapter
             )
+        }
+        .sheet(isPresented: $showingBin) {
+            DeletedChaptersView(editor: editor)
         }
         .sheet(isPresented: $showingAdd) {
             AddChapterSheet(editor: editor)
@@ -95,6 +100,10 @@ struct ChapterListView: View {
                     Label("Generate all summaries", systemImage: "sparkles.rectangle.stack")
                 }
                 .disabled(pendingDigestCount == 0 || env.digestService.isRunning)
+                Divider()
+                Button { showingBin = true } label: {
+                    Label("Deleted chapters (\(editor.book.deletedChapters.count))", systemImage: "trash")
+                }
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.title3)
@@ -111,7 +120,7 @@ struct ChapterListView: View {
     @ViewBuilder
     private var content: some View {
         Group {
-            if editor.book.chapters.isEmpty {
+            if editor.book.chapters.isEmpty && editor.book.deletedChapters.isEmpty {
                 EmptyStateView(
                     systemImage: "doc.text",
                     title: String(localized: "No chapters yet."),
@@ -195,12 +204,34 @@ struct ChapterListView: View {
                             }
                             .tint(Theme.accent)
                         }
+                        // Into the bin, not gone: see `DeletedChaptersView`.
+                        // A plain swipe button, not `.onDelete`: see the note
+                        // on the book list's swipe action (BookListView).
+                        .swipeActions(edge: .trailing) {
+                            Button {
+                                if let i = editor.book.chapters.firstIndex(where: { $0.id == chapter.id }) {
+                                    editor.book.moveChaptersToBin(at: IndexSet(integer: i))
+                                }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            .tint(.red)
+                        }
                     }
                     .onMove { indices, newOffset in
                         editor.book.chapters.move(fromOffsets: indices, toOffset: newOffset)
                     }
-                    .onDelete { indexSet in
-                        editor.book.chapters.remove(atOffsets: indexSet)
+
+                    if !editor.book.deletedChapters.isEmpty {
+                        Button { showingBin = true } label: {
+                            Label("Deleted chapters (\(editor.book.deletedChapters.count))", systemImage: "trash")
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.muted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 6)
+                        .bookCardRow()
                     }
                 }
                 .listStyle(.plain)

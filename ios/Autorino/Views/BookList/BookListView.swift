@@ -2,14 +2,18 @@ import SwiftUI
 
 struct BookListView: View {
     @EnvironmentObject private var env: AppEnvironment
+    /// Observed directly — through `env` the list never saw the store change
+    /// (a book deleted or restored stayed on screen until the next relaunch).
+    @EnvironmentObject private var bookStore: BookStore
     @State private var showingNewBook = false
-    @State private var showingConflictSettings = false
+    @State private var resolving: Book?
+    @State private var showingBin = false
     // Explicit path, owned by `RootView`'s `NavigationStack` and passed in
     // (rather than letting the stack manage it internally) so a rename can
     // rewrite the pushed title in place — see `navigationDestination`
     // below. Without this, renaming the open book leaves the path holding
     // the pre-rename title, which no longer matches any entry in
-    // `env.bookStore.books` (`rename` removes the old-titled entry once it
+    // `bookStore.books` (`rename` removes the old-titled entry once it
     // saves under the new one); the destination then has nothing to
     // resolve, and taps on the book list can stop navigating until the app
     // restarts.
@@ -17,7 +21,7 @@ struct BookListView: View {
 
     var body: some View {
         Group {
-            if env.bookStore.books.isEmpty {
+            if bookStore.books.isEmpty && bookStore.deletedBooks.isEmpty {
                 EmptyStateView(
                     systemImage: "books.vertical",
                     title: String(localized: "Your Books"),
@@ -33,32 +37,40 @@ struct BookListView: View {
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
 
-                    if !env.syncStatus.conflicts.isEmpty {
-                        // A sheet, not a NavigationLink push: `SettingsView`
-                        // owns its own `NavigationStack` and a
-                        // `dismiss()`-driven Done button, which only behaves
-                        // correctly when presented modally — see the note on
-                        // `MoreTabView`.
-                        Button {
-                            showingConflictSettings = true
-                        } label: {
-                            Label("\(env.syncStatus.conflicts.count) sync conflict(s) — review in Settings", systemImage: "exclamationmark.triangle.fill")
-                                .font(.footnote.weight(.medium))
-                                .foregroundStyle(Theme.danger)
-                                .bookCard(padding: 12)
+                    ForEach(bookStore.books) { book in
+                        // Conflict copies left by sync are not books of their
+                        // own here; they hang off their main book's row.
+                        VStack(alignment: .leading, spacing: 8) {
+                            NavigationLink(value: book.filename) {
+                                BookRowView(book: book)
+                            }
+                            BookConflictBadge(store: bookStore, book: book) { resolving = book }
                         }
-                        .buttonStyle(.plain)
                         .bookCardRow()
+                        // Into "Deleted books", not gone: see `DeletedBooksView`.
+                        // Not `.onDelete` / a `.destructive` button: both remove
+                        // the row on screen before the store publishes, and with
+                        // the bin row appearing in the same update the list
+                        // desynced and crashed on its next layout. A plain
+                        // button lets the store change drive the update.
+                        .swipeActions {
+                            Button { bookStore.moveToBin(book) } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            .tint(.red)
+                        }
                     }
 
-                    ForEach(env.bookStore.books) { book in
-                        NavigationLink(value: book.filename) {
-                            BookRowView(book: book)
+                    if !bookStore.deletedBooks.isEmpty {
+                        Button { showingBin = true } label: {
+                            Label("Deleted books (\(bookStore.deletedBooks.count))", systemImage: "trash")
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.muted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 6)
                         .bookCardRow()
-                    }
-                    .onDelete { indexSet in
-                        for index in indexSet { env.bookStore.delete(env.bookStore.books[index]) }
                     }
                 }
                 .listStyle(.plain)
@@ -76,10 +88,10 @@ struct BookListView: View {
             // Routed by filename, not title: two titles can sanitize to one
             // filename, and a title lookup would then resolve ambiguously
             // (see `Book.id`).
-            if let book = env.bookStore.books.first(where: { $0.filename == filename }) {
-                BookTabContainer(editor: BookEditor(book: book, bookStore: env.bookStore)) { newTitle in
+            if let book = bookStore.books.first(where: { $0.filename == filename }) {
+                BookTabContainer(editor: BookEditor(book: book, bookStore: bookStore)) { newTitle in
                     // Keep the pushed path element in sync with a rename so
-                    // it keeps resolving against `env.bookStore.books` (see
+                    // it keeps resolving against `bookStore.books` (see
                     // the note on `path` above) instead of pointing at a
                     // filename that no longer exists.
                     if !path.isEmpty { path.removeLast() }
@@ -95,7 +107,7 @@ struct BookListView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                if !env.bookStore.books.isEmpty {
+                if !bookStore.books.isEmpty {
                     Button {
                         showingNewBook = true
                     } label: {
@@ -107,8 +119,11 @@ struct BookListView: View {
         .sheet(isPresented: $showingNewBook) {
             NewBookSheet()
         }
-        .sheet(isPresented: $showingConflictSettings) {
-            SettingsView()
+        .sheet(isPresented: $showingBin) {
+            DeletedBooksSheet()
+        }
+        .sheet(item: $resolving) { book in
+            ConflictResolverView(store: bookStore, book: book)
         }
     }
 }

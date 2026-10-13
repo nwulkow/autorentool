@@ -21,12 +21,15 @@
 		23A441BD82CE851BBF77CDFA /* HTMLConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A68E14FB43BD944688BD244 /* HTMLConversion.swift */; };
 		23CEC2ECCF9E3C589FFDA0E0 /* LLMAssistantSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2524954BEE3BF6C7B177DE04 /* LLMAssistantSheet.swift */; };
 		243A2A61E541BF747BF5929E /* DocxExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7E025C0C7C983409A3F2384 /* DocxExporter.swift */; };
+		25DFA4C50F95448136C0E35D /* DeletedChaptersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA3A7FFFF244D7DB087FBB5 /* DeletedChaptersView.swift */; };
+		27A9D0957C62C459636A648C /* DeletedBooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0B3E2D970CD362D6ADD2C2 /* DeletedBooksView.swift */; };
 		281996571C7199454AB14130 /* FullTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E523F31A5A37883CD5E32E47 /* FullTextView.swift */; };
 		2830740E9B129BFD93E9F59D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003F4194C9D6A48098048A53 /* SettingsView.swift */; };
 		28CD44A149703A28D12A49E6 /* PassagesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E1A02394D4298D8025A3ECF /* PassagesSheet.swift */; };
 		2FAF6B52D4349241CCBBE8AC /* ChatBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DB74EF97E5FC406C6A41F1C /* ChatBubbleView.swift */; };
 		36A78A7E87E4FEBB96DF3E01 /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6DDB791AA8C2B3F0E4F74B9 /* CanvasView.swift */; };
 		36DF2E0E1332BBD0A837BD94 /* Topic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46E81DC8AF1208D8134BE744 /* Topic.swift */; };
+		391EAA6139B7803139AEDE02 /* ConflictResolverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089FED7FA4429F28B8E62EF4 /* ConflictResolverView.swift */; };
 		3ACF3AB11650D56AB0C1FEDA /* Inflate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E4D164CCED2176FFC572FD /* Inflate.swift */; };
 		3F3A2BF578BC0064F3D96DFD /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FDD8E721ABD67F70170FF15 /* Book.swift */; };
 		3FDBF261E7995D85D6FFD309 /* LocationTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = A503935CB6B7E971DD0CC555 /* LocationTools.swift */; };
@@ -44,6 +47,7 @@
 		622C9729730DB78EB2DFC417 /* SyncIndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DA712302D7C078681D5C92 /* SyncIndexStore.swift */; };
 		65C874198060899D0CA39EFE /* SyncStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7283FAC3B607C7A1E38783F7 /* SyncStatus.swift */; };
 		6EDB76C75FF848576FD386D0 /* GeminiLLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C94274446B2041513382520 /* GeminiLLMService.swift */; };
+		72C9063FE62217ED5BB23B18 /* BookConflicts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73901E7685DB1E34A0027111 /* BookConflicts.swift */; };
 		73FEF9B79B0F48A2FC746E69 /* FolderSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF09ADCDD76A32B6FC986E2E /* FolderSyncEngine.swift */; };
 		744668BD9902B5886385E12D /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20376ABB16AE2960D687D08 /* Theme.swift */; };
 		7607A49AC31C1DC67FB5D3ED /* LocationIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3187F1ED1CD49C44F1E1971E /* LocationIconRenderer.swift */; };
@@ -78,6 +82,7 @@
 		D2D6BE64B1419D31B80AC899 /* TagChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A03877F6AAB04C3FA66101 /* TagChipView.swift */; };
 		D45D38F9A655B2C53331E7D6 /* CommentsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C8ADACE3B86D4EDC457C94A /* CommentsListView.swift */; };
 		D74726BC6455AF032863EF33 /* Identifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D20EA78E0DF8FD33AD35B68 /* Identifiers.swift */; };
+		D9EE71D02CB18CF18EBD05D8 /* DeletedChapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42CF12B7B34AB142CF6E8CAE /* DeletedChapter.swift */; };
 		DCAD19CE52F60ED639F57A4B /* DocxFileDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7AE24D367BBD11B03762CA /* DocxFileDocument.swift */; };
 		DDFDB03617B95D8FD2FF8225 /* CSSColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EE916037AAF6658097FF84 /* CSSColor.swift */; };
 		DEBA3F8B81656F58A91C0F1A /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 91ADF54C30618CCDEB009184 /* Localizable.xcstrings */; };
@@ -103,6 +108,7 @@
 		03B18217BD96D631BF08C38A /* Autorino.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Autorino.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		05B2EA5705B2EA0893A32487 /* Question.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Question.swift; sourceTree = "<group>"; };
 		069DA9E25826AC5648A1321C /* QuestionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionsListView.swift; sourceTree = "<group>"; };
+		089FED7FA4429F28B8E62EF4 /* ConflictResolverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolverView.swift; sourceTree = "<group>"; };
 		0D97C64BEEFF89A0B214075D /* DropboxAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropboxAuthService.swift; sourceTree = "<group>"; };
 		0DB93480403BD46DD37FAE65 /* BookListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookListView.swift; sourceTree = "<group>"; };
 		0FFED8B2CA1519ED320190EF /* EventOrdersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventOrdersListView.swift; sourceTree = "<group>"; };
@@ -129,6 +135,7 @@
 		3FDD8E721ABD67F70170FF15 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
 		41035637E3BDED77E81C1F49 /* EditorTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypography.swift; sourceTree = "<group>"; };
 		41DFCB7228E477706F86EEAE /* GeminiModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiModelCatalog.swift; sourceTree = "<group>"; };
+		42CF12B7B34AB142CF6E8CAE /* DeletedChapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletedChapter.swift; sourceTree = "<group>"; };
 		42D74A7418C192E1CD39F0BF /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		4421611DA2FAA961E7AEF4D7 /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
 		44CDE95204BAE91293B5DDC2 /* DropboxConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropboxConfig.swift; sourceTree = "<group>"; };
@@ -143,10 +150,12 @@
 		6DE02F0EA811928C5EDC394C /* Character.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Character.swift; sourceTree = "<group>"; };
 		6F011AFD83ADED3AAD576C2A /* ContentScopePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentScopePickerView.swift; sourceTree = "<group>"; };
 		7283FAC3B607C7A1E38783F7 /* SyncStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatus.swift; sourceTree = "<group>"; };
+		73901E7685DB1E34A0027111 /* BookConflicts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookConflicts.swift; sourceTree = "<group>"; };
 		74A2B5A4862CD10B7A7AAA8D /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		760367436D0BAC32E6953603 /* NewBookSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewBookSheet.swift; sourceTree = "<group>"; };
 		798A0385E4BE476668C5D0FB /* ChapterListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChapterListView.swift; sourceTree = "<group>"; };
 		7B757A27DAA682ADF6C41E2A /* CharacterPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterPalette.swift; sourceTree = "<group>"; };
+		7DA3A7FFFF244D7DB087FBB5 /* DeletedChaptersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletedChaptersView.swift; sourceTree = "<group>"; };
 		7DB74EF97E5FC406C6A41F1C /* ChatBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatBubbleView.swift; sourceTree = "<group>"; };
 		7E1A02394D4298D8025A3ECF /* PassagesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassagesSheet.swift; sourceTree = "<group>"; };
 		7F860D1771A1ABCD6A9D33D2 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
@@ -188,6 +197,7 @@
 		ED69C2661D784FF6C82DFCD8 /* DigestEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigestEditorSheet.swift; sourceTree = "<group>"; };
 		EEA7CE8E45269A22A15A02EF /* TimelineGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineGeometry.swift; sourceTree = "<group>"; };
 		F3AA9665D850897E50790768 /* BackupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupStore.swift; sourceTree = "<group>"; };
+		FF0B3E2D970CD362D6ADD2C2 /* DeletedBooksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletedBooksView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -350,6 +360,7 @@
 			isa = PBXGroup;
 			children = (
 				F3AA9665D850897E50790768 /* BackupStore.swift */,
+				73901E7685DB1E34A0027111 /* BookConflicts.swift */,
 				5F055F43DBF226549DC7ED1F /* BookStore.swift */,
 				3FA1AAFB99A2BD8F7F4AA343 /* ChapterDigestStore.swift */,
 			);
@@ -384,6 +395,7 @@
 				83393AD114FCA52DBBD01B28 /* ChapterEditorView.swift */,
 				798A0385E4BE476668C5D0FB /* ChapterListView.swift */,
 				3C8ADACE3B86D4EDC457C94A /* CommentsListView.swift */,
+				7DA3A7FFFF244D7DB087FBB5 /* DeletedChaptersView.swift */,
 				C5D5F36A783727ABA0B66D4B /* DigestControls.swift */,
 				ED69C2661D784FF6C82DFCD8 /* DigestEditorSheet.swift */,
 				41035637E3BDED77E81C1F49 /* EditorTypography.swift */,
@@ -428,6 +440,8 @@
 			isa = PBXGroup;
 			children = (
 				0DB93480403BD46DD37FAE65 /* BookListView.swift */,
+				089FED7FA4429F28B8E62EF4 /* ConflictResolverView.swift */,
+				FF0B3E2D970CD362D6ADD2C2 /* DeletedBooksView.swift */,
 				760367436D0BAC32E6953603 /* NewBookSheet.swift */,
 			);
 			path = BookList;
@@ -442,6 +456,7 @@
 				6DE02F0EA811928C5EDC394C /* Character.swift */,
 				7B757A27DAA682ADF6C41E2A /* CharacterPalette.swift */,
 				E9EE916037AAF6658097FF84 /* CSSColor.swift */,
+				42CF12B7B34AB142CF6E8CAE /* DeletedChapter.swift */,
 				25018ED1ED4CB895CBCE01D0 /* EventOrder.swift */,
 				4D20EA78E0DF8FD33AD35B68 /* Identifiers.swift */,
 				B85028E12F40BF0ED607BDCD /* Location.swift */,
@@ -535,6 +550,7 @@
 				F5B7DB6A5E9B3E723C370E1B /* BackupStore.swift in Sources */,
 				AA5005C943AABA6C957152DE /* BackupsView.swift in Sources */,
 				3F3A2BF578BC0064F3D96DFD /* Book.swift in Sources */,
+				72C9063FE62217ED5BB23B18 /* BookConflicts.swift in Sources */,
 				8B64F2ECF2C65A339E64F75D /* BookEditor.swift in Sources */,
 				4CBD5A4B1A090643B37DAB40 /* BookListView.swift in Sources */,
 				407B12A5EA3661DD80FF8491 /* BookStore.swift in Sources */,
@@ -556,7 +572,11 @@
 				2FAF6B52D4349241CCBBE8AC /* ChatBubbleView.swift in Sources */,
 				BE5A6B096DC9E23E261C7F8B /* ChatMessage.swift in Sources */,
 				D45D38F9A655B2C53331E7D6 /* CommentsListView.swift in Sources */,
+				391EAA6139B7803139AEDE02 /* ConflictResolverView.swift in Sources */,
 				085DAD8E0D09B2C343FB85B7 /* ContentScopePickerView.swift in Sources */,
+				27A9D0957C62C459636A648C /* DeletedBooksView.swift in Sources */,
+				D9EE71D02CB18CF18EBD05D8 /* DeletedChapter.swift in Sources */,
+				25DFA4C50F95448136C0E35D /* DeletedChaptersView.swift in Sources */,
 				0C89529D7DF513A3D5F1564F /* DigestControls.swift in Sources */,
 				CFCB1A8FBC67A991D84F0AC8 /* DigestEditorSheet.swift in Sources */,
 				56F80845A524D4AAAC110A23 /* DigestService.swift in Sources */,

@@ -1,6 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "… %lld unchanged paragraphs …" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "… %lld unveränderte Absätze …"
+          }
+        }
+      }
+    },
+    "… 1 unchanged paragraph …" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "… 1 unveränderter Absatz …"
+          }
+        }
+      }
+    },
     "·" : {
 
     },
@@ -49,6 +71,17 @@
         }
       }
     },
+    "[Answer interrupted]" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "[Antwort abgebrochen]"
+          }
+        }
+      }
+    },
     "%@" : {
 
     },
@@ -58,6 +91,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ chapters · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ chapters · %2$@"
           }
         }
       }
@@ -104,6 +147,16 @@
     "%@ words" : {
 
     },
+    "%@ words · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ words · %2$@"
+          }
+        }
+      }
+    },
     "%@/%@" : {
       "localizations" : {
         "en" : {
@@ -129,6 +182,28 @@
     },
     "%@px" : {
 
+    },
+    "%lld → %lld words" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld → %lld Wörter"
+          }
+        }
+      }
+    },
+    "%lld chapters · %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Kapitel · %@"
+          }
+        }
+      }
     },
     "%lld chapters · %@ words" : {
       "extractionState" : "stale",
@@ -159,6 +234,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld Spalten · %lld Ereignisse"
+          }
+        }
+      }
+    },
+    "%lld conflicting versions · Review" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld abweichende Versionen · Prüfen"
           }
         }
       }
@@ -259,6 +345,17 @@
         }
       }
     },
+    "%lld words · %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Wörter · %@"
+          }
+        }
+      }
+    },
     "+ Add Chapter" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -324,6 +421,17 @@
         }
       }
     },
+    "1 conflicting version · Review" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 abweichende Version · Prüfen"
+          }
+        }
+      }
+    },
     "1 place" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -331,6 +439,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 Ort"
+          }
+        }
+      }
+    },
+    "A book with this title already exists." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Buch mit diesem Titel gibt es schon."
           }
         }
       }
@@ -475,6 +594,17 @@
         }
       }
     },
+    "Add to main book" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ins Hauptbuch übernehmen"
+          }
+        }
+      }
+    },
     "Add to map:" : {
       "localizations" : {
         "de" : {
@@ -596,6 +726,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "automatisch"
+          }
+        }
+      }
+    },
+    "Backup from %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherung vom %@"
           }
         }
       }
@@ -754,6 +895,16 @@
         }
       }
     },
+    "Books that are gone from your library but still in the backups on this device." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bücher, die nicht mehr in deiner Bibliothek sind, aber noch in den Sicherungen auf diesem Gerät."
+          }
+        }
+      }
+    },
     "Books, chat history and chapter summaries sync with the Dropbox App folder. On the Mac, open the web app's Settings → Dropbox Sync and connect with the same App Key. Deleted books are moved to the folder's Trash, never deleted." : {
       "localizations" : {
         "de" : {
@@ -765,11 +916,22 @@
       }
     },
     "Both versions were kept — the Dropbox version is now its own book, titled “… - Dropbox conflict <date>”. Merge manually, then delete the extra copy." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Beide Versionen wurden behalten — die Dropbox-Version ist jetzt ein eigenes Buch mit dem Titel „… - Dropbox conflict <Datum>“. Führe sie manuell zusammen und lösche danach die zusätzliche Kopie."
+          }
+        }
+      }
+    },
+    "Both versions were kept. Open “Review” under the book in your library to compare and resolve them." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beide Versionen wurden behalten. Öffne „Prüfen“ unter dem Buch in deiner Bibliothek, um sie zu vergleichen und aufzulösen."
           }
         }
       }
@@ -927,6 +1089,16 @@
         }
       }
     },
+    "Chapters that are no longer in this book but are still in its backups on this device." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapitel, die nicht mehr in diesem Buch sind, aber noch in seinen Sicherungen auf diesem Gerät."
+          }
+        }
+      }
+    },
     "Character removed" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -944,6 +1116,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Charaktere"
+          }
+        }
+      }
+    },
+    "Characters: %lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charaktere: %lld"
           }
         }
       }
@@ -1064,6 +1247,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bestätigt"
+          }
+        }
+      }
+    },
+    "Conflicting versions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abweichende Versionen"
           }
         }
       }
@@ -1229,6 +1423,39 @@
         }
       }
     },
+    "Delete permanently" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Endgültig löschen"
+          }
+        }
+      }
+    },
+    "Delete this book permanently?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Buch endgültig löschen?"
+          }
+        }
+      }
+    },
+    "Delete this chapter permanently?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Kapitel endgültig löschen?"
+          }
+        }
+      }
+    },
     "Delete version" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1258,6 +1485,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "gelöscht"
+          }
+        }
+      }
+    },
+    "Deleted" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelöscht"
+          }
+        }
+      }
+    },
+    "Deleted %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelöscht %@"
+          }
+        }
+      }
+    },
+    "Deleted books" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelöschte Bücher"
+          }
+        }
+      }
+    },
+    "Deleted books (%lld)" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelöschte Bücher (%lld)"
+          }
+        }
+      }
+    },
+    "Deleted chapters" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelöschte Kapitel"
+          }
+        }
+      }
+    },
+    "Deleted chapters (%lld)" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelöschte Kapitel (%lld)"
           }
         }
       }
@@ -1320,12 +1611,33 @@
     "Did not use book text" : {
 
     },
+    "different text" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "anderer Text"
+          }
+        }
+      }
+    },
     "Disconnect Dropbox" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dropbox trennen"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schließen"
           }
         }
       }
@@ -1556,6 +1868,17 @@
         }
       }
     },
+    "Event orders" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ereignisfolgen"
+          }
+        }
+      }
+    },
     "Event Orders" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1649,6 +1972,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Formatierung"
+          }
+        }
+      }
+    },
+    "Found in backups" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Sicherungen gefunden"
           }
         }
       }
@@ -1835,6 +2168,17 @@
         }
       }
     },
+    "Hide differences" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterschiede ausblenden"
+          }
+        }
+      }
+    },
     "High" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1875,6 +2219,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "https://…"
+          }
+        }
+      }
+    },
+    "Identical to the main book." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identisch mit dem Hauptbuch."
           }
         }
       }
@@ -1965,6 +2319,26 @@
         }
       }
     },
+    "It is removed from the book. A copy stays in Backups and can be restored from “Found in backups”." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es wird aus dem Buch entfernt. Eine Kopie bleibt in den Sicherungen und lässt sich unter „In Sicherungen gefunden“ wiederherstellen."
+          }
+        }
+      }
+    },
+    "It is removed from this device and moved to the Dropbox Trash. A copy stays in Backups and can be restored from “Found in backups”." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es wird von diesem Gerät entfernt und in den Dropbox-Papierkorb verschoben. Eine Kopie bleibt in den Sicherungen und lässt sich unter „In Sicherungen gefunden“ wiederherstellen."
+          }
+        }
+      }
+    },
     "It may have been deleted." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1983,6 +2357,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kursiv"
+          }
+        }
+      }
+    },
+    "Keep main book, set this version aside" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hauptbuch behalten, diese Version beiseitelegen"
           }
         }
       }
@@ -2132,6 +2517,16 @@
         }
       }
     },
+    "main book" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hauptbuch"
+          }
+        }
+      }
+    },
     "Make main" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2171,6 +2566,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nachricht…"
+          }
+        }
+      }
+    },
+    "missing in this version" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "fehlt in dieser Version"
           }
         }
       }
@@ -2412,6 +2818,26 @@
         }
       }
     },
+    "No deleted books." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine gelöschten Bücher."
+          }
+        }
+      }
+    },
+    "No deleted chapters." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine gelöschten Kapitel."
+          }
+        }
+      }
+    },
     "No event orders yet." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2451,6 +2877,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Noch keine Orte."
+          }
+        }
+      }
+    },
+    "No other books found." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine weiteren Bücher gefunden."
+          }
+        }
+      }
+    },
+    "No other chapters found." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine weiteren Kapitel gefunden."
           }
         }
       }
@@ -2554,6 +3000,38 @@
         }
       }
     },
+    "Older copy from Dropbox" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ältere Kopie aus Dropbox"
+          }
+        }
+      }
+    },
+    "only in this version" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nur in dieser Version"
+          }
+        }
+      }
+    },
+    "Only taken over with “Use this whole version”." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird nur mit „Ganze Version übernehmen“ übernommen."
+          }
+        }
+      }
+    },
     "Open threads" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2572,6 +3050,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Orange"
+          }
+        }
+      }
+    },
+    "Other differences: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weitere Unterschiede: %@"
           }
         }
       }
@@ -2868,6 +3356,28 @@
         }
       }
     },
+    "Replace the main book with this version? The current main version is kept in Backups." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hauptbuch durch diese Version ersetzen? Die aktuelle Hauptversion bleibt in den Sicherungen erhalten."
+          }
+        }
+      }
+    },
+    "Restore" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiederherstellen"
+          }
+        }
+      }
+    },
     "Restore as copy" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2875,6 +3385,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Als Kopie wiederherstellen"
+          }
+        }
+      }
+    },
+    "Restore puts a book back into your library. Swipe left to delete one permanently; it then also goes to the Dropbox Trash, and a copy stays in Backups." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiederherstellen holt ein Buch zurück in deine Bibliothek. Nach links wischen löscht es endgültig; es landet dann auch im Dropbox-Papierkorb, und eine Kopie bleibt in den Sicherungen."
+          }
+        }
+      }
+    },
+    "Restore puts a chapter back where it was. Swipe left to delete one permanently; a copy stays in Backups." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiederherstellen setzt ein Kapitel an seine alte Stelle zurück. Nach links wischen löscht es endgültig; eine Kopie bleibt in den Sicherungen."
           }
         }
       }
@@ -2956,6 +3486,17 @@
         }
       }
     },
+    "Saved chats" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gespeicherte Chats"
+          }
+        }
+      }
+    },
     "Scale" : {
       "localizations" : {
         "de" : {
@@ -2999,6 +3540,28 @@
         }
       }
     },
+    "Set aside" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beiseitelegen"
+          }
+        }
+      }
+    },
+    "Set this version aside? It stays in Backups and in the Dropbox Trash." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Version beiseitelegen? Sie bleibt in den Sicherungen und im Dropbox-Papierkorb erhalten."
+          }
+        }
+      }
+    },
     "Settings" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3017,6 +3580,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Laden"
+          }
+        }
+      }
+    },
+    "Show differences" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterschiede zeigen"
           }
         }
       }
@@ -3206,6 +3780,17 @@
         }
       }
     },
+    "Summaries: %lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassungen: %lld"
+          }
+        }
+      }
+    },
     "Summarize what happens here." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3239,6 +3824,17 @@
         }
       }
     },
+    "Summary failed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammenfassung fehlgeschlagen"
+          }
+        }
+      }
+    },
     "Suspected" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3246,6 +3842,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vermutet"
+          }
+        }
+      }
+    },
+    "Sync found other versions of this book. Take what you need from them into the main book, then set them aside. Nothing is deleted: set-aside versions stay in Backups and in the Dropbox Trash." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beim Synchronisieren wurden weitere Versionen dieses Buchs gefunden. Übernimm, was du brauchst, ins Hauptbuch und lege sie dann beiseite. Nichts wird gelöscht: Beiseitegelegte Versionen bleiben in den Sicherungen und im Dropbox-Papierkorb."
           }
         }
       }
@@ -3349,6 +3955,28 @@
         }
       }
     },
+    "Text: %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text: %@"
+          }
+        }
+      }
+    },
+    "The answer stopped because the app was in the background too long." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Antwort wurde abgebrochen, weil die App zu lange im Hintergrund war."
+          }
+        }
+      }
+    },
     "The chapter has changed since this was made." : {
       "localizations" : {
         "de" : {
@@ -3409,6 +4037,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Das Modell schreibt eine neue Zusammenfassung aus dem aktuellen Kapiteltext. Diese Version wird verworfen."
+          }
+        }
+      }
+    },
+    "The summary came back incomplete or malformed." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Zusammenfassung kam unvollständig oder fehlerhaft zurück."
           }
         }
       }
@@ -3496,6 +4135,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dieses Thema existiert nicht mehr."
+          }
+        }
+      }
+    },
+    "this version" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "diese Version"
+          }
+        }
+      }
+    },
+    "This version cannot be read. It can only be set aside (a copy stays in Backups)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Version ist nicht lesbar. Sie kann nur beiseitegelegt werden (eine Kopie bleibt in den Sicherungen)."
           }
         }
       }
@@ -3686,6 +4345,17 @@
         }
       }
     },
+    "Untitled chapter" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unbenanntes Kapitel"
+          }
+        }
+      }
+    },
     "Up to %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3718,6 +4388,39 @@
         }
       }
     },
+    "Use this text" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diesen Text übernehmen"
+          }
+        }
+      }
+    },
+    "Use this whole version" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganze Version übernehmen"
+          }
+        }
+      }
+    },
+    "Use this whole version instead" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stattdessen ganze Version übernehmen"
+          }
+        }
+      }
+    },
     "Used for the LLM assistant. Stored in the Keychain, never leaves the device except to call the Gemini API directly." : {
       "localizations" : {
         "de" : {
@@ -3746,6 +4449,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Version"
+          }
+        }
+      }
+    },
+    "Version from the other device" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version vom anderen Gerät"
+          }
+        }
+      }
+    },
+    "Version this device had before syncing" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version dieses Geräts vor der Synchronisierung"
           }
         }
       }

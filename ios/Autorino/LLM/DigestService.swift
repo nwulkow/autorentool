@@ -37,7 +37,10 @@ final class DigestService: ObservableObject {
     }
 
     @Published private(set) var progress: Progress?
-    @Published var lastError: String?
+    /// Why each chapter's last attempt failed, by chapter id; cleared when
+    /// it succeeds. Kept per chapter rather than as one "last error" so the
+    /// chapters that keep failing can say why, after the run has ended.
+    @Published private(set) var failures: [String: String] = [:]
 
     private let llm: LLMService
     private var job: Task<Void, Never>?
@@ -86,13 +89,16 @@ final class DigestService: ObservableObject {
         job?.cancel()
     }
 
+    func dismissFailures(for chapterIds: [String]) {
+        chapterIds.forEach { failures[$0] = nil }
+    }
+
     // MARK: - The loop
 
     private func run(chapters: [(index: Int, chapter: Chapter)], book: Book) {
         guard job == nil, !chapters.isEmpty else { return }
         let store = store(for: book.title)
         let cast = book.characters.map(\.name).filter { !$0.isEmpty }
-        lastError = nil
         progress = Progress(bookTitle: book.title, completed: 0, total: chapters.count, failed: 0, currentTitle: "")
 
         // Grace period if the user backgrounds the app mid-run. Without it
@@ -122,7 +128,7 @@ final class DigestService: ObservableObject {
                 }
 
                 do {
-                    let payload = try await self.llm.digest(
+                    let (payload, modelUsed) = try await self.llm.digest(
                         chapterTitle: Self.displayTitle(chapter, index: index),
                         chapterText: text,
                         castNames: cast,
@@ -137,13 +143,14 @@ final class DigestService: ObservableObject {
                         contentHash: ChapterDigestStore.hash(chapter.content),
                         index: index,
                         title: Self.displayTitle(chapter, index: index),
-                        generatedBy: GeminiModelCatalog.digestModel,
+                        generatedBy: modelUsed,
                         payload: payload
                     ))
+                    self.failures[chapter.id] = nil
                 } catch {
                     if Task.isCancelled { break }
                     self.progress?.failed += 1
-                    self.lastError = error.localizedDescription
+                    self.failures[chapter.id] = error.localizedDescription
                 }
                 self.progress?.completed += 1
             }

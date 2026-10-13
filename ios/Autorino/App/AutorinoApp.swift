@@ -13,6 +13,9 @@ struct AutorinoApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(appEnvironment)
+                // Separately, so views listing books observe the store itself:
+                // `AppEnvironment` doesn't republish its services' changes.
+                .environmentObject(appEnvironment.bookStore)
                 .preferredColorScheme(appearanceMode.colorScheme)
                 .onOpenURL { url in
                     appEnvironment.dropboxAuth.handleRedirect(url: url)

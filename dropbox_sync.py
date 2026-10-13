@@ -526,6 +526,16 @@ def _remote_is_newer(entry, local_path):
     return remote > local
 
 
+def _same_content(a, b):
+    """True when two JSON files hold the same data, however formatted.
+    Unparseable bytes only ever equal themselves. Must match
+    FolderSyncEngine.sameContent (Swift)."""
+    if a == b:
+        return True
+    left, right = _loads(a, object), _loads(b, object)
+    return left is not None and left == right
+
+
 def _write_conflict_copy(local_dir, name, data, label="Dropbox conflict"):
     """Stores the remote side of a book conflict as a *separate book*: the
     title inside is changed too, so both apps list it as its own entry
@@ -604,6 +614,11 @@ def _pull_remote_changes(token, index, folder):
         elif folder["policy"] == "merge":
             _merge_or_preserve(folder, name, data, local_path, local_data)
             new_record["dirty"] = True  # merged copy goes back up over the rev just recorded
+        elif _same_content(local_data, data):
+            # Same book, different bytes (the apps format JSON differently):
+            # nothing to keep twice.
+            backups.snapshot(local_path, kind, "before sync", routine=True)
+            _atomic_write(local_path, data)
         elif record is None and _remote_is_newer(entry, local_path):
             # Never synced on this device (first connect) and Dropbox has the
             # newer version: that one keeps the main name, the local one
@@ -657,7 +672,7 @@ def _push_local_changes(token, index, folder):
             remote, downloaded = _download(token, remote_path)
             if folder["policy"] == "merge":
                 data = _merge_or_preserve(folder, name, remote, local_path, data)
-            elif content_hash(remote) != content_hash(data):
+            elif not _same_content(remote, data):
                 _write_conflict_copy(local_dir, name, remote)
             try:
                 uploaded = _upload(token, remote_path, data, {".tag": "update", "update": downloaded["rev"]})

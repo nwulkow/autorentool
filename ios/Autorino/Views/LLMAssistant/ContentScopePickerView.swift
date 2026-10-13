@@ -28,6 +28,10 @@ struct ContentScopePickerView: View {
     /// hidden, so the range is visible as a fact about the list instead of
     /// chapters mysteriously losing their box.
     var digestCutoff: Int?
+    /// What the chat will actually send, for the collapsed label: whether the
+    /// "Full text" switch is on, and how many summaries go out.
+    var textIncluded = true
+    var summaryCount = 0
     @State private var expanded = false
 
     private static let boxWidth: CGFloat = 20
@@ -74,8 +78,9 @@ struct ContentScopePickerView: View {
             }
             .frame(maxHeight: 220)
         } label: {
-            Text(label)
+            Text(verbatim: label)
                 .font(.subheadline)
+                .lineLimit(1)
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
@@ -97,11 +102,32 @@ struct ContentScopePickerView: View {
         .foregroundStyle(.secondary)
     }
 
-    /// `label` is `LocalizedStringKey`, not `String`: `Text` only looks a
-    /// plain `String` up in the catalog when it's a literal, so building this
-    /// as a `String` left the row in English inside an otherwise German UI.
-    private var label: LocalizedStringKey {
-        selection.isEmpty ? "Include chapters/passages/characters" : "Included: \(selection.count) selected"
+    /// Says what goes out, by kind. A bare "Included: 13 selected" counted
+    /// every character too, and read as thirteen chapters of prose.
+    private var label: String {
+        var parts: [String] = []
+        let texts = selection.filter { $0.kind != .character }
+        if textIncluded, !texts.isEmpty {
+            let name = texts.count == 1 ? displayName(texts[0]) : String(texts.count)
+            parts.append(String(localized: "Text: \(name)"))
+        }
+        if summaryCount > 0 {
+            parts.append(String(localized: "Summaries: \(summaryCount)"))
+        }
+        let characterCount = selection.count - texts.count
+        if characterCount > 0 {
+            parts.append(String(localized: "Characters: \(characterCount)"))
+        }
+        return parts.isEmpty ? String(localized: "Include chapters/passages/characters") : parts.joined(separator: " · ")
+    }
+
+    private func displayName(_ item: ContentScopeItem) -> String {
+        switch item.kind {
+        case .chapter: return PromptBuilder.chapterDisplayName(item.id, in: book.chapters)
+        case .version: return PromptBuilder.versionDisplayName(item.id, in: book.chapters)
+        case .passage: return book.passages.first { $0.id == item.id }?.name ?? "?"
+        case .character: return book.characters.first { $0.id == item.id }?.name ?? "?"
+        }
     }
 
     private func chapterRow(_ chapter: Chapter, index: Int) -> some View {

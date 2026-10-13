@@ -247,8 +247,13 @@ final class ChatHistoryStore: ObservableObject {
     /// transcript when its request failed, so a retry doesn't stack a second
     /// copy of the same prompt — and so the failed turn never reaches disk or
     /// Dropbox as a question that was never answered.
+    /// Also drops an interrupted partial answer before its retry — and an
+    /// answer, even half of one, gets a snapshot first.
     func remove(id: String) {
         guard let idx = messages.firstIndex(where: { $0.id == id }) else { return }
+        if messages[idx].role == .assistant {
+            try? BackupStore.snapshot(fileURL, kind: .chatHistory, reason: "before remove")
+        }
         messages.remove(at: idx)
         persist()
     }

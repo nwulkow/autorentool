@@ -162,6 +162,13 @@ final class FolderSyncEngine {
             syncIndex.markSynced(filename: name, rev: downloaded.rev, contentHash: downloaded.contentHash)
             syncIndex.markDirty(filename: name) // merged copy goes back up over the rev just recorded
             return false
+        case .keepBoth where Self.sameContent(localData, data):
+            // Same book, different bytes (the apps format JSON differently):
+            // nothing to keep twice.
+            try BackupStore.snapshot(localURL, kind: kind, reason: "before sync", routine: true)
+            try data.write(to: localURL, options: .atomic)
+            syncIndex.markSynced(filename: name, rev: downloaded.rev, contentHash: downloaded.contentHash)
+            return false
         case .keepBoth where record == nil && remoteIsNewer(entry, than: localURL):
             // Never synced on this device (first connect) and Dropbox has the
             // newer version: that one keeps the main name, the local one
@@ -192,6 +199,16 @@ final class FolderSyncEngine {
         }
         try merged.write(to: localURL, options: .atomic)
         return merged
+    }
+
+    /// True when two JSON files hold the same data, however formatted.
+    /// Unparseable bytes only ever equal themselves. Must match
+    /// `dropbox_sync._same_content`.
+    static func sameContent(_ a: Data, _ b: Data) -> Bool {
+        if a == b { return true }
+        guard let left = try? JSONSerialization.jsonObject(with: a, options: [.fragmentsAllowed]),
+              let right = try? JSONSerialization.jsonObject(with: b, options: [.fragmentsAllowed]) else { return false }
+        return (left as AnyObject).isEqual(right)
     }
 
     /// Stores the remote side of a book conflict as a *separate book*: the
@@ -259,7 +276,7 @@ final class FolderSyncEngine {
                 case .merge(let merge):
                     data = try mergeOrPreserve(name: name, remote: remote, localURL: url, localData: data, merge: merge)
                 case .keepBoth:
-                    if DropboxClient.contentHash(remote) != DropboxClient.contentHash(data) {
+                    if !Self.sameContent(remote, data) {
                         try writeConflictCopy(of: name, data: remote)
                         conflicts.append(name)
                     }

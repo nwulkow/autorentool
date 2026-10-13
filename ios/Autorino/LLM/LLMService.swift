@@ -19,13 +19,18 @@ protocol LLMService {
     /// `text` context injected into the new user turn only, and an optional
     /// system instruction built from `characters`. `modelUsed` differs from
     /// `model` only when the pick failed and a fallback answered instead.
-    func chat(text: String, userPrompt: String, history: [ChatMessage], characters: [Character], model: String, settings: GenerationSettings) async throws -> (message: ChatMessage, modelUsed: String)
+    /// Streamed: `onPartial` receives the whole answer so far as it grows. If
+    /// the call throws after `onPartial` has fired, that text is all there
+    /// will be — no fallback model is tried once text has been shown.
+    func chat(text: String, userPrompt: String, history: [ChatMessage], characters: [Character], model: String, settings: GenerationSettings, onPartial: @escaping @MainActor (String) -> Void) async throws -> (message: ChatMessage, modelUsed: String)
 
     /// Turns one chapter's prose into a `ChapterDigestPayload`. Constrained
     /// by a response schema rather than parsed out of free text, and run at
     /// `GenerationSettings.precise` — see the note there for why temperature
     /// is fixed rather than exposed.
-    func digest(chapterTitle: String, chapterText: String, castNames: [String], model: String) async throws -> ChapterDigestPayload
+    /// `modelUsed` is the model whose answer was kept — a retry may have
+    /// replaced `model`.
+    func digest(chapterTitle: String, chapterText: String, castNames: [String], model: String) async throws -> (payload: ChapterDigestPayload, modelUsed: String)
 }
 
 /// How hard the model should think, and how freely it should sample.
@@ -56,6 +61,11 @@ struct GenerationSettings: Hashable {
     /// them. Reproducibility also means re-running on an unchanged chapter
     /// returns the same record, so a diff means the prose actually changed.
     static let precise = GenerationSettings(thinkingLevel: .low, temperature: 0.0)
+
+    /// Only for retrying a digest that failed at `precise`: at temperature 0
+    /// the same failure comes back every time, so a little sampling is the
+    /// price of getting a digest at all.
+    static let preciseRetry = GenerationSettings(thinkingLevel: .low, temperature: 0.4)
 }
 
 /// The thinking choice as offered in the UI. Separate from

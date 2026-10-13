@@ -115,3 +115,49 @@ struct DigestProgressBar: View {
         }
     }
 }
+
+/// The chapters whose last summary attempt failed, each with the model's
+/// reason. Outlives the run that produced it — the progress strip vanishes
+/// when a run ends, and with it the only sign that anything went wrong.
+struct DigestFailuresBanner: View {
+    @ObservedObject var service: DigestService
+    let chapters: [Chapter]
+
+    private var rows: [(id: String, title: String, reason: String)] {
+        chapters.enumerated().compactMap { index, chapter in
+            service.failures[chapter.id].map { (chapter.id, DigestService.displayTitle(chapter, index: index), $0) }
+        }
+    }
+
+    var body: some View {
+        let rows = rows
+        if !rows.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Label("Summary failed", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.danger)
+                    Spacer()
+                    Button {
+                        service.dismissFailures(for: rows.map(\.id))
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(Text("Dismiss"))
+                }
+                ForEach(rows, id: \.id) { row in
+                    Text(verbatim: "\(row.title): \(row.reason)")
+                        .font(.caption)
+                        .foregroundStyle(Theme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Theme.chrome)
+            .overlay(Rectangle().frame(height: 1).foregroundStyle(Theme.line), alignment: .bottom)
+        }
+    }
+}

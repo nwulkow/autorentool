@@ -4,6 +4,8 @@
 Serves static files and exposes two API endpoints:
   GET  /api/books      – return every book JSON stored in ./books/
   POST /api/books/save – persist a book JSON to ./books/<title>.json
+  GET  /api/conflicts           – conflict copies of books left by sync
+  POST /api/conflicts/resolve   – {file, action, chapter_ids?} set aside / adopt / take chapters
 
 Also exposes Dropbox sync routes (see dropbox_sync.py). Auth is OAuth 2.0 +
 PKCE with a long-lived refresh token (mirrors the iOS app), done once:
@@ -15,6 +17,7 @@ PKCE with a long-lived refresh token (mirrors the iOS app), done once:
   POST /api/dropbox/sync        – run a two-way sync pass now
 """
 
+import datetime
 import json
 import os
 import glob
@@ -38,6 +41,7 @@ CHAT_HISTORY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cha
 DIGESTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "digests")
 
 import backups  # noqa: E402 — the never-lose-data safety net, see backups.py
+import conflicts  # noqa: E402 — conflict copies left by sync, see conflicts.py
 
 
 def _safe_filename(title):
@@ -152,6 +156,12 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._digests(parse_qs(parsed.query))
         elif path == "/api/backups":
             self._json_response(200, {"books": backups.list_book_backups()})
+        elif path == "/api/books/found":
+            self._found_books()
+        elif path == "/api/backups/chapters":
+            self._backup_chapters(parse_qs(parsed.query))
+        elif path == "/api/conflicts":
+            self._json_response(200, {"conflicts": conflicts.list_conflicts(BOOKS_DIR)})
         else:
             super().do_GET()
 
@@ -169,6 +179,8 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._save_book()
         elif path == "/api/books/delete":
             self._delete_book()
+        elif path == "/api/books/bin":
+            self._bin_book()
         elif path == "/api/llm/prompt":
             self._llm_prompt()
         elif path == "/api/llm/chat":
@@ -191,6 +203,8 @@ class BookHandler(SimpleHTTPRequestHandler):
             self._dropbox_sync()
         elif path == "/api/backups/restore":
             self._restore_backup()
+        elif path == "/api/conflicts/resolve":
+            self._resolve_conflict()
         else:
             self.send_error(404)
 
@@ -209,7 +223,12 @@ class BookHandler(SimpleHTTPRequestHandler):
     def _send_books(self):
         os.makedirs(BOOKS_DIR, exist_ok=True)
         books = []
+        # Conflict copies are listed under their main book (/api/conflicts),
+        # not as books of their own.
+        copies = conflicts.conflict_files(BOOKS_DIR)
         for fp in sorted(glob.glob(os.path.join(BOOKS_DIR, "*.json"))):
+            if os.path.basename(fp) in copies:
+                continue
             try:
                 with open(fp, "r", encoding="utf-8") as fh:
                     books.append(json.load(fh))
@@ -243,6 +262,11 @@ class BookHandler(SimpleHTTPRequestHandler):
         # lost content (an accidental chapter delete looks exactly like this)
         # or the old file doesn't parse; otherwise at most every 15 minutes.
         old, readable = backups.load_json(dest)
+        # Only /api/books/bin takes a book out of "Deleted books". A save
+        # onto a binned book (an editor still open while the other app
+        # deleted it) keeps the edits but leaves it in the bin.
+        if isinstance(old, dict) and old.get("deleted_at") and not data.get("deleted_at"):
+            data["deleted_at"] = old["deleted_at"]
         try:
             if not readable:
                 backups.snapshot(dest, "books", "unreadable")
@@ -494,10 +518,63 @@ class BookHandler(SimpleHTTPRequestHandler):
         data, ok = backups.load_json(path)
         self._json_response(200, {"digests": data if ok and isinstance(data, dict) else {}})
 
+    def _backup_chapters(self, query):
+        """Chapters still in one book's backups but in neither its saved
+        chapters nor its bin, for "Found in backups" under Deleted chapters.
+        app.js filters again against the unsaved state."""
+        safe = _safe_filename((query.get("book") or [""])[0])
+        book, ok = backups.load_json(os.path.join(BOOKS_DIR, f"{safe}.json"))
+        present = []
+        if ok and isinstance(book, dict):
+            for key in ("chapters", "deleted_chapters"):
+                present += [c.get("id") for c in book.get(key) or [] if isinstance(c, dict)]
+        self._json_response(200, {"chapters": backups.recoverable_chapters(safe, present)})
+
+    def _bin_book(self):
+        """Moves a book into "Deleted books" (sets `deleted_at`) or, with
+        `restore`, back out. The file stays; it syncs like any edit.
+        Body: {title, restore}."""
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(length) or b"{}")
+        except ValueError:
+            self._json_response(400, {"error": "Invalid JSON"})
+            return
+        safe = _safe_filename(data.get("title", ""))
+        dest = os.path.join(BOOKS_DIR, f"{safe}.json")
+        book, readable = backups.load_json(dest)
+        if not readable or not isinstance(book, dict):
+            self._json_response(404, {"error": "Book not found or not readable."})
+            return
+        try:
+            backups.snapshot(dest, "books", "autosave", routine=True)
+        except OSError as e:
+            print(f"[backups] routine snapshot failed: {e}")
+        if data.get("restore"):
+            book.pop("deleted_at", None)
+        else:
+            book["deleted_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with open(dest + ".tmp", "w", encoding="utf-8") as fh:
+            json.dump(book, fh, indent=4, ensure_ascii=False)
+        os.replace(dest + ".tmp", dest)
+        if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
+            dropbox_sync.mark_dirty(f"{safe}.json")
+        self._json_response(200, {"status": "ok"})
+
+    def _found_books(self):
+        """Books that only survive in backups, for "Found in backups" under
+        Deleted books."""
+        existing = set(os.listdir(BOOKS_DIR)) if os.path.isdir(BOOKS_DIR) else set()
+        found = [f for f in backups.recoverable_books(existing, conflicts.looks_like_copy)
+                 if f"{_safe_filename(f['title'])}.json" not in existing]
+        self._json_response(200, {"books": found})
+
     def _restore_backup(self):
         """Restores one book snapshot as a *new* book titled
         "<title> (restored <stamp>)", so restoring can never overwrite
-        anything either. Body: {base, name}."""
+        anything either. With `as_original` (Deleted books → Found in
+        backups) it keeps its own title, refused when that file exists.
+        Body: {base, name, as_original}."""
         length = int(self.headers.get("Content-Length", 0))
         try:
             data = json.loads(self.rfile.read(length) or b"{}")
@@ -512,16 +589,47 @@ class BookHandler(SimpleHTTPRequestHandler):
         if not isinstance(book, dict):
             self._json_response(400, {"error": "This snapshot is not a readable book. The file is in backups/books/ for manual repair."})
             return
-        stamp = data.get("name", "")[:19].replace(".", "-")
-        book["title"] = f"{book.get('title') or data.get('base')} (restored {stamp})"
+        book.pop("deleted_at", None)  # a restored book is never in the bin
+        if data.get("as_original"):
+            book["title"] = book.get("title") or data.get("base")
+        else:
+            stamp = data.get("name", "")[:19].replace(".", "-")
+            book["title"] = f"{book.get('title') or data.get('base')} (restored {stamp})"
         dest = os.path.join(BOOKS_DIR, f"{_safe_filename(book['title'])}.json")
         if os.path.exists(dest):
-            self._json_response(409, {"error": "Already restored."})
+            self._json_response(409, {"error": "A book with this title already exists." if data.get("as_original") else "Already restored."})
             return
         with open(dest + ".tmp", "w", encoding="utf-8") as fh:
             json.dump(book, fh, indent=4, ensure_ascii=False)
         os.replace(dest + ".tmp", dest)
         self._json_response(200, {"status": "ok", "title": book["title"]})
+
+    def _resolve_conflict(self):
+        """Body: {file, action: "set_aside" | "adopt" | "take_chapters",
+        chapter_ids}. See conflicts.py for what each keeps."""
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(length) or b"{}")
+            name = os.path.basename(data.get("file", ""))
+            action = data.get("action")
+            if action == "set_aside":
+                conflicts.set_aside(BOOKS_DIR, name)
+                changed, removed = None, name
+            elif action == "adopt":
+                changed, removed = conflicts.adopt(BOOKS_DIR, name), name
+            elif action == "take_chapters":
+                changed, removed = conflicts.take_chapters(BOOKS_DIR, name, data.get("chapter_ids")), None
+            else:
+                raise ValueError("Unknown action.")
+        except (ValueError, OSError) as e:
+            self._json_response(400, {"error": str(e)})
+            return
+        if _DROPBOX_AVAILABLE and dropbox_sync.is_configured():
+            if changed:
+                dropbox_sync.mark_dirty(changed)
+            if removed:
+                dropbox_sync.mark_deleted(removed)
+        self._json_response(200, {"status": "ok"})
 
     def _dropbox_status(self):
         configured = _DROPBOX_AVAILABLE and dropbox_sync.is_configured()

@@ -16,6 +16,11 @@ struct SettingsView: View {
                     } label: {
                         Label("Backups", systemImage: "clock.arrow.circlepath")
                     }
+                    NavigationLink {
+                        DeletedBooksView()
+                    } label: {
+                        Label("Deleted books", systemImage: "trash")
+                    }
                 }
                 Section {
                     Text("Autorino (iOS)").font(.footnote).foregroundStyle(.secondary)
@@ -93,7 +98,7 @@ private struct DropboxSettingsSection: View {
                             .font(.footnote)
                             .foregroundStyle(.orange)
                     }
-                    Text("Both versions were kept — the Dropbox version is now its own book, titled “… - Dropbox conflict <date>”. Merge manually, then delete the extra copy.")
+                    Text("Both versions were kept. Open “Review” under the book in your library to compare and resolve them.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

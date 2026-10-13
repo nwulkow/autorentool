@@ -30,8 +30,8 @@ files, sync, save, delete or rename must keep all of these true:
    if the snapshot fails. Saves snapshot at most every 15 min, but *always* when the new version
    lost content (`book_shrank` / `bookShrank`: fewer chapters/characters/…, or much shorter text) or
    the old file doesn't parse. Retention never drops the newest snapshot of any day.
-2. **Never delete on Dropbox.** There is no delete call in either client. A book deleted in the app
-   is *moved* to `/Trash/` in the App folder (`files/move_v2`). Sidecars (chat, digests) never
+2. **Never delete on Dropbox.** There is no delete call in either client. A book deleted
+   permanently (from "Deleted books") is *moved* to `/Trash/` in the App folder (`files/move_v2`). Sidecars (chat, digests) never
    propagate deletion at all.
 3. **Detect changes by content, never by flags alone.** Sync compares the local file's Dropbox
    `content_hash` with the hash recorded at the last sync. Anything that differs is "changed here"
@@ -42,12 +42,32 @@ files, sync, save, delete or rename must keep all of these true:
    `<title> - Dropbox conflict <stamp>` (title rewritten so both apps list it). Exception, on a
    device's first sync of a file (no index record): the *newer* side keeps the main name and the
    other becomes `<title> - local conflict <stamp>`. A merge that can't parse a side keeps local
-   and stores the remote bytes in backups.
+   and stores the remote bytes in backups. Two sides whose JSON parses to the same data (the
+   apps format differently) are not a conflict (`_same_content` / `sameContent`).
+   Conflict copies (and older `<title> (Dropbox <stamp>).json` files) are detected **by
+   filename** and listed under their main book, not as books — a "conflicting versions ·
+   Review" badge opens a resolver: take single chapters into the main book, adopt the whole
+   copy, or set the copy aside (snapshot + `mark_deleted` → Dropbox Trash). Rules live in
+   `conflicts.py` and `ios/Autorino/Persistence/BookConflicts.swift` and must stay identical.
 5. **Unreadable ≠ empty.** A file that fails to parse/decode is never treated as empty, never
    overwritten, and gets an `unreadable` snapshot. Never `try?`/`except: []` your way into writing
    over it.
-6. **Restore never overwrites.** Restoring a snapshot creates a new book
-   (`<title> (restored <stamp>)`): web Settings → 🗂 Backups, iOS Settings → Backups.
+6. **Deleting a chapter moves it to the book's bin** (`deleted_chapters`: the chapter plus
+   `deleted_at`/`deleted_position`/`deleted_after_id`, key omitted when empty). Only "Delete
+   permanently" there removes it, and `book_shrank` counts the bin so that save snapshots first.
+   "Found in backups" in the same screen lists chapters only snapshots still hold. Rules:
+   `DeletedChapter.swift` ⟷ the "Deleted chapters" methods in `app.js` and
+   `backups.recoverable_chapters` ⟷ `BackupStore.recoverableChapters`.
+7. **Deleting a book moves it to "Deleted books"**: the file stays and gets a top-level
+   `deleted_at` (synced like any edit); both apps list it there instead of in the library. Only
+   "Delete permanently" there removes the file (snapshot + `mark_deleted` → Dropbox Trash). No
+   save may take a book out of the bin except an explicit restore (`/api/books/bin`,
+   `BookStore.restoreFromBin`); a stale editor's save keeps `deleted_at`. A new or renamed book
+   never lands on an existing file, binned ones included. "Found in backups" lists books whose
+   file is gone (`recoverable_books` / `recoverableBooks`) and restores them under their own title.
+8. **Restore never overwrites.** Restoring a snapshot creates a new book
+   (`<title> (restored <stamp>)`): web Settings → 🗂 Backups, iOS Settings → Backups. It never
+   carries `deleted_at`.
 
 The sync rules are implemented twice and must stay identical: `dropbox_sync.py` and
 `ios/Autorino/Sync/FolderSyncEngine.swift`. Before changing either, read the other. There is no
@@ -207,8 +227,14 @@ Views/ → BookEditor (ObservableObject wrapping one Codable Book, 1.5s debounce
   chat transcripts are *unioned* by message id, digests merged per chapter (newer
   `editedAt ?? generatedAt` wins). Nothing is lost either way.
 
-### Two iOS gotchas that already cost real time
+### iOS gotchas that already cost real time
 
+- **`AppEnvironment` doesn't republish its services' changes.** A view reading `env.bookStore`
+  never updates when the store changes; observe the store itself (`@EnvironmentObject
+  BookStore`, injected separately in `AutorinoApp`).
+- **No `.onDelete` / `.destructive` swipe button when the same change adds another row** (the
+  bin row): the row is removed on screen before the store publishes, the list desyncs and the
+  next layout crashes (`Invalid number of items in section`). Use a plain `.tint(.red)` button.
 - **A tab child's `.toolbar` never renders.** The single `NavigationStack` lives above
   `BookTabContainer`'s `TabView`, so only `BookTabContainer`'s own toolbar merges into the nav bar.
   Put per-tab controls in the view body (`AddBarButton`, `CanvasView.header`, `TimelineView.toolbar`

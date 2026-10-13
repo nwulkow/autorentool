@@ -9,6 +9,12 @@ import Combine
 @MainActor
 final class BookStore: ObservableObject {
     @Published private(set) var books: [Book] = []
+    /// Conflict copies left by sync, listed under their main book rather
+    /// than in `books` — see `BookConflicts.swift`.
+    @Published private(set) var conflictCopies: [ConflictCopy] = []
+    /// Books in "Deleted books" (`Book.deletedAt` set), newest first. Their
+    /// files stay in place and sync as usual; they are just not in `books`.
+    @Published private(set) var deletedBooks: [Book] = []
 
     private let fileManager = FileManager.default
     let syncIndex: SyncIndexStore
@@ -30,11 +36,17 @@ final class BookStore: ObservableObject {
     /// Re-reads every `*.json` file in the Books directory. Called on
     /// launch and after a sync pass brings in remote changes.
     func reload() {
-        let urls = (try? fileManager.contentsOfDirectory(at: booksDirectory, includingPropertiesForKeys: nil)) ?? []
+        let urls = ((try? fileManager.contentsOfDirectory(at: booksDirectory, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.pathExtension == "json" }
+        let names = Set(urls.map(\.lastPathComponent))
         let decoder = JSONDecoder()
-        var loaded: [Book] = []
-        var seen = Set<String>()
-        for url in urls where url.pathExtension == "json" {
+        var decoded: [(url: URL, book: Book)] = []
+        var candidates: [(url: URL, info: (base: String, label: String, stamp: String))] = []
+        for url in urls {
+            if let info = BookConflicts.classify(url.lastPathComponent, existing: names) {
+                candidates.append((url, info))
+                continue
+            }
             guard let data = try? Data(contentsOf: url),
                   let book = try? decoder.decode(Book.self, from: data) else {
                 // Not listed, but never lost: sync treats it as changed-here
@@ -43,19 +55,56 @@ final class BookStore: ObservableObject {
                 try? BackupStore.snapshot(url, kind: .books, reason: "unreadable")
                 continue
             }
-            // A book whose title no longer sanitizes to the file it was read
-            // from (hand-renamed file, or a title edited on the other app)
-            // would otherwise collide with the book that legitimately owns
-            // that filename and produce two rows sharing one identity.
-            guard seen.insert(book.filename).inserted else { continue }
+            decoded.append((url, book))
+        }
+        // A conflict copy only hides behind a main book that is readable;
+        // otherwise it may be the only usable copy and is listed as a book.
+        let readableMains = Set(decoded.map(\.url.lastPathComponent))
+        var copies: [ConflictCopy] = []
+        for (url, info) in candidates {
+            if readableMains.contains(info.base) {
+                copies.append(ConflictCopy(filename: url.lastPathComponent, baseFilename: info.base,
+                                           label: info.label, stamp: info.stamp,
+                                           object: BookConflicts.readObject(url)))
+            } else if let data = try? Data(contentsOf: url), let book = try? decoder.decode(Book.self, from: data) {
+                decoded.append((url, book))
+            }
+        }
+        // A book whose title no longer sanitizes to the file it was read
+        // from (hand-renamed file, or a title edited on the other app) would
+        // otherwise collide with the book that legitimately owns that
+        // filename and produce two rows sharing one identity. The rightful
+        // owner goes first so it is the one listed — and the one saves go to.
+        decoded.sort { ($0.book.filename == $0.url.lastPathComponent) && ($1.book.filename != $1.url.lastPathComponent) }
+        var loaded: [Book] = []
+        var seen = Set<String>()
+        for (_, book) in decoded where seen.insert(book.filename).inserted {
             loaded.append(book)
         }
-        books = loaded.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        books = Self.sortedByTitle(loaded.filter { $0.deletedAt == nil })
+        deletedBooks = Self.sortedByDeletion(loaded.filter { $0.deletedAt != nil })
+        conflictCopies = copies.sorted { $0.stamp < $1.stamp }
     }
 
+    private static func sortedByTitle(_ list: [Book]) -> [Book] {
+        list.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private static func sortedByDeletion(_ list: [Book]) -> [Book] {
+        list.sorted { ($0.deletedAt ?? "") > ($1.deletedAt ?? "") }
+    }
+
+    /// Only `restoring` takes a book out of "Deleted books". Any other save
+    /// onto a binned book's file (an editor still open while the other app
+    /// deleted it) keeps the edits but leaves the book in the bin.
     @discardableResult
-    func save(_ book: Book, markDirty: Bool = true) -> Bool {
+    func save(_ book: Book, markDirty: Bool = true, restoring: Bool = false) -> Bool {
+        var book = book
         let url = booksDirectory.appendingPathComponent(book.filename)
+        if !restoring, book.deletedAt == nil,
+           let binnedAt = deletedBooks.first(where: { $0.filename == book.filename })?.deletedAt {
+            book.deletedAt = binnedAt
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(book) else { return false }
@@ -63,7 +112,7 @@ final class BookStore: ObservableObject {
         // lost content (an accidental chapter delete looks exactly like this)
         // or the old file doesn't decode; otherwise at most every 15 minutes.
         if FileManager.default.fileExists(atPath: url.path) {
-            let previous = books.first(where: { $0.filename == book.filename }) ?? load(filename: book.filename)
+            let previous = (books + deletedBooks).first(where: { $0.filename == book.filename }) ?? load(filename: book.filename)
             if let previous {
                 if BackupStore.bookShrank(from: previous, to: book) {
                     do {
@@ -87,11 +136,16 @@ final class BookStore: ObservableObject {
         } catch {
             return false
         }
-        if let idx = books.firstIndex(where: { $0.filename == book.filename }) {
-            books[idx] = book
+        if book.deletedAt == nil {
+            deletedBooks.removeAll { $0.filename == book.filename }
+            if let idx = books.firstIndex(where: { $0.filename == book.filename }) {
+                books[idx] = book
+            } else {
+                books = Self.sortedByTitle(books + [book])
+            }
         } else {
-            books.append(book)
-            books.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            books.removeAll { $0.filename == book.filename }
+            deletedBooks = Self.sortedByDeletion(deletedBooks.filter { $0.filename != book.filename } + [book])
         }
         if markDirty {
             syncIndex.markDirty(filename: book.filename)
@@ -99,10 +153,44 @@ final class BookStore: ObservableObject {
         return true
     }
 
+    /// A title whose file already exists (a live book, or one in "Deleted
+    /// books") gets a number, so a new book never replaces an old one.
     func createBook(title: String, author: String) -> Book {
-        let book = Book(title: title.isEmpty ? "Untitled" : title, author: author)
+        let base = title.isEmpty ? "Untitled" : title
+        var candidate = base
+        var n = 2
+        while fileManager.fileExists(atPath: booksDirectory.appendingPathComponent(Book.sanitizedFilename(for: candidate)).path) {
+            candidate = "\(base) \(n)"
+            n += 1
+        }
+        let book = Book(title: candidate, author: author)
         save(book)
         return book
+    }
+
+    /// "Deleting" a book: it moves to "Deleted books". The file stays, so
+    /// this is an ordinary (synced) save, not a removal.
+    func moveToBin(_ book: Book) {
+        var binned = load(filename: book.filename) ?? book
+        binned.deletedAt = ISO8601DateFormatter().string(from: Date())
+        save(binned)
+    }
+
+    @discardableResult
+    func restoreFromBin(_ book: Book) -> Bool {
+        var restored = load(filename: book.filename) ?? book
+        restored.deletedAt = nil
+        return save(restored, restoring: true)
+    }
+
+    /// Brings back a book that only survives in Backups, under its own title.
+    /// Never overwrites: refuses when that filename is taken.
+    @discardableResult
+    func restoreFromBackup(_ book: Book) -> Bool {
+        var restored = book
+        restored.deletedAt = nil
+        guard !fileManager.fileExists(atPath: booksDirectory.appendingPathComponent(restored.filename).path) else { return false }
+        return save(restored)
     }
 
     /// Saves under the new title first and only then retires the old file,
@@ -137,6 +225,7 @@ final class BookStore: ObservableObject {
         return renamed
     }
 
+    /// Permanent delete — only offered in "Deleted books".
     /// Snapshots the book first and refuses to delete if that fails. On
     /// Dropbox the file is moved to /Trash by the next sync, never deleted.
     func delete(_ book: Book) {
@@ -148,6 +237,7 @@ final class BookStore: ObservableObject {
         }
         try? fileManager.removeItem(at: url)
         books.removeAll { $0.filename == book.filename }
+        deletedBooks.removeAll { $0.filename == book.filename }
         syncIndex.markDeleted(filename: book.filename)
     }
 

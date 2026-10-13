@@ -32,6 +32,11 @@ const POST_IT_COLORS = [
    Helpers
    ═══════════════════════════════════════════════════════════════════ */
 function uid(){ return crypto.randomUUID(); }
+// The book filename rule (server.py:_safe_filename, Book.sanitizedFilename):
+// letters, digits, space, - and _ stay, everything else becomes _.
+function safeFilename(title){
+  return (title||'').replace(/[^\p{L}\p{N} _-]/gu,'_').trim();
+}
 function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
 
 /* ── LLM reply rendering ────────────────────────────────────────────
@@ -131,6 +136,17 @@ function serializeChapter(c){
   }
   return out;
 }
+// A chapter in the "Deleted chapters" bin: the chapter itself plus where it
+// stood. Same shape as `DeletedChapter` in ios/Autorino/Models.
+function serializeDeletedChapter(d){
+  return {...serializeChapter(d), deleted_at:d.deleted_at||'', deleted_position:d.deleted_position||0, deleted_after_id:d.deleted_after_id||null};
+}
+function deserializeChapter(c){
+  return {
+    ...c, comments:c.comments||[], version_name:c.version_name||'',
+    versions:(c.versions||[]).map(v=>({...v,id:v.id||uid(),name:v.name||'',content:v.content||'',comments:v.comments||[]}))
+  };
+}
 function serializeBook(state){
   const b=state.book;
   return {
@@ -169,15 +185,18 @@ function serializeBook(state){
       chapter_label:s.chapterLabel||'',
       messages:JSON.parse(JSON.stringify(s.messages||[]))
     })),
+    // Left out when empty, like the iOS app, so a book that never used the
+    // bin stays byte-identical across the two apps.
+    ...((b.deletedChapters||[]).length?{deleted_chapters:b.deletedChapters.map(serializeDeletedChapter)}:{}),
   };
 }
 
 function deserializeBook(data){
   const book={
     title:data.title, author:data.author,
-    chapters:(data.chapters||[]).map(c=>({
-      ...c, comments:c.comments||[], version_name:c.version_name||'',
-      versions:(c.versions||[]).map(v=>({...v,id:v.id||uid(),name:v.name||'',content:v.content||'',comments:v.comments||[]}))
+    chapters:(data.chapters||[]).map(deserializeChapter),
+    deletedChapters:(data.deleted_chapters||[]).map(d=>({
+      ...deserializeChapter(d), deleted_at:d.deleted_at||'', deleted_position:d.deleted_position||0, deleted_after_id:d.deleted_after_id||null
     })),
     tags:data.tags||[],
     characters:(data.characters||[]).map(c=>({id:c.id||uid(),name:c.name,description:c.description,tags:c.tags||[]})),
@@ -414,8 +433,54 @@ const I18N={de:{
   'Compare version 1 and version {n} of this chapter: differences in plot, tone, pacing and characterization, and the strengths and weaknesses of each.':
     'Vergleiche Version 1 und Version {n} dieses Kapitels: Unterschiede in Handlung, Ton, Tempo und Figurenzeichnung sowie die Stärken und Schwächen beider Versionen.',
   'Backups':'Sicherungen','Restore as copy':'Als Kopie wiederherstellen','No backups yet.':'Noch keine Sicherungen.',
+  'Conflicting versions':'Abweichende Versionen','1 conflicting version':'1 abweichende Version',
+  '{n} conflicting versions':'{n} abweichende Versionen','Review':'Prüfen',
+  'Sync found other versions of this book. Take what you need from them into the main book, then set them aside. Nothing is deleted: set-aside versions stay in Backups and in the Dropbox Trash.':
+    'Beim Synchronisieren wurden weitere Versionen dieses Buchs gefunden. Übernimm, was du brauchst, ins Hauptbuch und lege sie dann beiseite. Nichts wird gelöscht: Beiseitegelegte Versionen bleiben in den Sicherungen und im Dropbox-Papierkorb.',
+  'Version this device had before syncing':'Version dieses Geräts vor der Synchronisierung',
+  'Version from the other device':'Version vom anderen Gerät','Older copy from Dropbox':'Ältere Kopie aus Dropbox',
+  'This version cannot be read. It can only be set aside (a copy stays in Backups).':
+    'Diese Version ist nicht lesbar. Sie kann nur beiseitegelegt werden (eine Kopie bleibt in den Sicherungen).',
+  'Identical to the main book.':'Identisch mit dem Hauptbuch.',
+  'different text':'anderer Text','only in this version':'nur in dieser Version','missing in this version':'fehlt in dieser Version',
+  'Show differences':'Unterschiede zeigen','Hide differences':'Unterschiede ausblenden',
+  'Use this text':'Diesen Text übernehmen','Add to main book':'Ins Hauptbuch übernehmen',
+  'main book':'Hauptbuch','this version':'diese Version',
+  '1 unchanged paragraph':'1 unveränderter Absatz','{n} unchanged paragraphs':'{n} unveränderte Absätze',
+  'Other differences':'Weitere Unterschiede','only with “Use this whole version”':'nur mit „Ganze Version übernehmen“',
+  'Keep main book, set this version aside':'Hauptbuch behalten, diese Version beiseitelegen',
+  'Use this whole version instead':'Ganze Version übernehmen',
+  'Replace the main book with this version? The current main version is kept in Backups.':
+    'Hauptbuch durch diese Version ersetzen? Die aktuelle Hauptversion bleibt in den Sicherungen erhalten.',
+  'Set this version aside? It stays in Backups and in the Dropbox Trash.':
+    'Diese Version beiseitelegen? Sie bleibt in den Sicherungen und im Dropbox-Papierkorb erhalten.',
+  'Could not resolve the conflict':'Konflikt konnte nicht aufgelöst werden','All conflicts resolved ✓':'Alle Konflikte aufgelöst ✓',
+  'conflict set aside':'Konflikt beiseitegelegt','before conflict resolved':'vor Konfliktauflösung','before conflict merge':'vor Übernahme aus Konflikt',
+  'Saved chats':'Gespeicherte Chats',
   'Every version that a save, sync, rename or delete would replace is kept here. Restoring creates a new book and never overwrites anything.':
     'Jede Version, die durch Speichern, Synchronisieren, Umbenennen oder Löschen ersetzt würde, wird hier aufbewahrt. Wiederherstellen erzeugt ein neues Buch und überschreibt nie etwas.',
+  'Deleted chapters':'Gelöschte Kapitel','Moved to Deleted chapters':'In „Gelöschte Kapitel“ verschoben',
+  'Chapter restored':'Kapitel wiederhergestellt','Restore':'Wiederherstellen','Delete permanently':'Endgültig löschen',
+  'deleted':'gelöscht','backup from':'Sicherung vom','Found in backups':'In Sicherungen gefunden',
+  'No deleted chapters.':'Keine gelöschten Kapitel.','No other chapters found.':'Keine weiteren Kapitel gefunden.',
+  'Untitled chapter':'Unbenanntes Kapitel',
+  'chapters':'Kapitel','Deleted books':'Gelöschte Bücher','Moved to Deleted books':'In „Gelöschte Bücher“ verschoben','Book restored':'Buch wiederhergestellt',
+  'No deleted books.':'Keine gelöschten Bücher.','No other books found.':'Keine weiteren Bücher gefunden.','Failed':'Fehlgeschlagen',
+  'A book with this title already exists.':'Ein Buch mit diesem Titel gibt es schon.',
+  'A book with this title is in Deleted books. Restore it there or choose another title.':
+    'Ein Buch mit diesem Titel liegt in „Gelöschte Bücher“. Stelle es dort wieder her oder wähle einen anderen Titel.',
+  'Restore puts a book back into your library. Deleting one permanently removes it here and on Dropbox (into its Trash); a copy stays in Backups.':
+    'Wiederherstellen holt ein Buch zurück in deine Bibliothek. Endgültig gelöscht verschwindet es hier und auf Dropbox (in deren Papierkorb); eine Kopie bleibt in den Sicherungen.',
+  'Books that are gone from your library but still in the backups on this computer.':
+    'Bücher, die nicht mehr in deiner Bibliothek sind, aber noch in den Sicherungen auf diesem Computer.',
+  'Delete this book permanently? A copy stays in Backups and can be restored from “Found in backups”.':
+    'Dieses Buch endgültig löschen? Eine Kopie bleibt in den Sicherungen und lässt sich unter „In Sicherungen gefunden“ wiederherstellen.',
+  'Restore puts a chapter back where it was. Deleting one permanently removes it from the book; a copy stays in Backups.':
+    'Wiederherstellen setzt ein Kapitel an seine alte Stelle zurück. Endgültig gelöscht verschwindet es aus dem Buch; eine Kopie bleibt in den Sicherungen.',
+  'Chapters that are no longer in this book but are still in its backups on this computer.':
+    'Kapitel, die nicht mehr in diesem Buch sind, aber noch in seinen Sicherungen auf diesem Computer.',
+  'Delete this chapter permanently? A copy stays in Backups and can be restored from “Found in backups”.':
+    'Dieses Kapitel endgültig löschen? Eine Kopie bleibt in den Sicherungen und lässt sich unter „In Sicherungen gefunden“ wiederherstellen.',
   'Restored as':'Wiederhergestellt als','Restore failed':'Wiederherstellung fehlgeschlagen',
   'deleted':'gelöscht','autosave':'automatisch','before content removed':'vor Entfernen von Inhalt',
   'before sync':'vor Synchronisierung','deleted on other device':'auf anderem Gerät gelöscht','unreadable':'unlesbar',
@@ -432,8 +497,8 @@ const I18N={de:{
   'Connection failed. Check the code and try again.':'Verbindung fehlgeschlagen. Code prüfen und erneut versuchen.',
   'Dropbox connected ✓':'Dropbox verbunden ✓','Dropbox disconnected':'Dropbox getrennt',
   'Sync complete ✓':'Synchronisierung abgeschlossen ✓','Sync failed!':'Synchronisierung fehlgeschlagen!',
-  'Some books had conflicting edits on both sides. Both versions were kept as separate books (“… conflict <date>”) — check your book list.':
-    'Einige Bücher wurden auf beiden Seiten bearbeitet. Beide Versionen wurden als separate Bücher behalten („… conflict <Datum>“) — prüfe deine Bücherliste.',
+  'Some books had conflicting edits on both sides. Both versions were kept — open “Review” on the book to resolve them.':
+    'Einige Bücher wurden auf beiden Seiten geändert. Beide Versionen wurden behalten — öffne „Prüfen“ am Buch, um sie aufzulösen.',
   "Dropbox sync isn't available on this server (missing dependency).":
     'Dropbox-Synchronisierung ist auf diesem Server nicht verfügbar (fehlende Abhängigkeit).',
   'Book renamed, but chat history could not be moved — old copy kept as a separate book.':
@@ -547,14 +612,26 @@ createApp({
     chapterDigests:{}, showDigest:true,
     // Backups (backups.py): snapshots taken before anything is overwritten/removed
     showBackupsModal:false, backupList:[], backupsLoading:false,
+    // Conflict copies left by sync (conflicts.py), shown under their main book
+    // "Deleted chapters" bin + chapters found only in backups
+    deletedChaptersModal:{open:false,loading:false,found:[]},
+    // "Deleted books": binned books (deleted_at set) + books only in backups
+    deletedBooksModal:{open:false,loading:false,found:[]},
+    bookConflicts:[], conflictModal:{open:false,baseTitle:'',busy:false,diffs:{}},
     // constants exposed to template
     ALL_ICONS,
   }},
   computed:{
+    liveBooks(){ return this.savedBooks.filter(b=>!b.deleted_at); },
+    binnedBooks(){ return this.savedBooks.filter(b=>b.deleted_at).sort((a,b)=>(b.deleted_at||'').localeCompare(a.deleted_at||'')); },
+    conflictModalItems(){
+      if(!this.conflictModal.open) return [];
+      return this.conflictsFor(this.conflictModal.baseTitle).map(copy=>({copy,report:this._conflictReport(copy)}));
+    },
     syncButtonTitle(){
       if(this.dropboxSyncing) return this.t('Syncing…');
       if(this.dropboxError) return this.dropboxError;
-      if(this.dropboxConflicts.length) return this.t('Some books had conflicting edits on both sides. Both versions were kept as separate books (“… conflict <date>”) — check your book list.');
+      if(this.dropboxConflicts.length) return this.t('Some books had conflicting edits on both sides. Both versions were kept — open “Review” on the book to resolve them.');
       if(this.dropboxLastSyncedAt) return this.t('Last synced:')+' '+this.dropboxLastSyncedAt.toLocaleString();
       return this.t('Sync now');
     },
@@ -1190,6 +1267,7 @@ createApp({
     async fetchBooks(){
       try{const r=await fetch('/api/books');this.savedBooks=await r.json();}
       catch(e){console.error(e);this.savedBooks=[];}
+      await this.fetchConflicts();
     },
     async saveBook(options={}){
       if(!this.book) return;
@@ -1234,6 +1312,154 @@ createApp({
     },
     currentDigest(){
       return this.currentChapterId?(this.chapterDigests[this.currentChapterId]||null):null;
+    },
+    /* ── Conflict copies ──────────────── */
+    async fetchConflicts(){
+      try{const r=await fetch('/api/conflicts');this.bookConflicts=(await r.json()).conflicts||[];}
+      catch(e){console.error(e);this.bookConflicts=[];}
+    },
+    conflictsFor(title){ return this.bookConflicts.filter(c=>c.base_title===title); },
+    openConflicts(title){ this.conflictModal={open:true,baseTitle:title,busy:false,diffs:{}}; },
+    conflictLabel(c){
+      if(c.label==='local conflict') return this.t('Version this device had before syncing');
+      if(c.label==='Dropbox conflict') return this.t('Version from the other device');
+      return this.t('Older copy from Dropbox');
+    },
+    _conflictParagraphs(html){
+      return (html||'').replace(/<\/(p|div|h[1-6]|li|blockquote)>|<br\s*\/?>/gi,'\n').replace(/<[^>]*>/g,'')
+        .replace(/&nbsp;/g,' ').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&')
+        .split('\n').map(x=>x.trim()).filter(Boolean);
+    },
+    _conflictWords(ch){ return this._conflictParagraphs(ch&&ch.content).join(' ').split(/\s+/).filter(Boolean).length; },
+    // What differs between a conflict copy and its main book: chapters one
+    // by one, everything else (characters, locations, …) as counts.
+    _conflictReport(copy){
+      const main=this.savedBooks.find(b=>b.title===copy.base_title);
+      if(!main||!copy.book) return {chapters:[],other:[],identical:false};
+      const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+      const mainCh=main.chapters||[], copyCh=copy.book.chapters||[];
+      const mainById=new Map(mainCh.map(c=>[c.id,c])), copyIds=new Set(copyCh.map(c=>c.id));
+      const name=(c,i)=>{const l=c.name||c.label||'';return l?`${i+1} – ${l}`:String(i+1);};
+      const chapters=[];
+      copyCh.forEach((c,i)=>{
+        const m=mainById.get(c.id);
+        if(!m) chapters.push({id:c.id,label:name(c,i),status:'only-copy',copyWords:this._conflictWords(c)});
+        else if(!same(m,c)) chapters.push({id:c.id,label:name(c,i),status:'changed',mainWords:this._conflictWords(m),copyWords:this._conflictWords(c)});
+      });
+      mainCh.forEach((c,i)=>{ if(!copyIds.has(c.id)) chapters.push({id:c.id,label:name(c,i),status:'only-main',mainWords:this._conflictWords(c)}); });
+      const labels={characters:'Characters',relationships:'Relations',locations:'Locations',questions:'Questions',
+        passages:'Passages',event_orders:'Event orders',saved_chats:'Saved chats'};
+      const other=[];
+      for(const key of new Set([...Object.keys(main),...Object.keys(copy.book)])){
+        if(key==='chapters'||key==='title') continue;
+        const a=main[key], b=copy.book[key];
+        const isIdList=v=>Array.isArray(v)&&v.every(x=>x&&typeof x==='object'&&'id' in x);
+        if(isIdList(a||[])&&isIdList(b||[])){
+          const am=new Map((a||[]).map(x=>[x.id,x])), bm=new Map((b||[]).map(x=>[x.id,x]));
+          const onlyCopy=[...bm.keys()].filter(k=>!am.has(k)).length, onlyMain=[...am.keys()].filter(k=>!bm.has(k)).length;
+          const changed=[...bm.keys()].filter(k=>am.has(k)&&!same(am.get(k),bm.get(k))).length;
+          if(onlyCopy||onlyMain||changed) other.push({label:this.t(labels[key]||key),onlyCopy,onlyMain,changed});
+        } else if(!same(a,b)) other.push({label:this.t(labels[key]||key),changed:1,onlyCopy:0,onlyMain:0});
+      }
+      return {chapters,other,identical:!chapters.length&&!other.length};
+    },
+    // LCS edit script between two token lists: [{type:'same'|'del'|'add', text}].
+    _lcsDiff(a,b){
+      const n=a.length,m=b.length,L=Array.from({length:n+1},()=>new Uint16Array(m+1));
+      for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--) L[i][j]=a[i]===b[j]?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
+      const out=[];let i=0,j=0;
+      while(i<n&&j<m){ if(a[i]===b[j]){out.push({type:'same',text:a[i]});i++;j++;} else if(L[i+1][j]>=L[i][j+1]) out.push({type:'del',text:a[i++]}); else out.push({type:'add',text:b[j++]}); }
+      while(i<n) out.push({type:'del',text:a[i++]}); while(j<m) out.push({type:'add',text:b[j++]});
+      return out;
+    },
+    // Paragraph diff for the conflict view. Unchanged stretches collapse to a
+    // count; a removed paragraph paired with an added one becomes one edited
+    // paragraph with the changed words marked, so a small edit stays visible.
+    _paragraphDiff(a,b){
+      const ops=this._lcsDiff(a,b), out=[];
+      for(let k=0;k<ops.length;){
+        if(ops[k].type==='same'){
+          const last=out[out.length-1];
+          if(last&&last.type==='same') last.count++; else out.push({type:'same',count:1});
+          k++;continue;
+        }
+        const dels=[],adds=[];
+        while(k<ops.length&&ops[k].type!=='same'){(ops[k].type==='del'?dels:adds).push(ops[k].text);k++;}
+        const pairs=Math.min(dels.length,adds.length);
+        for(let p=0;p<pairs;p++){
+          const words=this._lcsDiff(dels[p].split(/(\s+)/),adds[p].split(/(\s+)/));
+          out.push({type:'mod',parts:words});
+        }
+        dels.slice(pairs).forEach(text=>out.push({type:'del',text}));
+        adds.slice(pairs).forEach(text=>out.push({type:'add',text}));
+      }
+      return out;
+    },
+    toggleConflictDiff(copy,chapterId){
+      const key=copy.file+'|'+chapterId, diffs={...this.conflictModal.diffs};
+      if(diffs[key]) delete diffs[key];
+      else {
+        const main=this.savedBooks.find(b=>b.title===copy.base_title);
+        const m=(main.chapters||[]).find(c=>c.id===chapterId), c=(copy.book.chapters||[]).find(x=>x.id===chapterId);
+        diffs[key]=this._paragraphDiff(this._conflictParagraphs(m&&m.content),this._conflictParagraphs(c&&c.content));
+      }
+      this.conflictModal.diffs=diffs;
+    },
+    async resolveConflict(copy,action,chapterIds){
+      if(action==='adopt'&&!confirm(this.t('Replace the main book with this version? The current main version is kept in Backups.'))) return;
+      if(action==='set_aside'&&!confirm(this.t('Set this version aside? It stays in Backups and in the Dropbox Trash.'))) return;
+      this.conflictModal.busy=true;
+      try{
+        const r=await fetch('/api/conflicts/resolve',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({file:copy.file,action,chapter_ids:chapterIds||[]})});
+        const d=await r.json();
+        if(!r.ok){this.showToast(d.error||this.t('Could not resolve the conflict'));return;}
+        await this.fetchBooks();
+        this.conflictModal.diffs={};
+        if(!this.conflictsFor(this.conflictModal.baseTitle).length){
+          this.conflictModal.open=false;
+          this.showToast(this.t('All conflicts resolved ✓'));
+        }
+      }catch(e){console.error(e);this.showToast(this.t('Could not resolve the conflict'));}
+      finally{this.conflictModal.busy=false;}
+    },
+    /* ── Deleted books (same rules as BookStore's bin on iOS) ── */
+    async openDeletedBooks(){
+      this.deletedBooksModal.open=true;
+      await this.loadFoundBooks();
+    },
+    async loadFoundBooks(){
+      this.deletedBooksModal.loading=true;
+      try{this.deletedBooksModal.found=(await (await fetch('/api/books/found')).json()).books||[];}
+      catch(e){console.error(e);this.deletedBooksModal.found=[];}
+      finally{this.deletedBooksModal.loading=false;}
+    },
+    async binBook(title,restore){
+      try{
+        const r=await fetch('/api/books/bin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,restore})});
+        if(!r.ok) throw new Error((await r.json()).error||r.status);
+        this.showToast(this.t(restore?'Book restored':'Moved to Deleted books'));
+      }catch(e){console.error(e);this.showToast(this.t('Failed')+': '+e.message);}
+      await this.fetchBooks();
+    },
+    async deleteBookPermanently(title){
+      if(!confirm(this.t('Delete this book permanently? A copy stays in Backups and can be restored from “Found in backups”.'))) return;
+      try{
+        const r=await fetch('/api/books/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title})});
+        if(!r.ok) throw new Error((await r.json()).error||r.status);
+      }catch(e){console.error(e);this.showToast(this.t('Failed')+': '+e.message);}
+      await this.fetchBooks();
+      await this.loadFoundBooks();
+    },
+    async restoreFoundBook(f){
+      try{
+        const r=await fetch('/api/backups/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base:f.base,name:f.name,as_original:true})});
+        const d=await r.json();
+        if(!r.ok) throw new Error(d.error||r.status);
+        this.showToast(this.t('Book restored'));
+      }catch(e){console.error(e);this.showToast(this.t('Restore failed')+': '+e.message);}
+      await this.fetchBooks();
+      await this.loadFoundBooks();
     },
     /* ── Backups ──────────────────────── */
     async openBackups(){
@@ -1332,7 +1558,7 @@ createApp({
           await this.fetchBooks();
           await this.loadDigests();
           if(this.dropboxConflicts.length){
-            this.showToast(this.t('Some books had conflicting edits on both sides. Both versions were kept as separate books (“… conflict <date>”) — check your book list.'));
+            this.showToast(this.t('Some books had conflicting edits on both sides. Both versions were kept — open “Review” on the book to resolve them.'));
           } else {
             this.showToast(this.t('Sync complete ✓'));
           }
@@ -1358,6 +1584,10 @@ createApp({
       const newTitle=this.titleDraft.trim();
       this.editingTitle=false;
       if(!newTitle||newTitle===this.book.title) return;
+      if(safeFilename(newTitle)!==safeFilename(this.book.title)){
+        const taken=this._titleTakenMessage(newTitle);
+        if(taken){this.showToast(taken);return;}
+      }
       const oldTitle=this.book.title;
       this.book.title=newTitle;
       try{
@@ -1401,8 +1631,17 @@ createApp({
     unsavedDiscard(){this.dirty=false;this.showUnsavedDialog=false;if(this.pendingAction)this.pendingAction();this.pendingAction=null;},
     unsavedCancel(){this.showUnsavedDialog=false;this.pendingAction=null;},
     /* ── book management ─────────────── */
+    // A new or renamed book must not land on another book's file, binned
+    // ones included (the server would keep the old one binned).
+    _titleTakenMessage(title){
+      const taken=this.savedBooks.find(b=>safeFilename(b.title)===safeFilename(title));
+      if(!taken) return '';
+      return taken.deleted_at?this.t('A book with this title is in Deleted books. Restore it there or choose another title.'):this.t('A book with this title already exists.');
+    },
     createBook(){
       if(!this.setup.title.trim()||!this.setup.author.trim()) return;
+      const taken=this._titleTakenMessage(this.setup.title.trim());
+      if(taken){this.showToast(taken);return;}
       this.book={title:this.setup.title.trim(),author:this.setup.author.trim(),
         tags:[],chapters:[],characters:[],character_relations:[],questions:[],locations:[],topics:[],passages:[]};
       this.canvasNodes=[];this.eventOrders=[];this.tagInputs={};this.dirty=false;
@@ -1912,17 +2151,85 @@ createApp({
       this.selectChapter(ch.id);
       this.mark();
     },
+    // Moves the chapter into the "Deleted chapters" bin; only deleting it
+    // there removes it, and that save is snapshotted (backups.book_shrank).
     removeChapter(id){
       if(!this.book) return;
       if(this.currentChapterId===id){
+        this.saveCurrentChapterContent();
         if(this.quillInstance){this.quillInstance.off('text-change');this.quillInstance=null;}
         this._quillChapterId=null;
         this._quillVersionId=null;
         this.currentChapterId=null;
         this.currentVersionId=null;
       }
-      this.book.chapters=this.book.chapters.filter(c=>c.id!==id);
+      const idx=this.book.chapters.findIndex(c=>c.id===id);
+      if(idx<0) return;
+      const ch=this.book.chapters[idx];
+      if(!this.book.deletedChapters) this.book.deletedChapters=[];
+      this.book.deletedChapters.push({...ch, deleted_at:new Date().toISOString(), deleted_position:idx, deleted_after_id:idx>0?this.book.chapters[idx-1].id:null});
+      this.book.chapters.splice(idx,1);
       this.mark();
+      this.showToast(this.t('Moved to Deleted chapters'));
+    },
+    /* ── Deleted chapters (same rules as DeletedChapter.swift) ── */
+    // Back right after the chapter it followed, at the top if it was first,
+    // else at its old index (clamped).
+    _chapterRestoreIndex(afterId,position){
+      const chs=this.book.chapters;
+      if(!afterId) return 0;
+      const i=chs.findIndex(c=>c.id===afterId);
+      if(i>=0) return i+1;
+      return Math.min(Math.max(position||0,0),chs.length);
+    },
+    _insertRestoredChapter(entry){
+      const {deleted_at,deleted_position,deleted_after_id,snapshot,...ch}=entry;
+      const restored=deserializeChapter(JSON.parse(JSON.stringify(ch)));
+      // Same id already in the book (possible after a sync merge): keep both.
+      if(this.book.chapters.some(c=>c.id===restored.id)) restored.id=uid();
+      this.book.chapters.splice(this._chapterRestoreIndex(deleted_after_id,deleted_position),0,restored);
+      this.mark();
+      this.showToast(this.t('Chapter restored'));
+    },
+    sortedDeletedChapters(){
+      return [...(this.book?.deletedChapters||[])].sort((a,b)=>(b.deleted_at||'').localeCompare(a.deleted_at||''));
+    },
+    restoreDeletedChapter(id){
+      const i=(this.book.deletedChapters||[]).findIndex(d=>d.id===id);
+      if(i<0) return;
+      const [entry]=this.book.deletedChapters.splice(i,1);
+      this._insertRestoredChapter(entry);
+    },
+    deleteChapterPermanently(id){
+      if(!confirm(this.t('Delete this chapter permanently? A copy stays in Backups and can be restored from “Found in backups”.'))) return;
+      this.book.deletedChapters=(this.book.deletedChapters||[]).filter(d=>d.id!==id);
+      this.mark();
+      // Saved now, so the snapshot holding it exists before we list backups.
+      this.saveBook({silent:true}).then(()=>this.loadFoundChapters());
+    },
+    async openDeletedChapters(){
+      this.deletedChaptersModal.open=true;
+      await this.loadFoundChapters();
+    },
+    async loadFoundChapters(){
+      this.deletedChaptersModal.loading=true;
+      try{
+        const r=await fetch('/api/backups/chapters?book='+encodeURIComponent(this.book.title));
+        const present=new Set([...this.book.chapters,...(this.book.deletedChapters||[])].map(c=>c.id));
+        this.deletedChaptersModal.found=((await r.json()).chapters||[]).filter(c=>!present.has(c.id));
+      }catch(e){console.error(e);this.deletedChaptersModal.found=[];}
+      finally{this.deletedChaptersModal.loading=false;}
+    },
+    restoreFoundChapter(c){
+      this.deletedChaptersModal.found=this.deletedChaptersModal.found.filter(x=>x.id!==c.id);
+      this._insertRestoredChapter(c);
+    },
+    htmlToText(html){
+      const d=document.createElement('div');d.innerHTML=html||'';
+      return (d.textContent||'').trim();
+    },
+    deletedChapterTitle(c){
+      return [c.label,c.name].filter(Boolean).join(' · ')||this.t('Untitled chapter');
     },
     selectChapter(id){
       // save content for the chapter we are leaving, using _quillChapterId
@@ -2573,24 +2880,29 @@ createApp({
 <!-- BOOK SELECTION -->
 <div v-else-if="!book" class="setup-screen">
   <h1 class="brand"><img src="logo.png" style="width: 96px; height: 96px;" class="brand-logo-sm" alt=""/> <span class="brand-name">Autorino</span></h1>
-  <div v-if="savedBooks.length" class="saved-section">
+  <div v-if="liveBooks.length" class="saved-section">
     <h2>{{t('Your Books')}}</h2>
     <div class="book-cards">
-      <div v-for="(b,i) in savedBooks" :key="i" class="book-card" @click="loadSavedBook(b)">
+      <div v-for="(b,i) in liveBooks" :key="b.title" class="book-card" @click="loadSavedBook(b)">
+        <button class="bc-delete" @click.stop="binBook(b.title,false)" :title="t('Delete')">✕</button>
         <h4>{{b.title}}</h4>
         <p class="bc-author">{{t('by')}} {{b.author}}</p>
         <p class="bc-meta">{{(b.characters||[]).length}} {{t('chars')}} · {{(b.questions||[]).length}} {{t('questions')}} · {{(b.locations||[]).length}} {{t('locations')}}</p>
+        <button v-if="conflictsFor(b.title).length" class="bc-conflict" @click.stop="openConflicts(b.title)">
+          ⚠ {{conflictsFor(b.title).length===1?t('1 conflicting version'):t('{n} conflicting versions').replace('{n}',conflictsFor(b.title).length)}} · {{t('Review')}}
+        </button>
       </div>
     </div>
   </div>
   <div class="create-section">
-    <h2>{{savedBooks.length?t('Or create a new book'):t('Create your first book')}}</h2>
+    <h2>{{liveBooks.length?t('Or create a new book'):t('Create your first book')}}</h2>
     <div class="setup-grid">
       <div class="field"><label>{{t('Title')}}</label><input v-model="setup.title" :placeholder="t('e.g. The Great Adventure')"/></div>
       <div class="field"><label>{{t('Author')}}</label><input v-model="setup.author" :placeholder="t('e.g. Jane Doe')"/></div>
     </div>
     <div class="form-actions" style="margin-top:20px"><button class="primary" @click="createBook">{{t('Create Book')}}</button></div>
   </div>
+  <button class="te-bin-btn books-bin-btn" @click="openDeletedBooks">🗑 {{t('Deleted books')}} ({{binnedBooks.length}})</button>
   <div class="lang-switcher" style="justify-content:center;border-top:none;padding-top:24px">
     <img src="flag_images/english.png" class="lang-flag" :class="{active:locale==='en'}" @click="locale='en'" alt="English" title="English"/>
     <img src="flag_images/german.png" class="lang-flag" :class="{active:locale==='de'}" @click="locale='de'" alt="Deutsch" title="Deutsch"/>
@@ -3323,6 +3635,7 @@ createApp({
             </div>
           </div>
         </div>
+        <button class="te-bin-btn" @click="openDeletedChapters">🗑 {{t('Deleted chapters')}} ({{(book.deletedChapters||[]).length}})</button>
       </div>
 
       <!-- Resize handle -->
@@ -3629,6 +3942,54 @@ createApp({
   </div>
 </div>
 
+<div v-if="deletedChaptersModal.open&&book" class="modal-overlay" @click.self="deletedChaptersModal.open=false">
+  <div class="modal-card backups-card">
+    <h4>🗑 {{t('Deleted chapters')}}</h4>
+    <p class="dropbox-hint">{{t('Restore puts a chapter back where it was. Deleting one permanently removes it from the book; a copy stays in Backups.')}}</p>
+    <p v-if="!(book.deletedChapters||[]).length" class="dropbox-hint">{{t('No deleted chapters.')}}</p>
+    <div v-for="d in sortedDeletedChapters()" :key="d.id" class="backup-row">
+      <span :title="htmlToText(d.content).slice(0,400)"><b>{{deletedChapterTitle(d)}}</b> · {{chapterWordCount(d)}} {{t('words')}} · {{t('deleted')}} {{d.deleted_at?new Date(d.deleted_at).toLocaleString():''}}</span>
+      <span class="bin-actions">
+        <button class="te-btn-sm primary" @click="restoreDeletedChapter(d.id)">{{t('Restore')}}</button>
+        <button class="te-btn-sm" @click="deleteChapterPermanently(d.id)">{{t('Delete permanently')}}</button>
+      </span>
+    </div>
+    <h5 class="bin-subhead">{{t('Found in backups')}}</h5>
+    <p class="dropbox-hint">{{t('Chapters that are no longer in this book but are still in its backups on this computer.')}}</p>
+    <p v-if="deletedChaptersModal.loading">{{t('Loading…')}}</p>
+    <p v-else-if="!deletedChaptersModal.found.length" class="dropbox-hint">{{t('No other chapters found.')}}</p>
+    <div v-for="c in (deletedChaptersModal.loading?[]:deletedChaptersModal.found)" :key="c.id" class="backup-row">
+      <span :title="htmlToText(c.content).slice(0,400)"><b>{{deletedChapterTitle(c)}}</b> · {{chapterWordCount(c)}} {{t('words')}} · {{t('backup from')}} {{c.snapshot}}</span>
+      <button class="te-btn-sm primary" @click="restoreFoundChapter(c)">{{t('Restore')}}</button>
+    </div>
+    <div class="modal-actions"><button @click="deletedChaptersModal.open=false">{{t('Close')}}</button></div>
+  </div>
+</div>
+
+<div v-if="deletedBooksModal.open" class="modal-overlay" @click.self="deletedBooksModal.open=false">
+  <div class="modal-card backups-card">
+    <h4>🗑 {{t('Deleted books')}}</h4>
+    <p class="dropbox-hint">{{t('Restore puts a book back into your library. Deleting one permanently removes it here and on Dropbox (into its Trash); a copy stays in Backups.')}}</p>
+    <p v-if="!binnedBooks.length" class="dropbox-hint">{{t('No deleted books.')}}</p>
+    <div v-for="b in binnedBooks" :key="b.title" class="backup-row">
+      <span><b>{{b.title}}</b> · {{(b.chapters||[]).length}} {{t('chapters')}} · {{t('deleted')}} {{new Date(b.deleted_at).toLocaleString()}}</span>
+      <span class="bin-actions">
+        <button class="te-btn-sm primary" @click="binBook(b.title,true)">{{t('Restore')}}</button>
+        <button class="te-btn-sm" @click="deleteBookPermanently(b.title)">{{t('Delete permanently')}}</button>
+      </span>
+    </div>
+    <h5 class="bin-subhead">{{t('Found in backups')}}</h5>
+    <p class="dropbox-hint">{{t('Books that are gone from your library but still in the backups on this computer.')}}</p>
+    <p v-if="deletedBooksModal.loading">{{t('Loading…')}}</p>
+    <p v-else-if="!deletedBooksModal.found.length" class="dropbox-hint">{{t('No other books found.')}}</p>
+    <div v-for="f in (deletedBooksModal.loading?[]:deletedBooksModal.found)" :key="f.base" class="backup-row">
+      <span><b>{{f.title}}</b> · {{f.chapters}} {{t('chapters')}} · {{t('backup from')}} {{f.snapshot}}</span>
+      <button class="te-btn-sm primary" @click="restoreFoundBook(f)">{{t('Restore')}}</button>
+    </div>
+    <div class="modal-actions"><button @click="deletedBooksModal.open=false">{{t('Close')}}</button></div>
+  </div>
+</div>
+
 <div v-if="showBackupsModal" class="modal-overlay" @click.self="showBackupsModal=false">
   <div class="modal-card backups-card">
     <h4>🗂 {{t('Backups')}}</h4>
@@ -3645,6 +4006,48 @@ createApp({
       </details>
     </div>
     <div class="modal-actions"><button @click="showBackupsModal=false">{{t('Close')}}</button></div>
+  </div>
+</div>
+
+<div v-if="conflictModal.open" class="modal-overlay" @click.self="conflictModal.open=false">
+  <div class="modal-card conflicts-card">
+    <h4>⚠ {{t('Conflicting versions')}} · {{conflictModal.baseTitle}}</h4>
+    <p class="dropbox-hint">{{t('Sync found other versions of this book. Take what you need from them into the main book, then set them aside. Nothing is deleted: set-aside versions stay in Backups and in the Dropbox Trash.')}}</p>
+    <div v-for="item in conflictModalItems" :key="item.copy.file" class="conflict-copy">
+      <h5>{{conflictLabel(item.copy)}} <span class="dropbox-hint">· {{item.copy.stamp}}</span></h5>
+      <p v-if="!item.copy.book" class="dropbox-hint">{{t('This version cannot be read. It can only be set aside (a copy stays in Backups).')}}</p>
+      <p v-else-if="item.report.identical" class="dropbox-hint">{{t('Identical to the main book.')}}</p>
+      <template v-else>
+        <div v-for="ch in item.report.chapters" :key="ch.id" class="conflict-ch">
+          <div class="conflict-ch-row">
+            <span class="conflict-ch-name">{{ch.label}}</span>
+            <span class="conflict-ch-status" :class="'cs-'+ch.status">{{ch.status==='changed'?t('different text'):ch.status==='only-copy'?t('only in this version'):t('missing in this version')}}</span>
+            <span class="dropbox-hint">{{ch.status==='changed'?(ch.mainWords+' → '+ch.copyWords):(ch.status==='only-copy'?ch.copyWords:ch.mainWords)}} {{t('words')}}</span>
+            <span class="conflict-ch-actions">
+              <button v-if="ch.status==='changed'" class="te-btn-sm" @click="toggleConflictDiff(item.copy,ch.id)">{{conflictModal.diffs[item.copy.file+'|'+ch.id]?t('Hide differences'):t('Show differences')}}</button>
+              <button v-if="ch.status!=='only-main'" class="te-btn-sm" :disabled="conflictModal.busy" @click="resolveConflict(item.copy,'take_chapters',[ch.id])">{{ch.status==='changed'?t('Use this text'):t('Add to main book')}}</button>
+            </span>
+          </div>
+          <div v-if="conflictModal.diffs[item.copy.file+'|'+ch.id]" class="conflict-diff">
+            <div class="cd-legend"><span class="cd-del">{{t('main book')}}</span> <span class="cd-add">{{t('this version')}}</span></div>
+            <template v-for="(d,i) in conflictModal.diffs[item.copy.file+'|'+ch.id]" :key="i">
+              <div v-if="d.type==='same'" class="cd-same">… {{d.count===1?t('1 unchanged paragraph'):t('{n} unchanged paragraphs').replace('{n}',d.count)}} …</div>
+              <div v-else-if="d.type==='mod'" class="cd-mod"><span v-for="(w,k) in d.parts" :key="k" :class="w.type==='same'?'':'cd-w-'+w.type">{{w.text}}</span></div>
+              <div v-else :class="d.type==='del'?'cd-del':'cd-add'">{{d.text}}</div>
+            </template>
+          </div>
+        </div>
+        <p v-if="item.report.other.length" class="conflict-other">{{t('Other differences')}}:
+          <span v-for="(o,i) in item.report.other" :key="i">{{i?' · ':''}}{{o.label}}<template v-if="o.onlyCopy"> +{{o.onlyCopy}}</template><template v-if="o.onlyMain"> −{{o.onlyMain}}</template><template v-if="o.changed"> ~{{o.changed}}</template></span>
+          <span class="dropbox-hint"> ({{t('only with “Use this whole version”')}})</span>
+        </p>
+      </template>
+      <div class="conflict-actions">
+        <button class="primary" :disabled="conflictModal.busy" @click="resolveConflict(item.copy,'set_aside')">{{t('Keep main book, set this version aside')}}</button>
+        <button v-if="item.copy.book&&!item.report.identical" :disabled="conflictModal.busy" @click="resolveConflict(item.copy,'adopt')">{{t('Use this whole version instead')}}</button>
+      </div>
+    </div>
+    <div class="modal-actions"><button @click="conflictModal.open=false">{{t('Close')}}</button></div>
   </div>
 </div>
 
@@ -3701,7 +4104,7 @@ createApp({
       <label>{{t('Source book')}}</label>
       <select v-model="importModal.bookTitle" @change="importModal.selectedIds=[]">
         <option value="" disabled>{{t('Select a book…')}}</option>
-        <template v-for="sb in savedBooks" :key="sb.title">
+        <template v-for="sb in liveBooks" :key="sb.title">
           <option v-if="sb.title!==book.title" :value="sb.title">{{sb.title}}</option>
         </template>
       </select>
