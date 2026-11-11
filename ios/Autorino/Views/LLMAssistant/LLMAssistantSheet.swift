@@ -25,10 +25,11 @@ struct LLMAssistantSheet: View {
     var title: String = String(localized: "Assistant")
     var contextChapterId: String?
     var initialPrompt: String = ""
+    var starters: [String] = LLMAssistantContent.chapterStarters
 
     var body: some View {
         NavigationStack {
-            LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt)
+            LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt, starters: starters)
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
@@ -50,6 +51,7 @@ struct LLMAssistantContent: View {
     /// aren't chapter-scoped (the event-order assistant), which then fall
     /// back to whatever chapter the scope picker has selected.
     var contextChapterId: String?
+    var starters: [String] = LLMAssistantContent.chapterStarters
 
     @EnvironmentObject private var env: AppEnvironment
     @StateObject private var persistedHistory: ChatHistoryStore
@@ -119,13 +121,14 @@ struct LLMAssistantContent: View {
     /// can take both out again before re-asking.
     @State private var interruptedTurn: (userId: String, replyId: String)?
 
-    init(editor: BookEditor, defaultScope: [ContentScopeItem] = [], persist: Bool = true, baseContext: String? = nil, title: String = String(localized: "Assistant"), contextChapterId: String? = nil, initialPrompt: String = "") {
+    init(editor: BookEditor, defaultScope: [ContentScopeItem] = [], persist: Bool = true, baseContext: String? = nil, title: String = String(localized: "Assistant"), contextChapterId: String? = nil, initialPrompt: String = "", starters: [String] = LLMAssistantContent.chapterStarters) {
         self.editor = editor
         self.defaultScope = defaultScope
         self.persist = persist
         self.baseContext = baseContext
         self.title = title
         self.contextChapterId = contextChapterId
+        self.starters = starters
         _persistedHistory = StateObject(wrappedValue: ChatHistoryStore(bookTitle: editor.book.title))
         // Every character is in scope unless the caller picked its own set.
         // A cast of a dozen is a few hundred tokens, and without it the model
@@ -516,7 +519,7 @@ struct LLMAssistantContent: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                ForEach(Self.starters, id: \.self) { starter in
+                ForEach(starters, id: \.self) { starter in
                     Button {
                         prompt = starter
                     } label: {
@@ -547,7 +550,10 @@ struct LLMAssistantContent: View {
         .padding(.bottom, 4)
     }
 
-    private static let starters: [String] = [
+    /// Default starters, written for a chapter. Panes about something else
+    /// (a location map) pass their own — "is this chapter realistic?" asked
+    /// over a map is nonsense.
+    static let chapterStarters: [String] = [
         String(localized: "What's inconsistent or unclear?"),
         String(localized: "Is this chapter realistic?"),
         String(localized: "Does this character sound like themselves?"),

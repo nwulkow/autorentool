@@ -102,6 +102,21 @@ struct GeminiLLMService: LLMService {
         }
     }
 
+    func locationObjects(for location: Location, request: String, bookContext: String, model: String, settings: GenerationSettings) async throws -> (payload: LocationGenerationPayload, modelUsed: String) {
+        let result = try await generateContent(
+            contents: [.init(role: "user", text: LocationGeneration.prompt(for: location, request: request, bookContext: bookContext))],
+            systemInstruction: LocationGeneration.instruction(for: location),
+            model: model,
+            settings: settings,
+            responseSchema: LocationGenerationPayload.geminiSchema
+        )
+        guard let data = result.text.data(using: .utf8),
+              let payload = try? JSONDecoder().decode(LocationGenerationPayload.self, from: data) else {
+            throw LLMServiceError.requestFailed(String(localized: "The map suggestion came back incomplete or malformed."))
+        }
+        return (payload, result.model)
+    }
+
     private func digestAttempt(prompt: String, instruction: String, model: String, settings: GenerationSettings) async throws -> (payload: ChapterDigestPayload, modelUsed: String) {
         let result = try await generateContent(
             contents: [.init(role: "user", text: prompt)],

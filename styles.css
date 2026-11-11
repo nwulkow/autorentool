@@ -870,6 +870,9 @@ textarea{min-height:80px;resize:vertical}
   font-size:12px;font-weight:500;transition:all .15s;
 }
 .te-btn-sm:hover{border-color:#bbb5a6;background:#f5f2ec}
+.te-panel-toggles{display:flex;gap:4px;align-items:center}
+.te-panel-toggles .te-btn-sm{color:var(--muted)}
+.te-panel-toggles .te-btn-sm.te-toggle-on{color:var(--text);border-color:var(--accent);background:rgba(74,125,255,.08)}
 .te-select-sm{
   border:1px solid var(--line);background:var(--panel);color:var(--text);
   border-radius:6px;padding:4px 8px;font-size:12px;font-weight:500;

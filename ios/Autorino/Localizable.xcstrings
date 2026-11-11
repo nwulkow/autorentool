@@ -194,6 +194,17 @@
         }
       }
     },
+    "%lld chapters — places, names and details the story already fixes." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Kapitel – Orte, Namen und Details, die die Geschichte schon festlegt."
+          }
+        }
+      }
+    },
     "%lld chapters · %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -308,6 +319,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld Orte"
+          }
+        }
+      }
+    },
+    "%lld selected" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ausgewählt"
           }
         }
       }
@@ -626,6 +648,28 @@
         }
       }
     },
+    "Added %lld objects" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Objekte hinzugefügt"
+          }
+        }
+      }
+    },
+    "Added 1 object" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 Objekt hinzugefügt"
+          }
+        }
+      }
+    },
     "All chapters" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -665,6 +709,27 @@
     "Appearance" : {
 
     },
+    "Arrange" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anordnen"
+          }
+        }
+      }
+    },
+    "Ask about this place" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fragen zu diesem Ort"
+          }
+        }
+      }
+    },
     "Ask about your characters, chapters, or plot. Turn on chapters/passages above to give the assistant more context." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -677,7 +742,6 @@
       }
     },
     "Assistant" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -932,6 +996,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Beide Versionen wurden behalten. Öffne „Prüfen“ unter dem Buch in deiner Bibliothek, um sie zu vergleichen und aufzulösen."
+          }
+        }
+      }
+    },
+    "Bring to Front" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach vorne"
           }
         }
       }
@@ -1412,6 +1487,17 @@
         }
       }
     },
+    "Delete" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen"
+          }
+        }
+      }
+    },
     "Delete Object" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1586,6 +1672,17 @@
         }
       }
     },
+    "Deselect" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auswahl aufheben"
+          }
+        }
+      }
+    },
     "Device" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1638,6 +1735,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Schließen"
+          }
+        }
+      }
+    },
+    "Does the layout match how the chapters describe it?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passt die Anordnung zu den Beschreibungen in den Kapiteln?"
           }
         }
       }
@@ -1718,6 +1826,28 @@
         }
       }
     },
+    "Duplicate" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplizieren"
+          }
+        }
+      }
+    },
+    "e.g. a village square with a fountain, three houses and a road leading north" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z. B. ein Dorfplatz mit Brunnen, drei Häusern und einer Straße nach Norden"
+          }
+        }
+      }
+    },
     "e.g. friends, rivals" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1735,6 +1865,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jedes Kapitel wird einmal an das Modell geschickt. Du kannst weiterarbeiten, während es läuft, und bereits Fertiges bleibt erhalten, wenn du abbrichst."
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bearbeiten"
           }
         }
       }
@@ -1965,6 +2106,16 @@
         }
       }
     },
+    "Fit map" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Karte einpassen"
+          }
+        }
+      }
+    },
     "Formatting" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2061,6 +2212,17 @@
         }
       }
     },
+    "Generate" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generieren"
+          }
+        }
+      }
+    },
     "Generate %lld summaries" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2079,6 +2241,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alle Zusammenfassungen erzeugen"
+          }
+        }
+      }
+    },
+    "Generate Objects" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekte generieren"
+          }
+        }
+      }
+    },
+    "Generate objects…" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekte generieren…"
           }
         }
       }
@@ -2773,6 +2957,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Noch keine Sicherungen."
+          }
+        }
+      }
+    },
+    "No chapter summaries yet." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Kapitelzusammenfassungen."
           }
         }
       }
@@ -3529,6 +3724,16 @@
         }
       }
     },
+    "Select Multiple" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mehrere auswählen"
+          }
+        }
+      }
+    },
     "Selected text" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3536,6 +3741,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ausgewählter Text"
+          }
+        }
+      }
+    },
+    "Send to Back" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach hinten"
           }
         }
       }
@@ -3913,6 +4129,16 @@
         }
       }
     },
+    "Tap objects to add or remove them, or drag a rectangle. Two fingers pan." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekte antippen zum Hinzufügen oder Entfernen, oder ein Rechteck aufziehen. Mit zwei Fingern verschieben."
+          }
+        }
+      }
+    },
     "Tap two characters on the map to link them." : {
       "localizations" : {
         "de" : {
@@ -3998,6 +4224,28 @@
         }
       }
     },
+    "The map is empty; the model lays out the place from scratch." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Karte ist leer – das Modell entwirft den Ort von Grund auf."
+          }
+        }
+      }
+    },
+    "The map suggestion came back incomplete or malformed." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Kartenvorschlag kam unvollständig oder fehlerhaft zurück."
+          }
+        }
+      }
+    },
     "The model declined to answer about this passage." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4009,6 +4257,17 @@
         }
       }
     },
+    "The model sees the %lld objects already on the map and only adds new ones." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Modell sieht die %lld Objekte auf der Karte und fügt nur neue hinzu."
+          }
+        }
+      }
+    },
     "The model stopped because its answer was reproducing existing text." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4016,6 +4275,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Das Modell hat abgebrochen, weil seine Antwort vorhandenen Text wiedergegeben hat."
+          }
+        }
+      }
+    },
+    "The model suggested nothing that fits on the map. Try describing it differently." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Modell hat nichts vorgeschlagen, das auf die Karte passt. Beschreibe es anders."
           }
         }
       }
@@ -4378,6 +4648,16 @@
         }
       }
     },
+    "Use chapter summaries" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kapitelzusammenfassungen verwenden"
+          }
+        }
+      }
+    },
     "Use this if sync reports success but files you expect are missing. It doesn't touch your books or your Dropbox connection — only this device's memory of what's already synced. Books that differ from Dropbox are kept in both versions, never overwritten. Run Sync now again afterward." : {
       "localizations" : {
         "de" : {
@@ -4507,6 +4787,27 @@
         }
       }
     },
+    "What should be added?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was soll hinzukommen?"
+          }
+        }
+      }
+    },
+    "What would make this place more vivid?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was würde diesen Ort lebendiger machen?"
+          }
+        }
+      }
+    },
     "What's inconsistent or unclear?" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4514,6 +4815,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Was ist widersprüchlich oder unklar?"
+          }
+        }
+      }
+    },
+    "What's missing for the scenes set here?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was fehlt für die Szenen, die hier spielen?"
+          }
+        }
+      }
+    },
+    "Where could someone hide or watch unseen?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wo könnte sich jemand verstecken oder unbemerkt beobachten?"
           }
         }
       }

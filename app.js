@@ -406,6 +406,7 @@ const I18N={de:{
   'Font':'Schrift','Size':'Größe','Layout':'Layout',
   'Zoom':'Zoom','words':'Wörter','total':'gesamt',
   'Spelling':'Rechtschreibung',
+  'Passages':'Passagen','Hide':'Ausblenden','Show/hide panel':'Bereich ein-/ausblenden',
   '⚙ Settings':'⚙ Einstellungen','Settings':'Einstellungen',
   'Dropbox Sync':'Dropbox-Synchronisierung',
   'Connect this Mac to the same Dropbox App folder your iPhone app uses, so books and LLM chat history stay in sync on both.':
@@ -554,6 +555,8 @@ createApp({
     teLayout:'A4',
     teZoom:100,
     teSpellLang:'de',
+    // Which side panels the chapter editor shows (persisted per browser).
+    tePanels:(()=>{const d={passages:true,summary:true,llm:true};try{return Object.assign(d,JSON.parse(localStorage.getItem('tePanels')||'{}'));}catch(e){return d;}})(),
     highlightedCommentId:null,
     // LLM tools
     llmModels:['gemini-flash-latest'],
@@ -752,6 +755,10 @@ createApp({
     // different today" into a visible one-liner above the input.
     noteModelUsed(used){
       this.llmModelUsed=(used&&used!==this.llmSelectedModel)?used:'';
+    },
+    toggleTePanel(key){
+      this.tePanels[key]=!this.tePanels[key];
+      try{localStorage.setItem('tePanels',JSON.stringify(this.tePanels));}catch(e){}
     },
     onLlmModelChange(){
       localStorage.setItem('llmSelectedModel',this.llmSelectedModel);
@@ -3661,6 +3668,11 @@ createApp({
                   <span class="te-zoom-label">{{teZoom}}%</span>
                   <button class="te-btn-sm" @click="teZoomIn" title="Zoom in">+</button>
                 </span>
+                <span class="te-panel-toggles" :title="t('Show/hide panel')">
+                  <button class="te-btn-sm" :class="{'te-toggle-on':tePanels.passages}" @click="toggleTePanel('passages')">✂ {{t('Passages')}}</button>
+                  <button v-if="currentDigest()" class="te-btn-sm" :class="{'te-toggle-on':tePanels.summary}" @click="toggleTePanel('summary')">📝 {{t('Summary')}}</button>
+                  <button class="te-btn-sm" :class="{'te-toggle-on':tePanels.llm}" @click="toggleTePanel('llm')">🤖 LLM</button>
+                </span>
                 <button class="te-btn-sm" @click="addChapterComment" :title="t('Add Comment')">💬 {{t('Comment')}}</button>
                 <button class="te-btn-sm" @click="exportChapterDocx(currentChapter(),book.chapters.findIndex(c=>c.id===currentChapterId),currentVersionId)">📥 DOCX</button>
               </div>
@@ -3702,10 +3714,13 @@ createApp({
                 <!-- Word count bar -->
                 <div class="te-wordcount-bar">{{totalWordCount()}} {{t('words')}} {{t('total')}}</div>
                 <!-- Passages panel -->
-                <div class="te-passages-panel">
+                <div v-if="tePanels.passages" class="te-passages-panel">
                   <div class="te-passages-header">
                     <span class="te-passages-title">✂ Passages</span>
-                    <button v-if="!currentVersionId" class="te-btn-sm" @click="newPassage.open=!newPassage.open">{{newPassage.open?'Cancel':'+ Add'}}</button>
+                    <span>
+                      <button v-if="!currentVersionId" class="te-btn-sm" @click="newPassage.open=!newPassage.open">{{newPassage.open?'Cancel':'+ Add'}}</button>
+                      <button class="icon-btn sm" @click="toggleTePanel('passages')" :title="t('Hide')">✕</button>
+                    </span>
                   </div>
                   <div v-if="currentVersionId" class="llm-ch-empty" style="font-size:11px;margin:2px 0">{{t('Passages refer to the main version.')}}</div>
                   <!-- existing passages for this chapter -->
@@ -3737,9 +3752,10 @@ createApp({
                   </div>
                 </div>
                 <!-- Comments panel -->
-                <div v-if="currentDigest()" class="te-comments te-digest">
+                <div v-if="tePanels.summary&&currentDigest()" class="te-comments te-digest">
                   <h5 @click="showDigest=!showDigest" style="cursor:pointer">{{showDigest?'▾':'▸'}} 📝 {{t('Summary')}}
-                    <span class="te-digest-meta">· {{currentDigest().editedAt?t('edited'):t('generated')}} {{new Date(currentDigest().editedAt||currentDigest().generatedAt).toLocaleDateString()}}</span></h5>
+                    <span class="te-digest-meta">· {{currentDigest().editedAt?t('edited'):t('generated')}} {{new Date(currentDigest().editedAt||currentDigest().generatedAt).toLocaleDateString()}}</span>
+                    <button class="icon-btn sm" style="float:right" @click.stop="toggleTePanel('summary')" :title="t('Hide')">✕</button></h5>
                   <template v-if="showDigest">
                     <p v-if="currentDigest().summary" class="te-digest-summary">{{currentDigest().summary}}</p>
                     <dl class="te-digest-facts">
@@ -3772,10 +3788,13 @@ createApp({
               </div>
 
               <!-- LLM Tools panel -->
-              <div class="llm-panel" :class="{'llm-panel-detached':llmChatDetached}">
+              <div v-show="tePanels.llm" class="llm-panel" :class="{'llm-panel-detached':llmChatDetached}">
                 <div class="llm-panel-title">
                   🤖 LLM Tools
-                  <button v-if="llmPromptMode==='custom'" class="llm-detach-btn" @click="llmChatDetached=!llmChatDetached" :title="llmChatDetached?'Dock panel':'Detach chat'">{{llmChatDetached?'⊡':'⤢'}}</button>
+                  <span>
+                    <button v-if="llmPromptMode==='custom'" class="llm-detach-btn" @click="llmChatDetached=!llmChatDetached" :title="llmChatDetached?'Dock panel':'Detach chat'">{{llmChatDetached?'⊡':'⤢'}}</button>
+                    <button class="llm-detach-btn" @click="toggleTePanel('llm')" :title="t('Hide')">✕</button>
+                  </span>
                 </div>
                 <!-- Model selector -->
                 <div class="llm-section-label">Model</div>

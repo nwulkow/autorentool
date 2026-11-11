@@ -31,6 +31,13 @@ protocol LLMService {
     /// `modelUsed` is the model whose answer was kept — a retry may have
     /// replaced `model`.
     func digest(chapterTitle: String, chapterText: String, castNames: [String], model: String) async throws -> (payload: ChapterDigestPayload, modelUsed: String)
+
+    /// Proposes objects to add to a location map, from the map as it stands
+    /// plus the writer's request; `bookContext` (chapter summaries, or empty)
+    /// lets it follow what the story already says. Constrained by
+    /// `LocationGenerationPayload.geminiSchema`; the caller converts the
+    /// answer with `LocationGeneration.objects(from:for:)`.
+    func locationObjects(for location: Location, request: String, bookContext: String, model: String, settings: GenerationSettings) async throws -> (payload: LocationGenerationPayload, modelUsed: String)
 }
 
 /// How hard the model should think, and how freely it should sample.

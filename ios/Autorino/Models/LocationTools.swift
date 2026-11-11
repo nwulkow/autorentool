@@ -44,6 +44,16 @@ enum LocationTools {
             }
         }
 
+        var isIcon: Bool {
+            if case .icon = self { return true }
+            return false
+        }
+
+        var isArea: Bool {
+            if case .area = self { return true }
+            return false
+        }
+
         var label: String {
             switch self {
             case .select: return String(localized: "select")
@@ -223,6 +233,52 @@ enum LocationTools {
             width: max(600, location.width * 8),
             height: max(400, location.height * 8)
         )
+    }
+
+    /// Canvas points per location unit, per axis. Not one number: the
+    /// `canvasSize` floor stretches a small map unevenly (10×10 m → 600×400),
+    /// and the rulers follow that stretch, so conversions must too.
+    static func pointsPerUnit(for location: Location) -> CGSize {
+        let size = canvasSize(for: location)
+        return CGSize(
+            width: location.width > 0 ? size.width / location.width : 8,
+            height: location.height > 0 ? size.height / location.height : 8
+        )
+    }
+
+    // MARK: - Object helpers
+
+    /// The most recently added object of `type`, whose look a new one of the
+    /// same type takes over — so the tenth car comes out the color the first
+    /// was changed to, not the default again.
+    static func styleTemplate(forType type: String, in location: Location) -> LocationObject? {
+        location.objects.last { $0.type == type }
+    }
+
+    /// Copies color, stroke and (for icons) scale from the template. Geometry
+    /// stays the new object's own.
+    static func adoptingStyle(_ object: LocationObject, from template: LocationObject?) -> LocationObject {
+        guard let template else { return object }
+        var styled = object
+        styled.color = template.color
+        styled.stroke = template.stroke
+        styled.strokeWidth = template.strokeWidth
+        if tool(forType: object.type)?.isIcon == true { styled.scale = template.scale }
+        return styled
+    }
+
+    /// A copy with a fresh id, nudged down-right so it doesn't hide exactly
+    /// under the original.
+    static func duplicate(_ object: LocationObject, offset: Double = 16) -> LocationObject {
+        var copy = object
+        copy.id = IDGenerator.uid()
+        if copy.points.isEmpty {
+            copy.x += offset
+            copy.y += offset
+        } else {
+            copy.points = copy.points.map { $0.count >= 2 ? [$0[0] + offset, $0[1] + offset] : $0 }
+        }
+        return copy
     }
 
     struct Tick: Identifiable {

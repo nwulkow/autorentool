@@ -46,6 +46,8 @@ struct LLMAssistantHost<Content: View>: View {
     /// Prefills the message field (e.g. "Compare with main"); never sent
     /// on its own.
     var initialPrompt: String = ""
+    /// The tap-to-fill prompts on an empty chat.
+    var starters: [String] = LLMAssistantContent.chapterStarters
     @ViewBuilder var content: () -> Content
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -61,7 +63,7 @@ struct LLMAssistantHost<Content: View>: View {
             } detail: {
                 if isPresented {
                     NavigationStack {
-                        LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt)
+                        LLMAssistantContent(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt, starters: starters)
                     }
                     // Scope and prompt are seeded once per instance, so a new
                     // seed (another version opened, Compare tapped) needs a
@@ -79,7 +81,7 @@ struct LLMAssistantHost<Content: View>: View {
         } else {
             content()
                 .sheet(isPresented: $isPresented) {
-                    LLMAssistantSheet(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt)
+                    LLMAssistantSheet(editor: editor, defaultScope: defaultScope, persist: persist, baseContext: baseContext, title: title, contextChapterId: contextChapterId, initialPrompt: initialPrompt, starters: starters)
                 }
         }
     }

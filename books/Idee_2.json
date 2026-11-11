@@ -1,0 +1,60 @@
+{
+  "author" : "",
+  "canvas_nodes" : [
+
+  ],
+  "chapters" : [
+
+  ],
+  "character_relations" : [
+
+  ],
+  "characters" : [
+
+  ],
+  "event_orders" : [
+
+  ],
+  "locations" : [
+
+  ],
+  "passages" : [
+
+  ],
+  "questions" : [
+
+  ],
+  "saved_chats" : [
+
+  ],
+  "tags" : [
+
+  ],
+  "title" : "Idee_2",
+  "topics" : [
+    {
+      "id" : "1667434b-1644-4259-82b2-1e64584c228e",
+      "name" : "Grobe Ideen",
+      "notes" : [
+        {
+          "color" : "#ffccbc",
+          "id" : "0369d280-b905-49d7-b4f1-bb334a3f6b6f",
+          "text" : "Mann tut jemandem weh, weil er in U-Haft sein musste über Sommerpause und deswegen nicht zu seinem sterbenden Vater konnte"
+        },
+        {
+          "color" : "#bbdefb",
+          "id" : "cb74c6de-fde6-4088-b294-298d87e89ff9",
+          "text" : "Hundeverein"
+        },
+        {
+          "color" : "#bbdefb",
+          "id" : "95422393-c430-4f0b-ad43-7806fd425c1a",
+          "text" : "Napoleon, Marschalls, Mann (Chef) macht diese Analogie"
+        }
+      ],
+      "url_links" : [
+
+      ]
+    }
+  ]
+}
